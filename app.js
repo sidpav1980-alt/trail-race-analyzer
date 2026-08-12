@@ -71,8 +71,7 @@ function parseGPX(text){
   $('distMetric').textContent=state.dist.toFixed(1)+' км';
   $('gainMetric').textContent=Math.round(gain)+' м';
   $('lossMetric').textContent=Math.round(loss)+' м';
-  $('gpxStatus').textContent='✓ GPX загружен: '+state.dist.toFixed(1)+' км · +'+Math.round(gain)+' м';
-  drawProfile();
+  $('gpxStatus').textContent='✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(gain)+' м · −'+Math.round(loss)+' м';
 }
 function readFileIOS(file){
   return new Promise((resolve,reject)=>{
@@ -112,7 +111,7 @@ $('gpxLoadBtn').addEventListener('click',async ()=>{
     await new Promise(r=>setTimeout(r,30));
     parseGPX(text);
     prog.value=100;
-    $('gpxStatus').textContent='✓ Готово: '+state.dist.toFixed(1)+' км · +'+Math.round(state.gain)+' м · −'+Math.round(state.loss)+' м';
+    $('gpxStatus').textContent='✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(state.gain)+' м · −'+Math.round(state.loss)+' м';
     setTimeout(()=>{prog.style.display='none';},1200);
   }catch(err){
     prog.style.display='none';
@@ -122,56 +121,6 @@ $('gpxLoadBtn').addEventListener('click',async ()=>{
   }
 });
 
-
-function drawProfile(){
-  const canvas=$('profile');
-  if(!canvas || !state.track || state.track.length<2) return;
-
-  const valid=state.track.filter(p=>Number.isFinite(p.ele));
-  if(valid.length<2) return;
-
-  const dpr=window.devicePixelRatio||1;
-  const cssW=Math.max(280, canvas.clientWidth||600);
-  const cssH=Math.max(180, canvas.clientHeight||220);
-  canvas.width=Math.round(cssW*dpr);
-  canvas.height=Math.round(cssH*dpr);
-
-  const ctx=canvas.getContext('2d');
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.clearRect(0,0,cssW,cssH);
-
-  const pad={l:42,r:14,t:16,b:28};
-  const minE=Math.min(...valid.map(p=>p.ele));
-  const maxE=Math.max(...valid.map(p=>p.ele));
-  const maxKm=Math.max(...valid.map(p=>p.km))||1;
-  const er=Math.max(1,maxE-minE);
-
-  ctx.lineWidth=2;
-  ctx.strokeStyle='#38bdf8';
-  ctx.beginPath();
-  valid.forEach((p,i)=>{
-    const x=pad.l+(p.km/maxKm)*(cssW-pad.l-pad.r);
-    const y=pad.t+(1-(p.ele-minE)/er)*(cssH-pad.t-pad.b);
-    if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);
-  });
-  ctx.stroke();
-
-  ctx.fillStyle='rgba(56,189,248,.16)';
-  const last=valid[valid.length-1], first=valid[0];
-  const xLast=pad.l+(last.km/maxKm)*(cssW-pad.l-pad.r);
-  ctx.lineTo(xLast,cssH-pad.b);
-  ctx.lineTo(pad.l,cssH-pad.b);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle='#94a3b8';
-  ctx.font='12px system-ui,-apple-system,sans-serif';
-  ctx.fillText(Math.round(maxE)+' м',4,pad.t+5);
-  ctx.fillText(Math.round(minE)+' м',4,cssH-pad.b);
-  ctx.fillText('0 км',pad.l,cssH-7);
-  const label=maxKm.toFixed(1)+' км';
-  ctx.fillText(label,Math.max(pad.l,cssW-pad.r-ctx.measureText(label).width),cssH-7);
-}
 
 function terrainMultiplier(){
   const t=$('raceDesc').value.toLowerCase();

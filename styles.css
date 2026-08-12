@@ -90,3 +90,14 @@ footer{max-width:900px;margin:0 auto;padding:12px 16px 32px;color:var(--muted);f
   background: #22c55e;
   color: #052e16;
 }
+
+#gpxLoadBtn:not(:disabled) {
+  background: #38bdf8 !important;
+  color: #07111f !important;
+  opacity: 1 !important;
+}
+#gpxLoadBtn:disabled {
+  background: #475569 !important;
+  color: #94a3b8 !important;
+  opacity: .72 !important;
+}
