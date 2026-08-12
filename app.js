@@ -81,6 +81,7 @@ function parseGPX(text){
   $('lossMetric').textContent=Math.round(loss)+' м';
   updateItraDifficulty();
   updateTrailDifficulty();
+  drawTrackProfiles();
   $('gpxStatus').textContent='✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(gain)+' м · −'+Math.round(loss)+' м'; setActionState('gpxLoadBtn','success');
 }
 function readFileIOS(file){
@@ -89,6 +90,10 @@ function readFileIOS(file){
   });
 }
 let selectedGPXFile=null;
+
+
+$('basePace').addEventListener('change',()=>{ if(state.track&&state.track.length) drawTrackProfiles(); });
+window.addEventListener('resize',()=>{ if(state.track&&state.track.length) drawTrackProfiles(); });
 
 $('gpxFile').addEventListener('change', e=>{
   selectedGPXFile=e.currentTarget.files&&e.currentTarget.files[0] ? e.currentTarget.files[0] : null;
@@ -256,17 +261,118 @@ function updateTrailDifficulty(){
   return d;
 }
 
+
+function formatClockHours(hours){
+  if(!Number.isFinite(hours)) return '—';
+  const total=Math.round(hours*60);
+  const h=Math.floor(total/60), m=total%60;
+  return `${h}:${String(m).padStart(2,'0')}`;
+}
+
+function estimatedTimeAtKm(km){
+  const dist=Math.max(state.dist||0,0.001);
+  const basePaceSec=paceSec($('basePace').value);
+  const frac=Math.max(0,Math.min(1,km/dist));
+
+  // Approximate cumulative gain up to this point.
+  const pts=(state.track||[]).filter(p=>Number.isFinite(p.km)&&Number.isFinite(p.ele));
+  let gain=0;
+  let prev=null;
+  for(const p of pts){
+    if(p.km>km) break;
+    if(prev){
+      const de=p.ele-prev.ele;
+      if(de>0 && de<250) gain+=de;
+    }
+    prev=p;
+  }
+
+  // Base time + 1 hour per 1000 m ascent, proportional along the route.
+  const baseHours=(km*basePaceSec)/3600;
+  const ascentHours=gain/1000;
+  return baseHours+ascentHours;
+}
+
+function drawElevationCanvas(canvasId, xMode){
+  const canvas=$(canvasId);
+  if(!canvas) return;
+
+  const pts=(state.track||[]).filter(p=>Number.isFinite(p.km)&&Number.isFinite(p.ele));
+  const ctx=canvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const w=Math.max(300,canvas.clientWidth||600);
+  const h=220;
+  canvas.width=Math.round(w*dpr);
+  canvas.height=Math.round(h*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+
+  if(pts.length<2){
+    ctx.fillStyle='#94a3b8';
+    ctx.font='14px system-ui,-apple-system,sans-serif';
+    ctx.fillText('Загрузите GPX для построения профиля',16,30);
+    return;
+  }
+
+  const pad={l:48,r:16,t:16,b:34};
+  const minE=Math.min(...pts.map(p=>p.ele));
+  const maxE=Math.max(...pts.map(p=>p.ele));
+  const eRange=Math.max(1,maxE-minE);
+
+  const xs=pts.map(p=>xMode==='time'?estimatedTimeAtKm(p.km):p.km);
+  const maxX=Math.max(...xs)||1;
+
+  // axes
+  ctx.strokeStyle='#334155';
+  ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l,pad.t);
+  ctx.lineTo(pad.l,h-pad.b);
+  ctx.lineTo(w-pad.r,h-pad.b);
+  ctx.stroke();
+
+  // profile
+  ctx.strokeStyle='#38bdf8';
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  pts.forEach((p,i)=>{
+    const x=pad.l+(xs[i]/maxX)*(w-pad.l-pad.r);
+    const y=pad.t+(1-(p.ele-minE)/eRange)*(h-pad.t-pad.b);
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // fill
+  ctx.fillStyle='rgba(56,189,248,.12)';
+  const lastX=pad.l+(xs[xs.length-1]/maxX)*(w-pad.l-pad.r);
+  ctx.lineTo(lastX,h-pad.b);
+  ctx.lineTo(pad.l,h-pad.b);
+  ctx.closePath();
+  ctx.fill();
+
+  // labels
+  ctx.fillStyle='#94a3b8';
+  ctx.font='12px system-ui,-apple-system,sans-serif';
+  ctx.fillText(Math.round(maxE)+' м',4,pad.t+5);
+  ctx.fillText(Math.round(minE)+' м',4,h-pad.b);
+
+  const steps=4;
+  for(let i=0;i<=steps;i++){
+    const val=maxX*i/steps;
+    const x=pad.l+(i/steps)*(w-pad.l-pad.r);
+    const label=xMode==='time'?formatClockHours(val):val.toFixed(i===steps?1:0)+' км';
+    const tw=ctx.measureText(label).width;
+    ctx.fillText(label,Math.min(w-pad.r-tw,Math.max(pad.l-tw/2,x-tw/2)),h-9);
+  }
+}
+
+function drawTrackProfiles(){
+  drawElevationCanvas('elevationDistanceCanvas','distance');
+  drawElevationCanvas('elevationTimeCanvas','time');
+}
+
 function terrainMultiplier(){
-  const t=$('raceDesc').value.toLowerCase();
-  const count=(re)=>((t.match(re)||[]).length);
-  let p=1;
-  p+=Math.min(count(/болот/g)*.025,.12);
-  p+=Math.min((count(/пес/g)+count(/сыпуч/g))*.02,.10);
-  p+=Math.min((count(/брод/g)+count(/рек/g))*.012,.08);
-  p+=Math.min(count(/кам/g)*.012,.05);
-  p+=Math.min(count(/коле/g)*.01,.04);
-  p+=Math.min(count(/зарос/g)*.01,.04);
-  return Math.min(p,1.35);
+  return 1.0;
 }
 
 function paceSec(s){
@@ -596,7 +702,7 @@ $('calcBtn').addEventListener('click',()=>{
 $('saveBtn').addEventListener('click',()=>{
   const payload={
     athlete:$('athleteName').value, pi:$('itraPi').value,
-    route:{dist:state.dist,gain:state.gain,loss:state.loss,desc:$('raceDesc').value},
+    route:{dist:state.dist,gain:state.gain,loss:state.loss},
     training:{dist:$('refDist').value,gain:$('refGain').value,avgHr:$('refAvgHr').value,maxHr:$('refMaxHr').value,lthr:$('lthr').value},
     roster:state.roster,
     savedAt:new Date().toISOString()
@@ -616,7 +722,6 @@ window.addEventListener('load',()=>{
     const p=JSON.parse(localStorage.getItem('trailRaceAnalyzerState')||'null');
     if(!p)return;
     $('athleteName').value=(p.athlete && String(p.athlete).trim()) ? p.athlete : 'Noname';$('itraPi').value=p.pi||$('itraPi').value;
-    if(p.route)$('raceDesc').value=p.route.desc||'';
     if(p.training){
       $('refDist').value=p.training.dist||17;$('refGain').value=p.training.gain||645;
       $('refAvgHr').value=p.training.avgHr||184;$('refMaxHr').value=p.training.maxHr||0;$('lthr').value=p.training.lthr||0;

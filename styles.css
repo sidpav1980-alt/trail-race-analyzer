@@ -174,3 +174,12 @@ button.action-error:disabled {
 #gpxLoadBtn.action-error:disabled, #shotsLoadBtn.action-error:disabled, #rosterLoadBtn.action-error:disabled {
   background:#ef4444 !important; color:#ffffff !important; opacity:1 !important;
 }
+
+#elevationDistanceCanvas,
+#elevationTimeCanvas{
+  width:100%;
+  background:#0b1322;
+  border:1px solid #263247;
+  border-radius:14px;
+  display:block;
+}

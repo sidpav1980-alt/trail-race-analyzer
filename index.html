@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="app-version">v0.30 OFFLINE</div>
+<div class="app-version">v0.32 OFFLINE</div>
   <header class="app-header">
     <div>
       <div class="eyebrow">Trail Race Analyzer</div>
@@ -56,10 +56,20 @@
           <span id="gpxStatus">1. Выберите файл GPX.</span>
           <progress id="gpxProgress" value="0" max="100" style="width:100%;display:none"></progress>
         </div>
-        <label class="field">
-          <span>Описание покрытия</span>
-          <textarea id="raceDesc" rows="7" placeholder="Дорога, болото, броды, песок, мокрые камни, колея..."></textarea>
-        </label>
+
+        <div class="profiles-main">
+          <div class="field">
+          <span>Профиль высоты по километражу</span>
+          <canvas id="elevationDistanceCanvas" height="220"></canvas>
+        </div>
+          <div class="field">
+          <span>Профиль высоты по расчётному времени</span>
+          <canvas id="elevationTimeCanvas" height="220"></canvas>
+          <div class="muted">Время строится по базовому темпу, набору высоты и текущей модели сложности.</div>
+        </div>
+        </div>
+
+        
         <div class="grid2">
           <label class="field">
             <span>Базовый темп, мин/км</span>
@@ -88,6 +98,10 @@
           <div><span>Набор</span><b id="gainMetric">—</b></div>
           <div><span>Сброс</span><b id="lossMetric">—</b></div>
         </div>
+
+        
+
+        
 </div>
     </section>
 
