@@ -84,12 +84,12 @@ let selectedGPXFile=null;
 $('gpxFile').addEventListener('change', e=>{
   selectedGPXFile=e.currentTarget.files&&e.currentTarget.files[0] ? e.currentTarget.files[0] : null;
   if(!selectedGPXFile){
-    $('gpxName').textContent='Файл не выбран';
+    $('gpxName').innerHTML='<span id="gpxCheck" class="file-check">○</span> Файл не выбран';
     $('gpxStatus').textContent='1. Выберите файл GPX.';
     $('gpxLoadBtn').disabled=true;
     return;
   }
-  $('gpxName').textContent='Выбран: '+selectedGPXFile.name;
+  $('gpxName').innerHTML='<span id="gpxCheck" class="file-check selected">✓</span> Выбран: '+selectedGPXFile.name;
   $('gpxStatus').textContent='2. Файл выбран. Нажмите «Загрузить и обработать GPX».';
   $('gpxLoadBtn').disabled=false;
 });
