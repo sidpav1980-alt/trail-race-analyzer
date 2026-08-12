@@ -46,47 +46,45 @@ function haversine(a,b,c,d){
 
 function parseGPX(text){
   const xml=new DOMParser().parseFromString(text,'application/xml');
-  const pts=[...xml.getElementsByTagNameNS('*','trkpt')];
-  let out=[], total=0, prev=null, gain=0, loss=0;
+  if(xml.querySelector('parsererror')) throw new Error('Некорректный XML');
+  let pts=[...xml.getElementsByTagName('trkpt')];
+  if(!pts.length) pts=[...xml.getElementsByTagNameNS('*','trkpt')];
+  if(!pts.length) pts=[...xml.getElementsByTagName('rtept')];
+  if(!pts.length) pts=[...xml.getElementsByTagNameNS('*','rtept')];
+  if(pts.length<2) throw new Error('Не найдены точки трека');
+  let out=[],total=0,prev=null,gain=0,loss=0;
   pts.forEach(p=>{
-    const lat=parseFloat(p.getAttribute('lat')), lon=parseFloat(p.getAttribute('lon'));
-    const eleEl=p.getElementsByTagNameNS('*','ele')[0];
-    const ele=eleEl?parseFloat(eleEl.textContent):NaN;
+    const lat=parseFloat(p.getAttribute('lat')),lon=parseFloat(p.getAttribute('lon'));
+    if(!Number.isFinite(lat)||!Number.isFinite(lon)) return;
+    let ee=p.getElementsByTagName('ele')[0]||p.getElementsByTagNameNS('*','ele')[0];
+    const ele=ee?parseFloat(ee.textContent):NaN;
     if(prev){
-      total+=haversine(prev.lat,prev.lon,lat,lon);
+      const step=haversine(prev.lat,prev.lon,lat,lon);
+      if(Number.isFinite(step)&&step<5000) total+=step;
       if(Number.isFinite(ele)&&Number.isFinite(prev.ele)){
-        const de=ele-prev.ele; if(de>0) gain+=de; else loss+=-de;
+        const de=ele-prev.ele;if(Math.abs(de)<250){if(de>0)gain+=de;else loss+=-de;}
       }
     }
-    out.push({km:total/1000,lat,lon,ele});
-    prev={lat,lon,ele};
+    out.push({km:total/1000,lat,lon,ele});prev={lat,lon,ele};
   });
-  state.track=out; state.dist=total/1000; state.gain=gain; state.loss=loss;
+  state.track=out;state.dist=total/1000;state.gain=gain;state.loss=loss;
   $('distMetric').textContent=state.dist.toFixed(1)+' км';
   $('gainMetric').textContent=Math.round(gain)+' м';
   $('lossMetric').textContent=Math.round(loss)+' м';
+  $('gpxStatus').textContent='✓ GPX загружен: '+state.dist.toFixed(1)+' км · +'+Math.round(gain)+' м';
   drawProfile();
 }
-
-function drawProfile(){
-  const c=$('profileCanvas'), ctx=c.getContext('2d');
-  const dpr=window.devicePixelRatio||1, w=c.clientWidth, h=180;
-  c.width=w*dpr; c.height=h*dpr; ctx.scale(dpr,dpr);
-  ctx.clearRect(0,0,w,h);
-  const pts=state.track.filter(x=>Number.isFinite(x.ele));
-  if(pts.length<2) return;
-  const min=Math.min(...pts.map(x=>x.ele)), max=Math.max(...pts.map(x=>x.ele)), span=Math.max(1,max-min);
-  ctx.strokeStyle='#38bdf8'; ctx.lineWidth=2; ctx.beginPath();
-  pts.forEach((p,i)=>{
-    const x=p.km/state.dist*w, y=h-15-(p.ele-min)/span*(h-30);
-    i?ctx.lineTo(x,y):ctx.moveTo(x,y);
-  }); ctx.stroke();
+function readFileIOS(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(r.error);r.readAsText(file,'UTF-8');
+  });
 }
-
-$('gpxFile').addEventListener('change', async e=>{
-  const f=e.target.files[0]; if(!f)return;
-  $('gpxName').textContent=f.name;
-  parseGPX(await f.text());
+$('gpxFile').addEventListener('change',async e=>{
+  const f=e.currentTarget.files&&e.currentTarget.files[0];
+  if(!f)return;
+  $('gpxName').textContent=f.name;$('gpxStatus').textContent='Читаю GPX…';
+  try{const text=await readFileIOS(f);parseGPX(text);}
+  catch(err){$('gpxStatus').textContent='✕ Ошибка GPX: '+(err.message||err);}
 });
 
 function terrainMultiplier(){
@@ -386,10 +384,16 @@ $('saveBtn').addEventListener('click',()=>{
 });
 
 window.addEventListener('load',()=>{
+  // Migrate old builds that contained a hardcoded athlete name.
+  const currentName=$('athleteName').value.trim().toLowerCase();
+  if(currentName==='анастасия кабенина' || currentName==='sidorenko pavel' || currentName==='pavel sidorenko'){
+    $('athleteName').value='Noname';
+  }
+
   try{
     const p=JSON.parse(localStorage.getItem('trailRaceAnalyzerState')||'null');
     if(!p)return;
-    $('athleteName').value=p.athlete||$('athleteName').value;$('itraPi').value=p.pi||$('itraPi').value;
+    $('athleteName').value=(p.athlete && String(p.athlete).trim()) ? p.athlete : 'Noname';$('itraPi').value=p.pi||$('itraPi').value;
     if(p.route)$('raceDesc').value=p.route.desc||'';
     if(p.training){
       $('refDist').value=p.training.dist||17;$('refGain').value=p.training.gain||645;
