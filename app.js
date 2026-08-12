@@ -79,12 +79,47 @@ function readFileIOS(file){
     const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(r.error);r.readAsText(file,'UTF-8');
   });
 }
-$('gpxFile').addEventListener('change',async e=>{
-  const f=e.currentTarget.files&&e.currentTarget.files[0];
-  if(!f)return;
-  $('gpxName').textContent=f.name;$('gpxStatus').textContent='Читаю GPX…';
-  try{const text=await readFileIOS(f);parseGPX(text);}
-  catch(err){$('gpxStatus').textContent='✕ Ошибка GPX: '+(err.message||err);}
+let selectedGPXFile=null;
+
+$('gpxFile').addEventListener('change', e=>{
+  selectedGPXFile=e.currentTarget.files&&e.currentTarget.files[0] ? e.currentTarget.files[0] : null;
+  if(!selectedGPXFile){
+    $('gpxName').textContent='Файл не выбран';
+    $('gpxStatus').textContent='1. Выберите файл GPX.';
+    $('gpxLoadBtn').disabled=true;
+    return;
+  }
+  $('gpxName').textContent='Выбран: '+selectedGPXFile.name;
+  $('gpxStatus').textContent='2. Файл выбран. Нажмите «Загрузить и обработать GPX».';
+  $('gpxLoadBtn').disabled=false;
+});
+
+$('gpxLoadBtn').addEventListener('click',async ()=>{
+  if(!selectedGPXFile){
+    $('gpxStatus').textContent='✕ Сначала выберите GPX.';
+    return;
+  }
+  const btn=$('gpxLoadBtn'), prog=$('gpxProgress');
+  btn.disabled=true;
+  prog.style.display='block';
+  prog.value=10;
+  $('gpxStatus').textContent='⏳ Читаю файл…';
+
+  try{
+    const text=await readFileIOS(selectedGPXFile);
+    prog.value=45;
+    $('gpxStatus').textContent='⏳ Разбираю точки GPX…';
+    await new Promise(r=>setTimeout(r,30));
+    parseGPX(text);
+    prog.value=100;
+    $('gpxStatus').textContent='✓ Готово: '+state.dist.toFixed(1)+' км · +'+Math.round(state.gain)+' м · −'+Math.round(state.loss)+' м';
+    setTimeout(()=>{prog.style.display='none';},1200);
+  }catch(err){
+    prog.style.display='none';
+    $('gpxStatus').textContent='✕ Ошибка обработки GPX: '+(err.message||String(err));
+  }finally{
+    btn.disabled=false;
+  }
 });
 
 function terrainMultiplier(){
