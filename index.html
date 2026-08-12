@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Trail Analyzer">
+  <title>Trail Race Analyzer</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <div class="eyebrow">Trail Race Analyzer</div>
+      <h1>Гонка → план → тумба</h1>
+    </div>
+    <button id="installBtn" class="ghost" hidden>Установить</button>
+  </header>
+
+  <main>
+    <section class="card hero">
+      <h2>Новая гонка</h2>
+      <p>Загрузи GPX, описание покрытия, тренировки и стартовый список. Приложение рассчитает стратегию, прогноз финиша и шансы против соперников.</p>
+      <div class="grid2">
+        <label class="field">
+          <span>Имя спортсмена</span>
+          <input id="athleteName" value="Анастасия Кабенина">
+        </label>
+        <label class="field">
+          <span>ITRA PI</span>
+          <input id="itraPi" type="number" value="567" min="0" max="1000">
+        </label>
+      </div>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="route">1. Трасса</button>
+      <button class="tab" data-tab="training">2. Тренировки</button>
+      <button class="tab" data-tab="roster">3. Стартовый</button>
+      <button class="tab" data-tab="result">4. Итог</button>
+    </nav>
+
+    <section id="route" class="tabpanel active">
+      <div class="card">
+        <h2>Трасса</h2>
+        <label class="upload">
+          <input id="gpxFile" type="file" accept=".gpx,application/gpx+xml">
+          <strong>Загрузить GPX</strong>
+          <span id="gpxName">Файл не выбран</span>
+        </label>
+        <label class="field">
+          <span>Описание покрытия</span>
+          <textarea id="raceDesc" rows="7" placeholder="Дорога, болото, броды, песок, мокрые камни, колея..."></textarea>
+        </label>
+        <div class="grid2">
+          <label class="field">
+            <span>Базовый темп, мин/км</span>
+            <input id="basePace" value="5:30">
+          </label>
+          <label class="field">
+            <span>Техническая сложность 0–10</span>
+            <input id="technicality" type="number" min="0" max="10" value="5">
+          </label>
+        </div>
+        <div class="metrics">
+          <div><span>Дистанция</span><b id="distMetric">—</b></div>
+          <div><span>Набор</span><b id="gainMetric">—</b></div>
+          <div><span>Сброс</span><b id="lossMetric">—</b></div>
+        </div>
+        <canvas id="profileCanvas" height="180"></canvas>
+      </div>
+    </section>
+
+    <section id="training" class="tabpanel">
+      <div class="card">
+        <h2>Тренировки</h2>
+        <p class="muted">Добавь скриншоты Garmin/Strava. Приложение хранит их локально; ключевые цифры можно внести вручную или скопировать через iPhone Live Text. Интернет не нужен.</p>
+        <label class="upload">
+          <input id="shotFiles" type="file" accept="image/*" multiple>
+          <strong>Добавить скриншоты</strong>
+          <span>Можно несколько файлов</span>
+        </label>
+
+        <div class="grid2">
+          <label class="field"><span>Контрольная дистанция, км</span><input id="refDist" type="number" step="0.1" value="17"></label>
+          <label class="field"><span>Набор, м</span><input id="refGain" type="number" value="645"></label>
+          <label class="field"><span>Средний пульс</span><input id="refAvgHr" type="number" value="184"></label>
+          <label class="field"><span>Макс. пульс</span><input id="refMaxHr" type="number" value="0"></label>
+          <label class="field"><span>Время, мин</span><input id="refMinutes" type="number" value="100"></label>
+          <label class="field"><span>LTHR, если известен</span><input id="lthr" type="number" value="0"></label>
+        </div>
+
+        <button id="ocrBtn" class="primary">Заполнить из текста</button>
+        <div id="ocrStatus" class="muted">Автономный режим: OCR-библиотека не требуется. На iPhone можно использовать Live Text и вставить распознанный текст в поле скриншота.</div>
+        <div id="shotsList"></div>
+      </div>
+    </section>
+
+    <section id="roster" class="tabpanel">
+      <div class="card">
+        <h2>Стартовый список</h2>
+        <label class="upload">
+          <input id="rosterFile" type="file" accept=".xlsx,.xls,.csv,text/csv">
+          <strong>Загрузить XLSX / CSV</strong>
+          <span id="rosterName">Файл не выбран</span>
+        </label>
+        <div class="grid2">
+          <label class="field">
+            <span>Зачёт</span>
+            <select id="genderFilter">
+              <option>Все</option>
+              <option selected>Женщины</option>
+              <option>Мужчины</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Непредсказуемость</span>
+            <input id="sigma" type="number" min="5" max="45" value="20">
+          </label>
+        </div>
+        <p class="muted">XLSX и CSV читаются прямо на iPhone без внешних библиотек. Если PI нет в файле, его можно ввести вручную.</p>
+        <div class="table-wrap">
+          <table id="rosterTable">
+            <thead><tr><th>Спортсмен</th><th>PI</th><th>Техника</th><th>Выносливость</th><th>Форма</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="result" class="tabpanel">
+      <div class="card">
+        <div class="row between">
+          <h2>Итог</h2>
+          <button id="calcBtn" class="primary">Рассчитать</button>
+        </div>
+        <div class="metrics big">
+          <div><span>Прогноз финиша</span><b id="finishMetric">—</b></div>
+          <div><span>TOP‑3</span><b id="podiumMetric">—</b></div>
+          <div><span>Победа</span><b id="winMetric">—</b></div>
+          <div><span>Место модели</span><b id="rankMetric">—</b></div>
+        </div>
+
+        <h3>Пульс по участкам</h3>
+        <div class="table-wrap">
+          <table id="planTable">
+            <thead><tr><th>Км</th><th>Пульс</th><th>Режим</th><th>Темп</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <h3>Главные соперники</h3>
+        <div class="table-wrap">
+          <table id="rivalsTable">
+            <thead><tr><th>#</th><th>Спортсмен</th><th>PI</th><th>Сила</th><th>Угроза</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <button id="saveBtn" class="secondary">Сохранить расчёт на iPhone</button>
+        <div id="saveStatus" class="muted"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Модель оценочная: броды, погода, питание и состояние покрытия могут сильно менять результат.
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
