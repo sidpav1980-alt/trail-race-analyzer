@@ -82,7 +82,7 @@ function parseGPX(text){
   updateItraDifficulty();
   updateTrailDifficulty();
   drawTrackProfiles();
-  $('gpxStatus').textContent='✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(gain)+' м · −'+Math.round(loss)+' м'; setActionState('gpxLoadBtn','success');
+  $('gpxStatus').textContent='✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(gain)+' м · −'+Math.round(loss)+' м'; setActionState('gpxLoadBtn','success'); $('mapAnalyzeBtn').disabled=false; setActionState('mapAnalyzeBtn','ready');
 }
 function readFileIOS(file){
   return new Promise((resolve,reject)=>{
@@ -369,6 +369,188 @@ function drawElevationCanvas(canvasId, xMode){
 function drawTrackProfiles(){
   drawElevationCanvas('elevationDistanceCanvas','distance');
   drawElevationCanvas('elevationTimeCanvas','time');
+}
+
+
+function sampleTrackPoints(maxSamples=220){
+  const pts=(state.track||[]).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&Number.isFinite(p.km));
+  if(pts.length<=maxSamples) return pts;
+  const step=(pts.length-1)/(maxSamples-1);
+  const out=[];
+  for(let i=0;i<maxSamples;i++) out.push(pts[Math.round(i*step)]);
+  return out;
+}
+
+function osmTagClass(tags={}){
+  const natural=tags.natural||'';
+  const wetland=tags.wetland||'';
+  const highway=tags.highway||'';
+  const surface=(tags.surface||'').toLowerCase();
+  const waterway=tags.waterway||'';
+
+  if(natural==='wetland' || wetland) return 'wetland';
+  if(waterway || natural==='water') return 'water';
+  if(highway==='path' || highway==='footway' || highway==='track') {
+    if(['asphalt','paved','concrete','concrete:plates','paving_stones'].includes(surface)) return 'paved';
+    if(['ground','dirt','earth','mud','sand','grass','gravel','fine_gravel','unpaved'].includes(surface)) return 'dirt';
+    return 'trail';
+  }
+  if(['residential','service','tertiary','secondary','primary','unclassified','road'].includes(highway)){
+    if(['asphalt','paved','concrete','paving_stones'].includes(surface) || !surface) return 'paved';
+    return 'dirt';
+  }
+  return 'unknown';
+}
+
+function pointInPolygon(lat,lon,poly){
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const yi=poly[i][0], xi=poly[i][1], yj=poly[j][0], xj=poly[j][1];
+    const intersect=((yi>lat)!=(yj>lat)) && (lon < (xj-xi)*(lat-yi)/(yj-yi+1e-12)+xi);
+    if(intersect) inside=!inside;
+  }
+  return inside;
+}
+
+function haversineKm(a,b,c,d){
+  return haversine(a,b,c,d)/1000;
+}
+
+function distancePointToSegmentKm(p,a,b){
+  const x0=p.lon,y0=p.lat,x1=a.lon,y1=a.lat,x2=b.lon,y2=b.lat;
+  const dx=x2-x1,dy=y2-y1;
+  let t=((x0-x1)*dx+(y0-y1)*dy)/(dx*dx+dy*dy||1);
+  t=Math.max(0,Math.min(1,t));
+  const x=x1+t*dx,y=y1+t*dy;
+  return haversineKm(y,x,p.lat,p.lon);
+}
+
+function classifyPointFromOSM(p, elements){
+  let best={cls:'unknown',dist:1e9};
+  for(const el of elements){
+    const tags=el.tags||{};
+    const cls=osmTagClass(tags);
+    if(cls==='unknown') continue;
+
+    if(el.type==='node' && Number.isFinite(el.lat)&&Number.isFinite(el.lon)){
+      const d=haversineKm(p.lat,p.lon,el.lat,el.lon);
+      if(d<best.dist && d<=0.05) best={cls,dist:d};
+    } else if(el.type==='way' && Array.isArray(el.geometry) && el.geometry.length>=2){
+      const geom=el.geometry.map(g=>({lat:g.lat,lon:g.lon}));
+      if((tags.natural==='wetland' || tags.natural==='water') && geom.length>=3){
+        const poly=geom.map(g=>[g.lat,g.lon]);
+        if(pointInPolygon(p.lat,p.lon,poly)) return cls;
+      }
+      for(let i=1;i<geom.length;i++){
+        const d=distancePointToSegmentKm(p,geom[i-1],geom[i]);
+        if(d<best.dist && d<=0.035) best={cls,dist:d};
+      }
+    }
+  }
+  return best.cls;
+}
+
+function buildOverpassQuery(points){
+  const lats=points.map(p=>p.lat), lons=points.map(p=>p.lon);
+  const pad=0.01;
+  const s=Math.min(...lats)-pad, n=Math.max(...lats)+pad, w=Math.min(...lons)-pad, e=Math.max(...lons)+pad;
+  return `[out:json][timeout:30];
+(
+  way["natural"="wetland"](${s},${w},${n},${e});
+  way["natural"="water"](${s},${w},${n},${e});
+  way["waterway"](${s},${w},${n},${e});
+  way["highway"](${s},${w},${n},${e});
+  node["ford"](${s},${w},${n},${e});
+);
+out tags geom;`;
+}
+
+function summarizeSurfaceClasses(samples){
+  const counts={wetland:0,water:0,trail:0,dirt:0,paved:0,unknown:0};
+  samples.forEach(x=>counts[x.cls]=(counts[x.cls]||0)+1);
+  const total=samples.length||1;
+  const pct=k=>counts[k]/total*100;
+  const known=total-counts.unknown;
+  return {
+    counts,
+    coverage:known/total*100,
+    wetland:pct('wetland'),
+    water:pct('water'),
+    trail:pct('trail'),
+    dirt:pct('dirt'),
+    paved:pct('paved')
+  };
+}
+
+function drawSurfaceStrip(samples){
+  const canvas=$('surfaceStripCanvas');
+  if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const w=Math.max(300,canvas.clientWidth||600), h=90;
+  canvas.width=w*dpr; canvas.height=h*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  const map={
+    wetland:'#22c55e',
+    water:'#38bdf8',
+    trail:'#a78bfa',
+    dirt:'#d97706',
+    paved:'#94a3b8',
+    unknown:'#334155'
+  };
+  const n=samples.length||1;
+  samples.forEach((s,i)=>{
+    ctx.fillStyle=map[s.cls]||map.unknown;
+    const x=i*w/n, ww=Math.ceil(w/n)+1;
+    ctx.fillRect(x,18,ww,34);
+  });
+  ctx.fillStyle='#cbd5e1';ctx.font='12px system-ui,-apple-system,sans-serif';
+  ctx.fillText('0 км',0,74);
+  const end=(state.dist||0).toFixed(1)+' км';
+  const tw=ctx.measureText(end).width;
+  ctx.fillText(end,w-tw,74);
+}
+
+async function analyzeMapOSM(){
+  if(!state.track || !state.track.length) throw new Error('Сначала обработайте GPX');
+  const pts=sampleTrackPoints(220);
+  const query=buildOverpassQuery(pts);
+  const resp=await fetch('https://overpass-api.de/api/interpreter',{
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+    body:'data='+encodeURIComponent(query)
+  });
+  if(!resp.ok) throw new Error('Overpass HTTP '+resp.status);
+  const data=await resp.json();
+  const elements=data.elements||[];
+
+  const samples=pts.map(p=>({km:p.km,cls:classifyPointFromOSM(p,elements)}));
+  const summary=summarizeSurfaceClasses(samples);
+
+  // Store locally for later offline use
+  try{
+    localStorage.setItem('trailMapAnalysis',JSON.stringify({
+      routeDist:state.dist,
+      routeGain:state.gain,
+      savedAt:new Date().toISOString(),
+      samples,summary
+    }));
+  }catch(e){}
+
+  return {samples,summary};
+}
+
+function renderMapAnalysis(result){
+  const {samples,summary}=result;
+  $('mapAnalysisResults').style.display='block';
+  $('coverageMetric').textContent=summary.coverage.toFixed(0)+'%';
+  $('wetlandMetric').textContent=summary.wetland.toFixed(1)+'%';
+  $('waterCrossMetric').textContent=summary.water.toFixed(1)+'%';
+  $('trailMetric').textContent=summary.trail.toFixed(1)+'%';
+  $('dirtMetric').textContent=summary.dirt.toFixed(1)+'%';
+  $('pavedMetric').textContent=summary.paved.toFixed(1)+'%';
+  $('mapAnalysisNote').textContent=`OSM-классификация маршрута. Неизвестно: ${(100-summary.coverage).toFixed(0)}%. Данные зависят от полноты разметки OpenStreetMap.`;
+  drawSurfaceStrip(samples);
 }
 
 function terrainMultiplier(){
@@ -674,6 +856,35 @@ function buildPlan(){
 function threat(delta){
   if(delta>30)return 'очень высокая';if(delta>12)return 'высокая';if(delta>=-12)return 'прямая';if(delta>=-30)return 'умеренная';return 'низкая';
 }
+
+$('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
+  const btn=$('mapAnalyzeBtn'), p=$('mapAnalyzeProgress');
+  if(!state.track || !state.track.length){
+    $('mapAnalyzeStatus').textContent='✕ Сначала обработайте GPX.';
+    setActionState('mapAnalyzeBtn','error');
+    return;
+  }
+  btn.disabled=true;
+  setActionState('mapAnalyzeBtn','working');
+  p.style.display='block'; p.value=15;
+  $('mapAnalyzeStatus').textContent='⏳ Запрашиваю OSM/Overpass…';
+  try{
+    const result=await analyzeMapOSM();
+    p.value=85;
+    renderMapAnalysis(result);
+    p.value=100;
+    $('mapAnalyzeStatus').textContent='✓ Анализ карты готов и сохранён локально.';
+    setActionState('mapAnalyzeBtn','success');
+    setTimeout(()=>p.style.display='none',1200);
+  }catch(err){
+    p.style.display='none';
+    $('mapAnalyzeStatus').textContent='✕ Ошибка анализа карты: '+(err.message||String(err));
+    setActionState('mapAnalyzeBtn','error');
+  }finally{
+    btn.disabled=false;
+  }
+});
+
 $('calcBtn').addEventListener('click',()=>{
   const finish=finishPrediction(); $('finishMetric').textContent=finish?hms(finish):'—';
   const athlete=$('athleteName').value.trim();
@@ -712,6 +923,14 @@ $('saveBtn').addEventListener('click',()=>{
 });
 
 window.addEventListener('load',()=>{
+  try{
+    const m=JSON.parse(localStorage.getItem('trailMapAnalysis')||'null');
+    if(m && m.summary && Array.isArray(m.samples)){
+      renderMapAnalysis({samples:m.samples,summary:m.summary});
+      $('mapAnalyzeStatus').textContent='Сохранённый анализ карты загружен локально.';
+    }
+  }catch(e){}
+
   // Migrate old builds that contained a hardcoded athlete name.
   const currentName=$('athleteName').value.trim().toLowerCase();
   if(currentName==='анастасия кабенина' || currentName==='sidorenko pavel' || currentName==='pavel sidorenko'){

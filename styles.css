@@ -183,3 +183,11 @@ button.action-error:disabled {
   border-radius:14px;
   display:block;
 }
+
+#surfaceStripCanvas{
+  width:100%;
+  background:#0b1322;
+  border:1px solid #263247;
+  border-radius:12px;
+  display:block;
+}

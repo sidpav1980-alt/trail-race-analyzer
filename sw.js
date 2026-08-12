@@ -1,9 +1,6 @@
 
-const CACHE='trail-analyzer-offline-v032';
-const CORE=[
-  './','./index.html','./styles.css','./app.js',
-  './manifest.webmanifest','./icon-192.png','./icon-512.png'
-];
+const CACHE='trail-analyzer-map-v033';
+const CORE=['./','./index.html','./styles.css','./app.js','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',event=>{
   self.skipWaiting();
@@ -19,6 +16,8 @@ self.addEventListener('activate',event=>{
 });
 
 self.addEventListener('fetch',event=>{
+  const url=new URL(event.request.url);
+  if(url.hostname.includes('overpass-api.de')) return;
   if(event.request.method!=='GET') return;
   event.respondWith(
     caches.match(event.request).then(cached=>{

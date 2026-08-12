@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="app-version">v0.32 OFFLINE</div>
+<div class="app-version">v0.33 MAP</div>
   <header class="app-header">
     <div>
       <div class="eyebrow">Trail Race Analyzer</div>
@@ -55,6 +55,29 @@
           <button id="gpxLoadBtn" type="button" class="primary" disabled>Загрузить и обработать GPX</button>
           <span id="gpxStatus">1. Выберите файл GPX.</span>
           <progress id="gpxProgress" value="0" max="100" style="width:100%;display:none"></progress>
+        </div>
+
+        <div class="field">
+          <span>Анализ карты</span>
+          <button id="mapAnalyzeBtn" type="button" class="primary action-idle" disabled>Анализ карты</button>
+          <div id="mapAnalyzeStatus" class="muted">Сначала загрузите и обработайте GPX.</div>
+          <progress id="mapAnalyzeProgress" value="0" max="100" style="width:100%;display:none"></progress>
+        </div>
+
+        <div id="mapAnalysisResults" class="field" style="display:none">
+          <span>Покрытие маршрута по OSM</span>
+          <div class="metrics">
+            <div><span>Классифицировано</span><b id="coverageMetric">—</b></div>
+            <div><span>Болото</span><b id="wetlandMetric">—</b></div>
+            <div><span>Вода</span><b id="waterCrossMetric">—</b></div>
+          </div>
+          <div class="metrics">
+            <div><span>Тропа</span><b id="trailMetric">—</b></div>
+            <div><span>Грунт</span><b id="dirtMetric">—</b></div>
+            <div><span>Асфальт</span><b id="pavedMetric">—</b></div>
+          </div>
+          <div class="muted" id="mapAnalysisNote">—</div>
+          <canvas id="surfaceStripCanvas" height="90"></canvas>
         </div>
 
         <div class="profiles-main">
