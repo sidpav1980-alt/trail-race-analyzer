@@ -1,10 +1,33 @@
 
-const CACHE='trail-analyzer-offline-v013';
-const CORE=['./','./index.html','./styles.css','./app.js','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
-self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)));});
-self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
-self.addEventListener('fetch',e=>{
-  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(resp=>{
-    const copy=resp.clone(); caches.open(CACHE).then(c=>c.put(e.request,copy)); return resp;
-  }).catch(()=>caches.match('./index.html'))));
+const CACHE='trail-analyzer-offline-v016';
+const CORE=[
+  './','./index.html','./styles.css','./app.js',
+  './manifest.webmanifest','./icon-192.png','./icon-512.png'
+];
+
+self.addEventListener('install',event=>{
+  self.skipWaiting();
+  event.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)));
+});
+
+self.addEventListener('activate',event=>{
+  event.waitUntil(
+    caches.keys()
+      .then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))
+      .then(()=>self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch',event=>{
+  if(event.request.method!=='GET') return;
+  event.respondWith(
+    caches.match(event.request).then(cached=>{
+      if(cached) return cached;
+      return fetch(event.request).then(resp=>{
+        const copy=resp.clone();
+        caches.open(CACHE).then(c=>c.put(event.request,copy));
+        return resp;
+      }).catch(()=>caches.match('./index.html'));
+    })
+  );
 });

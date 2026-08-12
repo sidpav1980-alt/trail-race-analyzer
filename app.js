@@ -11,6 +11,13 @@ const state = {
 
 const $ = id => document.getElementById(id);
 
+function setActionState(id,state){
+  const b=$(id); if(!b) return;
+  b.classList.remove('action-idle','action-ready','action-working','action-success','action-error');
+  b.classList.add('action-'+state);
+}
+
+
 document.querySelectorAll('.tab').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
@@ -85,12 +92,12 @@ $('gpxFile').addEventListener('change', e=>{
   if(!selectedGPXFile){
     $('gpxName').innerHTML='<span id="gpxCheck" class="file-check">○</span> Файл не выбран';
     $('gpxStatus').textContent='1. Выберите файл GPX.';
-    $('gpxLoadBtn').disabled=true;
+    $('gpxLoadBtn').disabled=true; setActionState('gpxLoadBtn','idle');
     return;
   }
   $('gpxName').innerHTML='<span id="gpxCheck" class="file-check selected">✓</span> Выбран: '+selectedGPXFile.name;
   $('gpxStatus').textContent='2. Файл выбран. Нажмите «Загрузить и обработать GPX».';
-  $('gpxLoadBtn').disabled=false;
+  $('gpxLoadBtn').disabled=false; setActionState('gpxLoadBtn','ready');
 });
 
 $('gpxLoadBtn').addEventListener('click',async ()=>{
@@ -99,7 +106,7 @@ $('gpxLoadBtn').addEventListener('click',async ()=>{
     return;
   }
   const btn=$('gpxLoadBtn'), prog=$('gpxProgress');
-  btn.disabled=true;
+  btn.disabled=true; setActionState('gpxLoadBtn','working');
   prog.style.display='block';
   prog.value=10;
   $('gpxStatus').textContent='⏳ Читаю файл…';
@@ -111,11 +118,11 @@ $('gpxLoadBtn').addEventListener('click',async ()=>{
     await new Promise(r=>setTimeout(r,30));
     parseGPX(text);
     prog.value=100;
-    $('gpxStatus').textContent='✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(state.gain)+' м · −'+Math.round(state.loss)+' м';
+    $('gpxStatus').textContent='✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(state.gain)+' м · −'+Math.round(state.loss)+' м'; setActionState('gpxLoadBtn','success');
     setTimeout(()=>{prog.style.display='none';},1200);
   }catch(err){
     prog.style.display='none';
-    $('gpxStatus').textContent='✕ Ошибка обработки GPX: '+(err.message||String(err));
+    $('gpxStatus').textContent='✕ Ошибка обработки GPX: '+(err.message||String(err)); setActionState('gpxLoadBtn','error');
   }finally{
     btn.disabled=false;
   }
@@ -263,21 +270,21 @@ $('rosterFile').addEventListener('change',e=>{
   selectedRosterFile=e.currentTarget.files&&e.currentTarget.files[0];
   if(!selectedRosterFile){
     $('rosterName').innerHTML='<span class="file-check">○</span> Файл не выбран';
-    $('rosterLoadBtn').disabled=true;$('rosterStatus').textContent='1. Выберите файл стартового списка.';return;
+    $('rosterLoadBtn').disabled=true;setActionState('rosterLoadBtn','idle');$('rosterStatus').textContent='1. Выберите файл стартового списка.';return;
   }
   $('rosterName').innerHTML='<span class="file-check selected">✓</span> Выбран: '+selectedRosterFile.name;
-  $('rosterLoadBtn').disabled=false;$('rosterStatus').textContent='2. Файл выбран. Нажмите кнопку загрузки.';
+  $('rosterLoadBtn').disabled=false;setActionState('rosterLoadBtn','ready');$('rosterStatus').textContent='2. Файл выбран. Нажмите кнопку загрузки.';
 });
 $('rosterLoadBtn').addEventListener('click',async ()=>{
   if(!selectedRosterFile)return;
-  const btn=$('rosterLoadBtn'),p=$('rosterProgress');btn.disabled=true;p.style.display='block';p.value=15;
+  const btn=$('rosterLoadBtn'),p=$('rosterProgress');btn.disabled=true;setActionState('rosterLoadBtn','working');p.style.display='block';p.value=15;
   try{
     let rows=[]; const f=selectedRosterFile;$('rosterStatus').textContent='⏳ Читаю стартовый список…';
     if(f.name.toLowerCase().endsWith('.csv')) rows=parseCSV(await f.text());
     else rows=await parseXlsxOffline(await f.arrayBuffer());
     p.value=75;state.roster=normalizeRoster(rows);renderRoster();p.value=100;
-    $('rosterStatus').textContent='✓ Готово: '+state.roster.length+' участников.';setTimeout(()=>p.style.display='none',1000);
-  }catch(err){p.style.display='none';$('rosterStatus').textContent='✕ '+(err.message||err);}
+    $('rosterStatus').textContent='✓ Готово: '+state.roster.length+' участников.';setActionState('rosterLoadBtn','success');setTimeout(()=>p.style.display='none',1000);
+  }catch(err){p.style.display='none';$('rosterStatus').textContent='✕ '+(err.message||err);setActionState('rosterLoadBtn','error');}
   finally{btn.disabled=false;}
 });
 function parseCSV(text){
