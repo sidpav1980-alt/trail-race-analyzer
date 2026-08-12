@@ -16,7 +16,7 @@
   <header class="app-header">
     <div>
       <div class="eyebrow">Trail Race Analyzer</div>
-      <h1>Гонка → план → финиш</h1>
+      <h1>Гонка → ПЛАН → ФИНИШ</h1>
     </div>
     <button id="installBtn" class="ghost" hidden>Установить</button>
   </header>
@@ -81,19 +81,22 @@
       <div class="card">
         <h2>Тренировки</h2>
         <p class="muted">Добавь скриншоты Garmin/Strava. Приложение хранит их локально; ключевые цифры можно внести вручную или скопировать через iPhone Live Text. Интернет не нужен.</p>
-        <label class="upload">
-          <input id="shotFiles" type="file" accept="image/*" multiple>
-          <strong>Добавить скриншоты</strong>
-          <span>Можно несколько файлов</span>
-        </label>
+        <div class="upload">
+          <strong>Скриншот тренировки</strong>
+          <input id="shotFiles" type="file" accept="image/*">
+          <span id="shotsName"><span id="shotsCheck" class="file-check">○</span> Файл не выбран</span>
+          <button id="shotsLoadBtn" type="button" class="primary" disabled>Загрузить и обработать скриншот</button>
+          <span id="shotsStatus">1. Выберите один скриншот.</span>
+          <progress id="shotsProgress" value="0" max="100" style="width:100%;display:none"></progress>
+        </div>
 
         <div class="grid2">
-          <label class="field"><span>Контрольная дистанция, км</span><input id="refDist" type="number" step="0.1" value="17"></label>
-          <label class="field"><span>Набор, м</span><input id="refGain" type="number" value="645"></label>
-          <label class="field"><span>Средний пульс</span><input id="refAvgHr" type="number" value="184"></label>
-          <label class="field"><span>Макс. пульс</span><input id="refMaxHr" type="number" value="0"></label>
-          <label class="field"><span>Время, мин</span><input id="refMinutes" type="number" value="100"></label>
-          <label class="field"><span>LTHR, если известен</span><input id="lthr" type="number" value="0"></label>
+          <label class="field"><span>Контрольная дистанция, км</span><input id="refDist" type="number" step="1" value="1"></label>
+          <label class="field"><span>Набор, м</span><input id="refGain" type="number" step="1" value="1"></label>
+          <label class="field"><span>Средний пульс</span><input id="refAvgHr" type="number" step="1" value="1"></label>
+          <label class="field"><span>Макс. пульс</span><input id="refMaxHr" type="number" step="1" value="1"></label>
+          <label class="field"><span>Время, мин</span><input id="refMinutes" type="number" step="1" value="1"></label>
+          <label class="field"><span>LTHR, если известен</span><input id="lthr" type="number" step="1" value="1"></label>
         </div>
 
         <button id="ocrBtn" class="primary">Заполнить из текста</button>
@@ -105,11 +108,14 @@
     <section id="roster" class="tabpanel">
       <div class="card">
         <h2>Стартовый список</h2>
-        <label class="upload">
+        <div class="upload">
+          <strong>Стартовый список XLSX / CSV</strong>
           <input id="rosterFile" type="file" accept=".xlsx,.xls,.csv,text/csv">
-          <strong>Загрузить XLSX / CSV</strong>
-          <span id="rosterName">Файл не выбран</span>
-        </label>
+          <span id="rosterName"><span id="rosterCheck" class="file-check">○</span> Файл не выбран</span>
+          <button id="rosterLoadBtn" type="button" class="primary" disabled>Загрузить и обработать стартовый список</button>
+          <span id="rosterStatus">1. Выберите файл стартового списка.</span>
+          <progress id="rosterProgress" value="0" max="100" style="width:100%;display:none"></progress>
+        </div>
         <div class="grid2">
           <label class="field">
             <span>Зачёт</span>

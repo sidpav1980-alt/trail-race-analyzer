@@ -146,10 +146,54 @@ function paceFmt(sec){
   sec=Math.round(sec); return `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
 }
 
+let selectedShotFiles=[];
+
 $('shotFiles').addEventListener('change', e=>{
-  state.shots=[...e.target.files];
-  renderShots();
+  selectedShotFiles=e.currentTarget.files&&e.currentTarget.files[0] ? [e.currentTarget.files[0]] : [];
+
+  if(!selectedShotFiles.length){
+    state.shots=[];
+    $('shotsName').innerHTML='<span id="shotsCheck" class="file-check">○</span> Файл не выбран';
+    $('shotsStatus').textContent='1. Выберите один скриншот.';
+    $('shotsLoadBtn').disabled=true;
+    return;
+  }
+
+  const label=selectedShotFiles[0].name;
+  $('shotsName').innerHTML='<span id="shotsCheck" class="file-check selected">✓</span> '+label;
+  $('shotsStatus').textContent='2. Файл выбран. Нажмите «Загрузить и обработать скриншот».';
+  $('shotsLoadBtn').disabled=false;
 });
+
+$('shotsLoadBtn').addEventListener('click', async ()=>{
+  if(!selectedShotFiles.length){
+    $('shotsStatus').textContent='✕ Сначала выберите скриншот.';
+    return;
+  }
+
+  const btn=$('shotsLoadBtn'), prog=$('shotsProgress');
+  btn.disabled=true;
+  prog.style.display='block';
+  prog.value=10;
+  $('shotsStatus').textContent='⏳ Загружаю скриншот…';
+
+  try{
+    state.shots=[...selectedShotFiles];
+    prog.value=55;
+    $('shotsStatus').textContent='⏳ Подготавливаю данные тренировки…';
+    await new Promise(r=>setTimeout(r,30));
+    renderShots();
+    prog.value=100;
+    $('shotsStatus').textContent='✓ Готово: скриншот загружен.';
+    setTimeout(()=>{prog.style.display='none';},1200);
+  }catch(err){
+    prog.style.display='none';
+    $('shotsStatus').textContent='✕ Ошибка обработки скриншотов: '+(err.message||String(err));
+  }finally{
+    btn.disabled=false;
+  }
+});
+
 function renderShots(){
   const box=$('shotsList'); box.innerHTML='';
   state.shots.forEach((f,i)=>{
@@ -160,7 +204,7 @@ function renderShots(){
   });
 }
 $('ocrBtn').addEventListener('click', ()=>{
-  if(!state.shots.length){$('ocrStatus').textContent='Сначала добавьте скриншоты.';return;}
+  if(!state.shots.length){$('ocrStatus').textContent='Сначала выберите и загрузите скриншоты кнопкой выше.';return;}
   let merged='';
   for(let i=0;i<state.shots.length;i++){
     const el=$(`shotText${i}`);
@@ -258,20 +302,63 @@ async function parseXlsxOffline(arrayBuffer){
   });
 }
 
-$('rosterFile').addEventListener('change', async e=>{
-  const f=e.target.files[0]; if(!f)return;
-  $('rosterName').textContent=f.name;
+let selectedRosterFile=null;
+
+$('rosterFile').addEventListener('change', e=>{
+  selectedRosterFile=e.currentTarget.files&&e.currentTarget.files[0] ? e.currentTarget.files[0] : null;
+
+  if(!selectedRosterFile){
+    $('rosterName').innerHTML='<span id="rosterCheck" class="file-check">○</span> Файл не выбран';
+    $('rosterStatus').textContent='1. Выберите файл стартового списка.';
+    $('rosterLoadBtn').disabled=true;
+    return;
+  }
+
+  $('rosterName').innerHTML='<span id="rosterCheck" class="file-check selected">✓</span> Выбран: '+selectedRosterFile.name;
+  $('rosterStatus').textContent='2. Файл выбран. Нажмите «Загрузить и обработать стартовый список».';
+  $('rosterLoadBtn').disabled=false;
+});
+
+$('rosterLoadBtn').addEventListener('click', async ()=>{
+  if(!selectedRosterFile){
+    $('rosterStatus').textContent='✕ Сначала выберите файл стартового списка.';
+    return;
+  }
+
+  const btn=$('rosterLoadBtn'), prog=$('rosterProgress');
+  btn.disabled=true;
+  prog.style.display='block';
+  prog.value=10;
+  $('rosterStatus').textContent='⏳ Читаю стартовый список…';
+
   try{
     let rows=[];
+    const f=selectedRosterFile;
+
     if(f.name.toLowerCase().endsWith('.csv')){
-      const txt=await f.text(); rows=parseCSV(txt);
+      const txt=await f.text();
+      prog.value=45;
+      $('rosterStatus').textContent='⏳ Разбираю CSV…';
+      rows=parseCSV(txt);
     } else {
+      prog.value=35;
+      $('rosterStatus').textContent='⏳ Разбираю Excel…';
       rows=await parseXlsxOffline(await f.arrayBuffer());
     }
+
+    prog.value=75;
+    $('rosterStatus').textContent='⏳ Формирую список участников…';
     state.roster=normalizeRoster(rows);
     renderRoster();
+
+    prog.value=100;
+    $('rosterStatus').textContent='✓ Готово: загружено '+state.roster.length+' участников.';
+    setTimeout(()=>{prog.style.display='none';},1200);
   }catch(err){
-    alert('Не удалось прочитать стартовый список: '+err.message);
+    prog.style.display='none';
+    $('rosterStatus').textContent='✕ Ошибка обработки стартового списка: '+(err.message||String(err));
+  }finally{
+    btn.disabled=false;
   }
 });
 function parseCSV(text){
