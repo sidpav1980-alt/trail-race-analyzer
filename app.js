@@ -52,6 +52,24 @@ function haversine(a,b,c,d){
   return 2*R*Math.asin(Math.sqrt(q));
 }
 
+function median(arr){
+  const a=arr.filter(Number.isFinite).slice().sort((x,y)=>x-y);
+  if(!a.length) return NaN;
+  const m=Math.floor(a.length/2);
+  return a.length%2?a[m]:(a[m-1]+a[m])/2;
+}
+
+function smoothElevations(points){
+  // Median smoothing over a 5-point window to suppress GPS altitude spikes.
+  return points.map((p,i)=>{
+    const vals=[];
+    for(let j=Math.max(0,i-2);j<=Math.min(points.length-1,i+2);j++){
+      if(Number.isFinite(points[j].ele)) vals.push(points[j].ele);
+    }
+    return {...p, ele:median(vals)};
+  });
+}
+
 function parseGPX(text){
   const xml=new DOMParser().parseFromString(text,'application/xml');
   if(xml.querySelector('parsererror')) throw new Error('Некорректный XML');
@@ -60,21 +78,39 @@ function parseGPX(text){
   if(!pts.length) pts=[...xml.getElementsByTagName('rtept')];
   if(!pts.length) pts=[...xml.getElementsByTagNameNS('*','rtept')];
   if(pts.length<2) throw new Error('Не найдены точки трека');
-  let out=[],total=0,prev=null,gain=0,loss=0;
+
+  let raw=[],total=0,prev=null;
   pts.forEach(p=>{
     const lat=parseFloat(p.getAttribute('lat')),lon=parseFloat(p.getAttribute('lon'));
     if(!Number.isFinite(lat)||!Number.isFinite(lon)) return;
     let ee=p.getElementsByTagName('ele')[0]||p.getElementsByTagNameNS('*','ele')[0];
     const ele=ee?parseFloat(ee.textContent):NaN;
+
     if(prev){
       const step=haversine(prev.lat,prev.lon,lat,lon);
       if(Number.isFinite(step)&&step<5000) total+=step;
-      if(Number.isFinite(ele)&&Number.isFinite(prev.ele)){
-        const de=ele-prev.ele;if(Math.abs(de)<250){if(de>0)gain+=de;else loss+=-de;}
-      }
     }
-    out.push({km:total/1000,lat,lon,ele});prev={lat,lon,ele};
+    raw.push({km:total/1000,lat,lon,ele});
+    prev={lat,lon};
   });
+
+  const out=smoothElevations(raw);
+
+  // Count ascent/descent only after a 3 m threshold to avoid tiny GPS noise.
+  let gain=0,loss=0,lastAccepted=null;
+  for(const p of out){
+    if(!Number.isFinite(p.ele)) continue;
+    if(lastAccepted===null){
+      lastAccepted=p.ele;
+      continue;
+    }
+    const de=p.ele-lastAccepted;
+    if(Math.abs(de)>=3){
+      if(de>0) gain+=de; else loss+=-de;
+      lastAccepted=p.ele;
+    }
+  }
+
   state.track=out;state.dist=total/1000;state.gain=gain;state.loss=loss;
   $('distMetric').textContent=state.dist.toFixed(1)+' км';
   $('gainMetric').textContent=Math.round(gain)+' м';
@@ -82,7 +118,6 @@ function parseGPX(text){
   updateItraDifficulty();
   updateTrailDifficulty();
   drawTrackProfiles();
-  $('gpxStatus').textContent='✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(gain)+' м · −'+Math.round(loss)+' м'; setActionState('gpxLoadBtn','success'); $('mapAnalyzeBtn').disabled=false; setActionState('mapAnalyzeBtn','ready');
 }
 function readFileIOS(file){
   return new Promise((resolve,reject)=>{
@@ -515,19 +550,51 @@ async function analyzeMapOSM(){
   if(!state.track || !state.track.length) throw new Error('Сначала обработайте GPX');
   const pts=sampleTrackPoints(220);
   const query=buildOverpassQuery(pts);
-  const resp=await fetch('https://overpass-api.de/api/interpreter',{
-    method:'POST',
-    headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
-    body:'data='+encodeURIComponent(query)
-  });
-  if(!resp.ok) throw new Error('Overpass HTTP '+resp.status);
-  const data=await resp.json();
-  const elements=data.elements||[];
 
+  const endpoints=[
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.nchc.org.tw/api/interpreter'
+  ];
+
+  let lastError=null;
+  let data=null;
+
+  for(const url of endpoints){
+    try{
+      $('mapAnalyzeStatus').textContent='⏳ Пробую '+new URL(url).host+'…';
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),25000);
+
+      const resp=await fetch(url,{
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+        body:'data='+encodeURIComponent(query),
+        signal:controller.signal,
+        mode:'cors',
+        cache:'no-store'
+      });
+      clearTimeout(timer);
+
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      data=await resp.json();
+      break;
+    }catch(err){
+      lastError=err;
+    }
+  }
+
+  if(!data){
+    const msg=lastError && lastError.name==='AbortError'
+      ? 'Все Overpass-серверы не ответили вовремя'
+      : 'Не удалось загрузить OSM. Возможна блокировка CORS/сети Safari.';
+    throw new Error(msg);
+  }
+
+  const elements=data.elements||[];
   const samples=pts.map(p=>({km:p.km,cls:classifyPointFromOSM(p,elements)}));
   const summary=summarizeSurfaceClasses(samples);
 
-  // Store locally for later offline use
   try{
     localStorage.setItem('trailMapAnalysis',JSON.stringify({
       routeDist:state.dist,
@@ -539,7 +606,6 @@ async function analyzeMapOSM(){
 
   return {samples,summary};
 }
-
 function renderMapAnalysis(result){
   const {samples,summary}=result;
   $('mapAnalysisResults').style.display='block';
@@ -878,7 +944,7 @@ $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
     setTimeout(()=>p.style.display='none',1200);
   }catch(err){
     p.style.display='none';
-    $('mapAnalyzeStatus').textContent='✕ Ошибка анализа карты: '+(err.message||String(err));
+    $('mapAnalyzeStatus').textContent='✕ Ошибка анализа карты: '+(err.message||String(err))+' · Попробуйте ещё раз при другой сети/Wi‑Fi.';
     setActionState('mapAnalyzeBtn','error');
   }finally{
     btn.disabled=false;
