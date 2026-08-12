@@ -79,6 +79,8 @@ function parseGPX(text){
   $('distMetric').textContent=state.dist.toFixed(1)+' км';
   $('gainMetric').textContent=Math.round(gain)+' м';
   $('lossMetric').textContent=Math.round(loss)+' м';
+  updateItraDifficulty();
+  updateTrailDifficulty();
   $('gpxStatus').textContent='✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(gain)+' м · −'+Math.round(loss)+' м'; setActionState('gpxLoadBtn','success');
 }
 function readFileIOS(file){
@@ -129,6 +131,130 @@ $('gpxLoadBtn').addEventListener('click',async ()=>{
   }
 });
 
+
+
+function itraEndurancePoints(kmEffort){
+  if(kmEffort < 25) return 0;
+  if(kmEffort < 45) return 1;
+  if(kmEffort < 75) return 2;
+  if(kmEffort < 115) return 3;
+  if(kmEffort < 155) return 4;
+  if(kmEffort < 210) return 5;
+  return 6;
+}
+
+function updateItraDifficulty(){
+  const kmEffort=(state.dist||0)+((state.gain||0)/100);
+  const points=itraEndurancePoints(kmEffort);
+  const k=$('itraKmEffort'), p=$('itraPoints');
+  if(k) k.textContent=kmEffort ? kmEffort.toFixed(1) : '—';
+  if(p) p.textContent=(state.dist||state.gain) ? String(points) : '—';
+  return {kmEffort, points};
+}
+
+
+function computeTrailDifficulty(){
+  const pts=(state.track||[]).filter(p=>Number.isFinite(p.km)&&Number.isFinite(p.ele));
+  if(pts.length<3 || !(state.dist>0)){
+    return {
+      score:0, steep15Pct:0, vertPerKm:0,
+      maxGrade:0, reversals:0, longClimbs:0,
+      label:'Недостаточно данных'
+    };
+  }
+
+  let totalHoriz=0;
+  let steep15Dist=0;
+  let steep10Dist=0;
+  let steep20Dist=0;
+  let maxGrade=0;
+  let reversals=0;
+  let prevSign=0;
+  let longClimbs=0;
+  let climbRun=0;
+
+  for(let i=1;i<pts.length;i++){
+    const dk=(pts[i].km-pts[i-1].km);
+    if(!(dk>0)) continue;
+    const de=pts[i].ele-pts[i-1].ele;
+    const grade=(de/(dk*1000))*100;
+    const absGrade=Math.abs(grade);
+    totalHoriz+=dk;
+    if(absGrade>=10) steep10Dist+=dk;
+    if(absGrade>=15) steep15Dist+=dk;
+    if(absGrade>=20) steep20Dist+=dk;
+    if(absGrade>maxGrade && absGrade<80) maxGrade=absGrade;
+
+    const sign=de>1 ? 1 : (de<-1 ? -1 : 0);
+    if(sign && prevSign && sign!==prevSign) reversals++;
+    if(sign) prevSign=sign;
+
+    if(de>0){
+      climbRun+=dk;
+    }else{
+      if(climbRun>=0.5) longClimbs++;
+      climbRun=0;
+    }
+  }
+  if(climbRun>=0.5) longClimbs++;
+
+  const vertPerKm=(state.gain||0)/(state.dist||1);
+  const steep15Pct=totalHoriz>0 ? (steep15Dist/totalHoriz)*100 : 0;
+  const steep10Pct=totalHoriz>0 ? (steep10Dist/totalHoriz)*100 : 0;
+  const steep20Pct=totalHoriz>0 ? (steep20Dist/totalHoriz)*100 : 0;
+
+  // Trail Difficulty 0-10.
+  // Weights emphasize vertical density and sustained steepness.
+  let score=0;
+
+  // vertical density: 0..3.5
+  score += Math.min(3.5, vertPerKm/30);
+
+  // steepness exposure: 0..3.0
+  score += Math.min(1.5, steep10Pct/20);
+  score += Math.min(1.0, steep15Pct/18);
+  score += Math.min(0.5, steep20Pct/15);
+
+  // profile ruggedness / reversals: 0..1.5
+  const revPer10=(reversals/Math.max(state.dist,1))*10;
+  score += Math.min(1.5, revPer10/8);
+
+  // sustained climbs: 0..1.0
+  score += Math.min(1.0, longClimbs/6);
+
+  // very steep max grade: 0..1.0
+  if(maxGrade>=30) score+=1.0;
+  else if(maxGrade>=20) score+=0.7;
+  else if(maxGrade>=15) score+=0.4;
+
+  score=Math.max(0,Math.min(10,score));
+
+  let label='Почти плоская';
+  if(score>=9) label='Очень тяжёлая / альпийская';
+  else if(score>=7) label='Тяжёлая';
+  else if(score>=5) label='Средняя';
+  else if(score>=3) label='Лёгкий трейл';
+
+  return {
+    score,
+    steep15Pct,
+    vertPerKm,
+    maxGrade,
+    reversals,
+    longClimbs,
+    label
+  };
+}
+
+function updateTrailDifficulty(){
+  const d=computeTrailDifficulty();
+  const s=$('trailDifficulty'), p=$('steep15Metric'), v=$('vertPerKmMetric'), l=$('trailDifficultyLabel');
+  if(s) s.textContent=(state.dist>0)?d.score.toFixed(1)+'/10':'—';
+  if(p) p.textContent=(state.dist>0)?d.steep15Pct.toFixed(1)+'%':'—';
+  if(v) v.textContent=(state.dist>0)?d.vertPerKm.toFixed(0)+' м/км':'—';
+  if(l) l.textContent=(state.dist>0)?`${d.label} · max уклон ${d.maxGrade.toFixed(0)}% · подъёмов >500 м: ${d.longClimbs}`:'—';
+  return d;
+}
 
 function terrainMultiplier(){
   const t=$('raceDesc').value.toLowerCase();
@@ -397,14 +523,14 @@ function formScore(){
 }
 function finishPrediction(){
   if(!state.dist)return 0;
-  const base=paceSec($('basePace').value), tech=+$('technicality').value||5, tm=terrainMultiplier();
+  const base=paceSec($('basePace').value), tech=Math.max(1,computeTrailDifficulty().score), tm=terrainMultiplier();
   const climb=state.gain*1.0, downhill=Math.min(state.loss*.20,state.dist*18);
   let sec=(state.dist*base + climb - downhill)*tm*(1+tech*.018);
   sec*=1-formScore()*.004;
   return sec;
 }
 function score(r){
-  const diff=(+$('technicality').value||5)/10, tm=terrainMultiplier();
+  const diff=(Math.max(1,computeTrailDifficulty().score))/10, tm=terrainMultiplier();
   const difficulty=Math.max(0,Math.min(1,(diff+(tm-1)/.35)/2));
   return (+r.pi||0)+(+r.tech||0)*(.55+.75*difficulty)+(+r.end||0)*(.75+.55*difficulty)+(+r.form||0)*.65;
 }
@@ -434,7 +560,7 @@ function buildPlan(){
     else if(p<.8){lo=.90;hi=.94;mode='Рабочий блок'}
     else if(p<.94){lo=.92;hi=.97;mode='Начать гонку'}
     else{lo=.95;hi=1.02;mode='Финиш'}
-    const pace=paceSec($('basePace').value)*terrainMultiplier()*(1+(+$('technicality').value||5)*.018);
+    const pace=paceSec($('basePace').value)*terrainMultiplier()*(1+(Math.max(1,computeTrailDifficulty().score))*.018);
     rows.push({km:`${a.toFixed(1)}–${b.toFixed(1)}`,hr:`${Math.round(l*lo)}–${Math.round(l*hi)}`,mode,pace:paceFmt(pace)});
   }
   return rows;

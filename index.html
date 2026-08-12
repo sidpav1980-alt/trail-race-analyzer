@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="app-version">v0.26 OFFLINE</div>
+<div class="app-version">v0.30 OFFLINE</div>
   <header class="app-header">
     <div>
       <div class="eyebrow">Trail Race Analyzer</div>
@@ -65,10 +65,23 @@
             <span>Базовый темп, мин/км</span>
             <input id="basePace" value="5:30">
           </label>
-          <label class="field">
-            <span>Техническая сложность 0–10</span>
-            <input id="technicality" type="number" min="0" max="10" value="5">
-          </label>
+          <div class="field">
+            <span>ITRA Km-effort / Endurance Points</span>
+            <div class="metrics" style="margin:0">
+              <div><span>Km-effort</span><b id="itraKmEffort">—</b></div>
+              <div><span>ITRA Points</span><b id="itraPoints">—</b></div>
+            </div>
+
+          <div class="field">
+            <span>Сложность рельефа по GPX</span>
+            <div class="metrics" style="margin:0">
+              <div><span>Trail Difficulty</span><b id="trailDifficulty">—</b></div>
+              <div><span>&gt;15% уклона</span><b id="steep15Metric">—</b></div>
+              <div><span>Вертикаль / км</span><b id="vertPerKmMetric">—</b></div>
+            </div>
+            <div class="muted" id="trailDifficultyLabel">—</div>
+          </div>
+          </div>
         </div>
         <div class="metrics">
           <div><span>Дистанция</span><b id="distMetric">—</b></div>
