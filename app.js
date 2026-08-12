@@ -164,8 +164,7 @@ $('ocrBtn').addEventListener('click', ()=>{
   let merged='';
   for(let i=0;i<state.shots.length;i++){
     const el=$(`shotText${i}`);
-    if(el) merged += '
-' + el.value;
+    if(el) merged += '\n' + el.value;
   }
   applyOCR(merged);
   $('ocrStatus').textContent='Данные из вставленного текста применены. Проверь значения ниже.';
