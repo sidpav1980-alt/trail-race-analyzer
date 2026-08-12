@@ -191,3 +191,72 @@ button.action-error:disabled {
   border-radius:12px;
   display:block;
 }
+
+.itra-online-box{margin-top:14px;margin-bottom:12px;display:grid;gap:8px}
+#itraLookupBtn.action-ready{background:#38bdf8!important;color:#07111f!important}
+#itraLookupBtn.action-working{background:#475569!important;color:#cbd5e1!important}
+#itraLookupBtn.action-success{background:#22c55e!important;color:#052e16!important}
+#itraLookupBtn.action-error{background:#ef4444!important;color:#fff!important}
+
+.openrouter-settings{margin-top:14px;padding:12px;border:1px solid #263247;border-radius:14px;display:grid;gap:10px}
+.openrouter-status-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.or-status{font-weight:700}
+.or-ok{color:#22c55e}.or-bad{color:#ef4444}.or-checking{color:#94a3b8}
+.key-actions{display:flex;gap:8px;flex-wrap:wrap}
+#openRouterKey{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+.own-itra-box{margin-top:10px;display:grid;gap:8px}
+#ownItraLookupBtn.action-ready{background:#38bdf8!important;color:#07111f!important}
+#ownItraLookupBtn.action-working{background:#475569!important;color:#cbd5e1!important}
+#ownItraLookupBtn.action-success{background:#22c55e!important;color:#052e16!important}
+#ownItraLookupBtn.action-error{background:#ef4444!important;color:#fff!important}
+
+.surface-legend{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px 12px;
+  margin-top:10px;
+  font-size:13px;
+  color:#cbd5e1;
+}
+.surface-legend>div{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.surface-swatch{
+  width:18px;
+  height:12px;
+  border-radius:3px;
+  border:1px solid rgba(255,255,255,.16);
+  flex:0 0 auto;
+}
+.sw-wetland{background:#22c55e}
+.sw-water{background:#38bdf8}
+.sw-trail{background:#a78bfa}
+.sw-dirt{background:#d97706}
+.sw-paved{background:#94a3b8}
+.sw-unknown{background:#334155}
+@media (max-width:520px){
+  .surface-legend{grid-template-columns:1fr}
+}
+
+.own-itra-profile-box{margin-top:10px;display:grid;gap:8px}
+#ownItraProfile{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+.gpx-pace-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(145px,1fr);gap:10px;align-items:start}
+.gpx-upload-column,.pace-inline-column{min-width:0}
+.pace-inline-column label{margin:0}.pace-inline-column input{width:100%}
+@media(max-width:620px){.gpx-pace-row{grid-template-columns:minmax(0,1.8fr) minmax(125px,.8fr);gap:8px}.pace-inline-column label span{font-size:12px}}
+@media(max-width:360px){.gpx-pace-row{grid-template-columns:1fr}}
+
+.ford-km-list{margin-top:8px;color:#cbd5e1;font-size:13px}
+
+.app-footer{
+  width:100%;
+  text-align:center;
+  padding:24px 12px calc(20px + env(safe-area-inset-bottom));
+  color:#64748b;
+  font-size:12px;
+  letter-spacing:.2px;
+}

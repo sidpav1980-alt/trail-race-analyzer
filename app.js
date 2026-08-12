@@ -18,6 +18,58 @@ function setActionState(id,state){
   b.classList.add('action-'+state);
 }
 
+function resetMapAnalysisForNewGPX(){
+  // A new GPX invalidates all surface information from the previous route.
+  try{ localStorage.removeItem('trailMapAnalysis'); }catch(e){}
+
+  const box=$('mapAnalysisResults');
+  if(box) box.style.display='none';
+
+  const fields=[
+    'coverageMetric','wetlandMetric','waterCrossMetric',
+    'trailMetric','dirtMetric','pavedMetric','fordCountMetric'
+  ];
+  fields.forEach(id=>{
+    const el=$(id);
+    if(el) el.textContent='—';
+  });
+
+  const fordList=$('fordKmList'); if(fordList) fordList.textContent='Броды: —';
+  const note=$('mapAnalysisNote');
+  if(note) note.textContent='—';
+
+  const canvas=$('surfaceStripCanvas');
+  if(canvas){
+    const ctx=canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+  }
+
+  const progress=$('mapAnalyzeProgress');
+  if(progress){
+    progress.value=0;
+    progress.style.display='none';
+  }
+
+  const status=$('mapAnalyzeStatus');
+  if(status) status.textContent='Сначала обработайте выбранный GPX.';
+
+  const btn=$('mapAnalyzeBtn');
+  if(btn){
+    btn.disabled=true;
+    setActionState('mapAnalyzeBtn','idle');
+  }
+}
+
+function syncMapAnalyzeButton(){
+  const btn=$('mapAnalyzeBtn');
+  if(!btn) return;
+  btn.disabled=true;
+  setActionState('mapAnalyzeBtn','idle');
+  const s=$('mapAnalyzeStatus');
+  if(s) s.textContent='Офлайн-версия: новый анализ карты недоступен.';
+}
+
+
 
 document.querySelectorAll('.tab').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -112,6 +164,7 @@ function parseGPX(text){
   }
 
   state.track=out;state.dist=total/1000;state.gain=gain;state.loss=loss;
+  syncMapAnalyzeButton();
   $('distMetric').textContent=state.dist.toFixed(1)+' км';
   $('gainMetric').textContent=Math.round(gain)+' м';
   $('lossMetric').textContent=Math.round(loss)+' м';
@@ -132,6 +185,7 @@ window.addEventListener('resize',()=>{ if(state.track&&state.track.length) drawT
 
 $('gpxFile').addEventListener('change', e=>{
   selectedGPXFile=e.currentTarget.files&&e.currentTarget.files[0] ? e.currentTarget.files[0] : null;
+  resetMapAnalysisForNewGPX();
   if(!selectedGPXFile){
     $('gpxName').innerHTML='<span id="gpxCheck" class="file-check">○</span> Файл не выбран';
     $('gpxStatus').textContent='1. Выберите файл GPX.';
@@ -139,6 +193,7 @@ $('gpxFile').addEventListener('change', e=>{
     return;
   }
   $('gpxName').innerHTML='<span id="gpxCheck" class="file-check selected">✓</span> Выбран: '+selectedGPXFile.name;
+  
   $('gpxStatus').textContent='2. Файл выбран. Нажмите «Загрузить и обработать GPX».';
   $('gpxLoadBtn').disabled=false; setActionState('gpxLoadBtn','ready');
 });
@@ -161,11 +216,13 @@ $('gpxLoadBtn').addEventListener('click',async ()=>{
     await new Promise(r=>setTimeout(r,30));
     parseGPX(text);
     prog.value=100;
-    $('gpxStatus').textContent='✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(state.gain)+' м · −'+Math.round(state.loss)+' м'; setActionState('gpxLoadBtn','success');
+    $('gpxStatus').textContent='✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(state.gain)+' м · −'+Math.round(state.loss)+' м';
+    syncMapAnalyzeButton(); setActionState('gpxLoadBtn','success');
     setTimeout(()=>{prog.style.display='none';},1200);
   }catch(err){
     prog.style.display='none';
-    $('gpxStatus').textContent='✕ Ошибка обработки GPX: '+(err.message||String(err)); setActionState('gpxLoadBtn','error');
+    $('gpxStatus').textContent='✕ Ошибка обработки GPX: '+(err.message||String(err));
+    if($('mapAnalyzeBtn')){$('mapAnalyzeBtn').disabled=true;setActionState('mapAnalyzeBtn','idle');} setActionState('gpxLoadBtn','error');
   }finally{
     btn.disabled=false;
   }
@@ -500,6 +557,38 @@ function buildOverpassQuery(points){
 out tags geom;`;
 }
 
+
+
+
+function findLikelyFords(samples){
+  if(!samples || samples.length<2) return [];
+  const fords=[];
+  let inWater=false,startKm=0;
+
+  for(let i=0;i<samples.length;i++){
+    const water=String(samples[i].cls||'').toLowerCase()==='water';
+    if(water && !inWater){
+      inWater=true;
+      startKm=Number(samples[i].km||0);
+    }
+    if(!water && inWater){
+      const endKm=Number(samples[Math.max(0,i-1)].km||startKm);
+      const len=Math.max(0,endKm-startKm);
+      const mid=(startKm+endKm)/2;
+      if(len<=0.30) fords.push(mid);
+      inWater=false;
+    }
+  }
+
+  if(inWater){
+    const endKm=Number(samples[samples.length-1].km||startKm);
+    const len=Math.max(0,endKm-startKm);
+    const mid=(startKm+endKm)/2;
+    if(len<=0.30) fords.push(mid);
+  }
+  return fords;
+}
+
 function summarizeSurfaceClasses(samples){
   const counts={wetland:0,water:0,trail:0,dirt:0,paved:0,unknown:0};
   samples.forEach(x=>counts[x.cls]=(counts[x.cls]||0)+1);
@@ -551,47 +640,36 @@ async function analyzeMapOSM(){
   const pts=sampleTrackPoints(220);
   const query=buildOverpassQuery(pts);
 
-  const endpoints=[
-    'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter',
-    'https://overpass.nchc.org.tw/api/interpreter'
-  ];
+  $('mapAnalyzeStatus').textContent='⏳ Отправляю запрос через Render proxy…';
 
-  let lastError=null;
-  let data=null;
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),45000);
 
-  for(const url of endpoints){
+  let resp;
+  try{
+    resp=await fetch('/api/osm',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({query}),
+      signal:controller.signal,
+      cache:'no-store'
+    });
+  }finally{
+    clearTimeout(timer);
+  }
+
+  if(!resp.ok){
+    let detail='';
     try{
-      $('mapAnalyzeStatus').textContent='⏳ Пробую '+new URL(url).host+'…';
-      const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),25000);
-
-      const resp=await fetch(url,{
-        method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
-        body:'data='+encodeURIComponent(query),
-        signal:controller.signal,
-        mode:'cors',
-        cache:'no-store'
-      });
-      clearTimeout(timer);
-
-      if(!resp.ok) throw new Error('HTTP '+resp.status);
-      data=await resp.json();
-      break;
-    }catch(err){
-      lastError=err;
-    }
+      const e=await resp.json();
+      detail=e.error||'';
+    }catch(e){}
+    throw new Error('Proxy HTTP '+resp.status+(detail?' · '+detail:''));
   }
 
-  if(!data){
-    const msg=lastError && lastError.name==='AbortError'
-      ? 'Все Overpass-серверы не ответили вовремя'
-      : 'Не удалось загрузить OSM. Возможна блокировка CORS/сети Safari.';
-    throw new Error(msg);
-  }
-
+  const data=await resp.json();
   const elements=data.elements||[];
+
   const samples=pts.map(p=>({km:p.km,cls:classifyPointFromOSM(p,elements)}));
   const summary=summarizeSurfaceClasses(samples);
 
@@ -604,9 +682,15 @@ async function analyzeMapOSM(){
     }));
   }catch(e){}
 
-  return {samples,summary};
+  return {samples,summary,elements};
 }
 function renderMapAnalysis(result){
+  const fordKms=findLikelyFords((result&&result.samples)||[]);
+  const fordEl=$('fordCountMetric');
+  if(fordEl) fordEl.textContent=String(fordKms.length);
+  const fordList=$('fordKmList');
+  if(fordList) fordList.textContent=fordKms.length ? 'Броды на км: '+fordKms.map(x=>x.toFixed(1)).join(', ') : 'Броды: не обнаружены';
+ if(fordEl) fordEl.textContent=String(countLikelyFords((result&&result.samples)||[]));
   const {samples,summary}=result;
   $('mapAnalysisResults').style.display='block';
   $('coverageMetric').textContent=summary.coverage.toFixed(0)+'%';
@@ -923,94 +1007,14 @@ function threat(delta){
   if(delta>30)return 'очень высокая';if(delta>12)return 'высокая';if(delta>=-12)return 'прямая';if(delta>=-30)return 'умеренная';return 'низкая';
 }
 
-$('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
-  const btn=$('mapAnalyzeBtn'), p=$('mapAnalyzeProgress');
-  if(!state.track || !state.track.length){
-    $('mapAnalyzeStatus').textContent='✕ Сначала обработайте GPX.';
-    setActionState('mapAnalyzeBtn','error');
-    return;
-  }
-  btn.disabled=true;
-  setActionState('mapAnalyzeBtn','working');
-  p.style.display='block'; p.value=15;
-  $('mapAnalyzeStatus').textContent='⏳ Запрашиваю OSM/Overpass…';
-  try{
-    const result=await analyzeMapOSM();
-    p.value=85;
-    renderMapAnalysis(result);
-    p.value=100;
-    $('mapAnalyzeStatus').textContent='✓ Анализ карты готов и сохранён локально.';
-    setActionState('mapAnalyzeBtn','success');
-    setTimeout(()=>p.style.display='none',1200);
-  }catch(err){
-    p.style.display='none';
-    $('mapAnalyzeStatus').textContent='✕ Ошибка анализа карты: '+(err.message||String(err))+' · Попробуйте ещё раз при другой сети/Wi‑Fi.';
-    setActionState('mapAnalyzeBtn','error');
-  }finally{
-    btn.disabled=false;
-  }
-});
 
-$('calcBtn').addEventListener('click',()=>{
-  const finish=finishPrediction(); $('finishMetric').textContent=finish?hms(finish):'—';
-  const athlete=$('athleteName').value.trim();
-  const rows=state.roster.filter(x=>genderOkay(x.gender));
-  const a=rows.find(r=>r.athlete.toLowerCase()===athlete.toLowerCase());
-  if(a){a.pi=+($('itraPi').value||a.pi);a.form+=formScore();}
-  const ranked=[...rows].sort((x,y)=>score(y)-score(x));
-  const me=ranked.find(r=>r.athlete.toLowerCase()===athlete.toLowerCase());
-  const meScore=me?score(me):0;
-  const mc=monteCarlo(ranked,athlete);
-  $('podiumMetric').textContent=mc?(mc.pod*100).toFixed(1)+'%':'—';
-  $('winMetric').textContent=mc?(mc.win*100).toFixed(1)+'%':'—';
-  $('rankMetric').textContent=mc?String(mc.rank):'—';
 
-  const pt=$('planTable').querySelector('tbody');pt.innerHTML='';
-  buildPlan().forEach(r=>pt.insertAdjacentHTML('beforeend',`<tr><td>${r.km}</td><td>${r.hr}</td><td>${r.mode}</td><td>${r.pace}</td></tr>`));
 
-  const rt=$('rivalsTable').querySelector('tbody');rt.innerHTML='';
-  ranked.filter(r=>r.athlete.toLowerCase()!==athlete.toLowerCase()).slice(0,10).forEach((r,i)=>{
-    const s=score(r), d=s-meScore;
-    rt.insertAdjacentHTML('beforeend',`<tr><td>${i+1}</td><td>${r.athlete}</td><td>${r.pi||0}</td><td>${s.toFixed(1)}</td><td>${threat(d)}</td></tr>`);
-  });
-  document.querySelector('[data-tab="result"]').click();
-});
 
-$('saveBtn').addEventListener('click',()=>{
-  const payload={
-    athlete:$('athleteName').value, pi:$('itraPi').value,
-    route:{dist:state.dist,gain:state.gain,loss:state.loss},
-    training:{dist:$('refDist').value,gain:$('refGain').value,avgHr:$('refAvgHr').value,maxHr:$('refMaxHr').value,lthr:$('lthr').value},
-    roster:state.roster,
-    savedAt:new Date().toISOString()
-  };
-  localStorage.setItem('trailRaceAnalyzerState',JSON.stringify(payload));
-  $('saveStatus').textContent='Сохранено локально на этом iPhone.';
-});
 
-window.addEventListener('load',()=>{
-  try{
-    const m=JSON.parse(localStorage.getItem('trailMapAnalysis')||'null');
-    if(m && m.summary && Array.isArray(m.samples)){
-      renderMapAnalysis({samples:m.samples,summary:m.summary});
-      $('mapAnalyzeStatus').textContent='Сохранённый анализ карты загружен локально.';
-    }
-  }catch(e){}
 
-  // Migrate old builds that contained a hardcoded athlete name.
-  const currentName=$('athleteName').value.trim().toLowerCase();
-  if(currentName==='анастасия кабенина' || currentName==='sidorenko pavel' || currentName==='pavel sidorenko'){
-    $('athleteName').value='Noname';
-  }
 
-  try{
-    const p=JSON.parse(localStorage.getItem('trailRaceAnalyzerState')||'null');
-    if(!p)return;
-    $('athleteName').value=(p.athlete && String(p.athlete).trim()) ? p.athlete : 'Noname';$('itraPi').value=p.pi||$('itraPi').value;
-    if(p.training){
-      $('refDist').value=p.training.dist||17;$('refGain').value=p.training.gain||645;
-      $('refAvgHr').value=p.training.avgHr||184;$('refMaxHr').value=p.training.maxHr||0;$('lthr').value=p.training.lthr||0;
-    }
-    if(Array.isArray(p.roster)){state.roster=p.roster;renderRoster();}
-  }catch(e){}
-});
+window.addEventListener('DOMContentLoaded',syncMapAnalyzeButton);
+
+
+
