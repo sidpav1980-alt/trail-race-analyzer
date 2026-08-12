@@ -14,7 +14,6 @@
 </head>
 <body>
 <div class="app-version">v0.13</div>
-
   <header class="app-header">
     <div>
       <div class="eyebrow">Trail Race Analyzer</div>
@@ -83,14 +82,11 @@
       <div class="card">
         <h2>Тренировки</h2>
         <p class="muted">Добавь скриншоты Garmin/Strava. Приложение хранит их локально; ключевые цифры можно внести вручную или скопировать через iPhone Live Text. Интернет не нужен.</p>
-        <div class="upload">
-          <strong>Скриншот тренировки</strong>
+        <label class="upload">
           <input id="shotFiles" type="file" accept="image/*">
-          <span id="shotsName"><span id="shotsCheck" class="file-check">○</span> Файл не выбран</span>
-          <button id="shotsLoadBtn" type="button" class="primary" disabled>Загрузить и обработать скриншот</button>
-          <span id="shotsStatus">1. Выберите один скриншот.</span>
-          <progress id="shotsProgress" value="0" max="100" style="width:100%;display:none"></progress>
-        </div>
+          <strong>Добавить скриншоты</strong>
+          <span>Можно несколько файлов</span>
+        </label>
 
         <div class="grid2">
           <label class="field"><span>Контрольная дистанция, км</span><input id="refDist" type="number" step="1" value="1"></label>
@@ -113,7 +109,7 @@
         <div class="upload">
           <strong>Стартовый список XLSX / CSV</strong>
           <input id="rosterFile" type="file" accept=".xlsx,.xls,.csv,text/csv">
-          <span id="rosterName"><span id="rosterCheck" class="file-check">○</span> Файл не выбран</span>
+          <span id="rosterName"><span class="file-check">○</span> Файл не выбран</span>
           <button id="rosterLoadBtn" type="button" class="primary" disabled>Загрузить и обработать стартовый список</button>
           <span id="rosterStatus">1. Выберите файл стартового списка.</span>
           <progress id="rosterProgress" value="0" max="100" style="width:100%;display:none"></progress>
