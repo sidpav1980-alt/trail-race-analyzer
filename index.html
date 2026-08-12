@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="app-version">v0.25 OFFLINE</div>
+<div class="app-version">v0.26 OFFLINE</div>
   <header class="app-header">
     <div>
       <div class="eyebrow">Trail Race Analyzer</div>
@@ -81,12 +81,15 @@
     <section id="training" class="tabpanel">
       <div class="card">
         <h2>Тренировки</h2>
-        <p class="muted">Добавь скриншоты Garmin/Strava. Приложение хранит их локально; ключевые цифры можно внести вручную или скопировать через iPhone Live Text. Интернет не нужен.</p>
-        <label class="upload">
+        <p class="muted">Добавь один скриншот Garmin/Strava. Приложение хранит их локально; ключевые цифры можно внести вручную или скопировать через iPhone Live Text. Интернет не нужен.</p>
+        <div class="upload">
+          <strong>Скриншот тренировки</strong>
           <input id="shotFiles" type="file" accept="image/*">
-          <strong>Добавить скриншоты</strong>
-          <span>Можно несколько файлов</span>
-        </label>
+          <span id="shotsName"><span class="file-check">○</span> Файл не выбран</span>
+          <button id="shotsLoadBtn" type="button" class="primary action-idle" disabled>Загрузить и обработать скриншот</button>
+          <span id="shotsStatus">1. Выберите один скриншот.</span>
+          <progress id="shotsProgress" value="0" max="100" style="width:100%;display:none"></progress>
+        </div>
 
         <div class="grid2">
           <label class="field"><span>Контрольная дистанция, км</span><input id="refDist" type="number" step="1" value="1"></label>

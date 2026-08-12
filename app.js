@@ -12,7 +12,8 @@ const state = {
 const $ = id => document.getElementById(id);
 
 function setActionState(id,state){
-  const b=$(id); if(!b) return;
+  const b=$(id);
+  if(!b) return;
   b.classList.remove('action-idle','action-ready','action-working','action-success','action-error');
   b.classList.add('action-'+state);
 }
@@ -153,29 +154,77 @@ function paceFmt(sec){
   sec=Math.round(sec); return `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
 }
 
+let selectedShotFile=null;
+
 $('shotFiles').addEventListener('change', e=>{
-  state.shots=[...e.target.files];
-  renderShots();
+  selectedShotFile=e.currentTarget.files&&e.currentTarget.files[0] ? e.currentTarget.files[0] : null;
+  if(!selectedShotFile){
+    state.shots=[];
+    $('shotsName').innerHTML='<span class="file-check">○</span> Файл не выбран';
+    $('shotsStatus').textContent='1. Выберите один скриншот.';
+    $('shotsLoadBtn').disabled=true;
+    setActionState('shotsLoadBtn','idle');
+    return;
+  }
+  $('shotsName').innerHTML='<span class="file-check selected">✓</span> Выбран: '+selectedShotFile.name;
+  $('shotsStatus').textContent='2. Файл выбран. Нажмите кнопку загрузки.';
+  $('shotsLoadBtn').disabled=false;
+  setActionState('shotsLoadBtn','ready');
 });
+
+$('shotsLoadBtn').addEventListener('click',async ()=>{
+  if(!selectedShotFile){
+    $('shotsStatus').textContent='✕ Сначала выберите скриншот.';
+    setActionState('shotsLoadBtn','error');
+    return;
+  }
+
+  const btn=$('shotsLoadBtn'), p=$('shotsProgress');
+  btn.disabled=true;
+  setActionState('shotsLoadBtn','working');
+  p.style.display='block';
+  p.value=20;
+  $('shotsStatus').textContent='⏳ Загружаю скриншот…';
+
+  try{
+    state.shots=[selectedShotFile];
+    p.value=70;
+    renderShots();
+    await new Promise(r=>setTimeout(r,60));
+    p.value=100;
+    $('shotsStatus').textContent='✓ Скриншот успешно загружен.';
+    setActionState('shotsLoadBtn','success');
+    setTimeout(()=>{p.style.display='none';},1000);
+  }catch(err){
+    p.style.display='none';
+    $('shotsStatus').textContent='✕ Ошибка загрузки скриншота: '+(err.message||String(err));
+    setActionState('shotsLoadBtn','error');
+  }finally{
+    btn.disabled=false;
+  }
+});
+
 function renderShots(){
   const box=$('shotsList'); box.innerHTML='';
   state.shots.forEach((f,i)=>{
     const url=URL.createObjectURL(f);
     const d=document.createElement('div'); d.className='shot';
-    d.innerHTML=`<img src="${url}"><div><b>${f.name}</b><textarea id="shotText${i}" rows="4" placeholder="OCR/ручные данные тренировки"></textarea></div>`;
+    d.innerHTML=`<img src="${url}"><div><b>${f.name}</b><textarea id="shotText${i}" rows="4" placeholder="Вставьте текст с тренировки"></textarea></div>`;
     box.appendChild(d);
   });
 }
+
 $('ocrBtn').addEventListener('click', ()=>{
-  if(!state.shots.length){$('ocrStatus').textContent='Сначала добавьте скриншоты.';return;}
+  if(!state.shots.length){$('ocrStatus').textContent='Сначала загрузите скриншот.';return;}
   let merged='';
   for(let i=0;i<state.shots.length;i++){
     const el=$(`shotText${i}`);
-    if(el) merged += '\n' + el.value;
+    if(el) merged += '\\n' + el.value;
   }
   applyOCR(merged);
   $('ocrStatus').textContent='Данные из вставленного текста применены. Проверь значения ниже.';
 });
+
 function applyOCR(text){
   const low=text.toLowerCase().replace(',','.');
   let m=low.match(/(\d+(?:\.\d+)?)\s*км/); if(m)$('refDist').value=m[1];
@@ -283,7 +332,7 @@ $('rosterLoadBtn').addEventListener('click',async ()=>{
     if(f.name.toLowerCase().endsWith('.csv')) rows=parseCSV(await f.text());
     else rows=await parseXlsxOffline(await f.arrayBuffer());
     p.value=75;state.roster=normalizeRoster(rows);renderRoster();p.value=100;
-    $('rosterStatus').textContent='✓ Готово: '+state.roster.length+' участников.'; setActionState('rosterLoadBtn','success');setActionState('rosterLoadBtn','success');setTimeout(()=>p.style.display='none',1000);
+    $('rosterStatus').textContent='✓ Готово: '+state.roster.length+' участников.'; setActionState('rosterLoadBtn','success');setTimeout(()=>p.style.display='none',1000);
   }catch(err){p.style.display='none';$('rosterStatus').textContent='✕ '+(err.message||err);setActionState('rosterLoadBtn','error');}
   finally{btn.disabled=false;}
 });
