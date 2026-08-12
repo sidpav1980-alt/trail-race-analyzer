@@ -126,3 +126,29 @@ footer{max-width:900px;margin:0 auto;padding:12px 16px 32px;color:var(--muted);f
   color:#ffffff !important;
   opacity:1 !important;
 }
+
+/* v0.25 definitive upload button states */
+button.action-ready,
+button.action-ready:disabled {
+  background:#38bdf8 !important;
+  color:#07111f !important;
+  opacity:1 !important;
+}
+button.action-working,
+button.action-working:disabled {
+  background:#64748b !important;
+  color:#f8fafc !important;
+  opacity:1 !important;
+}
+button.action-success,
+button.action-success:disabled {
+  background:#22c55e !important;
+  color:#052e16 !important;
+  opacity:1 !important;
+}
+button.action-error,
+button.action-error:disabled {
+  background:#ef4444 !important;
+  color:#ffffff !important;
+  opacity:1 !important;
+}

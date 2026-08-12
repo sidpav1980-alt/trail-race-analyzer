@@ -78,7 +78,7 @@ function parseGPX(text){
   $('distMetric').textContent=state.dist.toFixed(1)+' км';
   $('gainMetric').textContent=Math.round(gain)+' м';
   $('lossMetric').textContent=Math.round(loss)+' м';
-  $('gpxStatus').textContent='✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(gain)+' м · −'+Math.round(loss)+' м';
+  $('gpxStatus').textContent='✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(gain)+' м · −'+Math.round(loss)+' м'; setActionState('gpxLoadBtn','success');
 }
 function readFileIOS(file){
   return new Promise((resolve,reject)=>{
@@ -102,7 +102,7 @@ $('gpxFile').addEventListener('change', e=>{
 
 $('gpxLoadBtn').addEventListener('click',async ()=>{
   if(!selectedGPXFile){
-    $('gpxStatus').textContent='✕ Сначала выберите GPX.';
+    $('gpxStatus').textContent='✕ Сначала выберите GPX.'; setActionState('gpxLoadBtn','error');
     return;
   }
   const btn=$('gpxLoadBtn'), prog=$('gpxProgress');
@@ -283,7 +283,7 @@ $('rosterLoadBtn').addEventListener('click',async ()=>{
     if(f.name.toLowerCase().endsWith('.csv')) rows=parseCSV(await f.text());
     else rows=await parseXlsxOffline(await f.arrayBuffer());
     p.value=75;state.roster=normalizeRoster(rows);renderRoster();p.value=100;
-    $('rosterStatus').textContent='✓ Готово: '+state.roster.length+' участников.';setActionState('rosterLoadBtn','success');setTimeout(()=>p.style.display='none',1000);
+    $('rosterStatus').textContent='✓ Готово: '+state.roster.length+' участников.'; setActionState('rosterLoadBtn','success');setActionState('rosterLoadBtn','success');setTimeout(()=>p.style.display='none',1000);
   }catch(err){p.style.display='none';$('rosterStatus').textContent='✕ '+(err.message||err);setActionState('rosterLoadBtn','error');}
   finally{btn.disabled=false;}
 });
