@@ -6,6 +6,13 @@ const state = {
   loss: 0,
   roster: [],
   shots: [],
+  raceReferences: {
+    strength: null,
+    fastTrail: null,
+    flatRace: null
+  },
+  raceModel: null,
+  raceForecast: null,
   deferredPrompt: null
 };
 
@@ -18,7 +25,65 @@ function setActionState(id,state){
   b.classList.add('action-'+state);
 }
 
+
+function resetOwnItraForNewGPX(){
+  const piEl=getAthletePiElement ? getAthletePiElement() : ($('athletePi')||$('itraPi')||$('pi'));
+  if(piEl) piEl.value='0';
+
+  const profileEl=$('ownItraProfile');
+  if(profileEl) profileEl.value='';
+
+  const ownStatus=$('ownItraLookupStatus');
+  if(ownStatus) ownStatus.textContent='ITRA не загружен. PI = 0.';
+
+  const ownBtn=$('ownItraLookupBtn');
+  if(ownBtn){
+    ownBtn.disabled=false;
+    setActionState('ownItraLookupBtn','ready');
+  }
+
+  try{ localStorage.removeItem('trailOwnItraProfile'); }catch(e){}
+}
+
+
+function clearMapAnalysisOnPageStart(){
+  try{ localStorage.removeItem('trailMapAnalysis'); }catch(e){}
+
+  const box=$('mapAnalysisResults');
+  if(box) box.style.display='none';
+
+  ['coverageMetric','wetlandMetric','waterCrossMetric','trailMetric','dirtMetric','pavedMetric','fordCountMetric']
+    .forEach(id=>{
+      const el=$(id);
+      if(el) el.textContent='—';
+    });
+
+  const fordList=$('fordKmList');
+  if(fordList) fordList.textContent='Броды: —';
+  const bridgeList=$('bridgeFordKmList');
+  if(bridgeList) bridgeList.textContent='По мосту: —';
+
+  const note=$('mapAnalysisNote');
+  if(note) note.textContent='—';
+
+  const canvas=$('surfaceStripCanvas');
+  if(canvas){
+    const ctx=canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+  }
+
+  const p=$('mapAnalyzeProgress');
+  if(p){ p.value=0; p.style.display='none'; }
+
+  const s=$('mapAnalyzeStatus');
+  if(s) s.textContent='Сначала обработайте GPX и запустите анализ карты.';
+}
+
 function resetMapAnalysisForNewGPX(){
+  if($('movingPaceMetric')) $('movingPaceMetric').textContent='— мин/км';
+  if($('elapsedPaceMetric')) $('elapsedPaceMetric').textContent='— мин/км';
+  if($('movingTimeMetric')) $('movingTimeMetric').textContent='—';
+  if($('elapsedTimeMetric')) $('elapsedTimeMetric').textContent='—';
   // A new GPX invalidates all surface information from the previous route.
   try{ localStorage.removeItem('trailMapAnalysis'); }catch(e){}
 
@@ -35,6 +100,8 @@ function resetMapAnalysisForNewGPX(){
   });
 
   const fordList=$('fordKmList'); if(fordList) fordList.textContent='Броды: —';
+  const bridgeList=$('bridgeFordKmList');
+  if(bridgeList) bridgeList.textContent='По мосту: —';
   const note=$('mapAnalysisNote');
   if(note) note.textContent='—';
 
@@ -63,10 +130,16 @@ function resetMapAnalysisForNewGPX(){
 function syncMapAnalyzeButton(){
   const btn=$('mapAnalyzeBtn');
   if(!btn) return;
-  btn.disabled=true;
-  setActionState('mapAnalyzeBtn','idle');
-  const s=$('mapAnalyzeStatus');
-  if(s) s.textContent='Офлайн-версия: новый анализ карты недоступен.';
+  const ready=!!(state.track && state.track.length>1 && state.dist>0);
+  btn.disabled=!ready;
+  if(ready){
+    setActionState('mapAnalyzeBtn','ready');
+    if($('mapAnalyzeStatus') && !$('mapAnalyzeStatus').textContent.includes('✓')){
+      $('mapAnalyzeStatus').textContent='GPX готов. Можно запускать анализ карты.';
+    }
+  }else{
+    setActionState('mapAnalyzeBtn','idle');
+  }
 }
 
 
@@ -163,7 +236,14 @@ function parseGPX(text){
     }
   }
 
-  state.track=out;state.dist=total/1000;state.gain=gain;state.loss=loss;
+  state.track=out;
+  // Preserve original GPX timestamps for moving/elapsed time.
+  const _gpxTimeNodes=[...xml.querySelectorAll('trkpt')];
+  state.track.forEach((p,i)=>{
+    const tn=_gpxTimeNodes[i]?.querySelector('time');
+    p.time=tn ? tn.textContent.trim() : null;
+  });
+state.dist=total/1000;state.gain=gain;state.loss=loss;
   syncMapAnalyzeButton();
   $('distMetric').textContent=state.dist.toFixed(1)+' км';
   $('gainMetric').textContent=Math.round(gain)+' м';
@@ -171,6 +251,8 @@ function parseGPX(text){
   updateItraDifficulty();
   updateTrailDifficulty();
   drawTrackProfiles();
+  updateTraversalTimes();
+  updateRaceForecastAvailability();
 }
 function readFileIOS(file){
   return new Promise((resolve,reject)=>{
@@ -184,8 +266,16 @@ $('basePace').addEventListener('change',()=>{ if(state.track&&state.track.length
 window.addEventListener('resize',()=>{ if(state.track&&state.track.length) drawTrackProfiles(); });
 
 $('gpxFile').addEventListener('change', e=>{
+  state.raceForecast=null;
+  if($('raceForecastTable')) $('raceForecastTable').querySelector('tbody').innerHTML='';
+  if($('raceForecastTime')) $('raceForecastTime').textContent='—';
+  if($('raceForecastPace')) $('raceForecastPace').textContent='—';
+  if($('raceForecastRange')) $('raceForecastRange').textContent='—';
+
+  clearResultForecast();
   selectedGPXFile=e.currentTarget.files&&e.currentTarget.files[0] ? e.currentTarget.files[0] : null;
   resetMapAnalysisForNewGPX();
+  resetOwnItraForNewGPX();
   if(!selectedGPXFile){
     $('gpxName').innerHTML='<span id="gpxCheck" class="file-check">○</span> Файл не выбран';
     $('gpxStatus').textContent='1. Выберите файл GPX.';
@@ -238,6 +328,85 @@ function itraEndurancePoints(kmEffort){
   if(kmEffort < 155) return 4;
   if(kmEffort < 210) return 5;
   return 6;
+}
+
+
+
+function formatDurationSeconds(seconds){
+  if(!Number.isFinite(seconds) || seconds<0) return '—';
+  const totalMin=Math.round(seconds/60);
+  const h=Math.floor(totalMin/60);
+  const m=totalMin%60;
+  return `${h}:${String(m).padStart(2,'0')}`;
+}
+
+function getTrackTimesFromGPX(){
+  const pts=(state.track||[]).filter(p=>p && p.time);
+  if(pts.length<2) return null;
+
+  const parsed=pts.map(p=>({
+    ...p,
+    _ts:new Date(p.time).getTime()
+  })).filter(p=>Number.isFinite(p._ts));
+
+  if(parsed.length<2) return null;
+
+  const elapsedSec=Math.max(0,(parsed[parsed.length-1]._ts-parsed[0]._ts)/1000);
+
+  // Moving time: sum intervals where the athlete actually moved.
+  // GPX points farther apart than 3 minutes are treated as a pause/gap unless
+  // distance between the points proves continued movement.
+  let movingSec=0;
+  for(let i=1;i<parsed.length;i++){
+    const a=parsed[i-1], b=parsed[i];
+    const dt=(b._ts-a._ts)/1000;
+    if(!(dt>0) || dt>180) continue;
+
+    let distKm=0;
+    if(Number.isFinite(a.km) && Number.isFinite(b.km)){
+      distKm=Math.max(0,b.km-a.km);
+    }else if(Number.isFinite(a.lat)&&Number.isFinite(a.lon)&&Number.isFinite(b.lat)&&Number.isFinite(b.lon)){
+      distKm=haversineKm(a.lat,a.lon,b.lat,b.lon);
+    }
+
+    // At least ~0.5 km/h. This excludes stationary GPS jitter.
+    const speedKmh=distKm/(dt/3600);
+    if(speedKmh>=0.5) movingSec+=dt;
+  }
+
+  return {movingSec,elapsedSec};
+}
+
+
+function formatTrackPace(seconds,distanceKm){
+  if(!Number.isFinite(seconds) || seconds<=0 || !Number.isFinite(distanceKm) || distanceKm<=0) return '— мин/км';
+  const secPerKm=seconds/distanceKm;
+  const min=Math.floor(secPerKm/60);
+  const sec=Math.round(secPerKm%60);
+  if(sec===60) return `${min+1}:00 мин/км`;
+  return `${min}:${String(sec).padStart(2,'0')} мин/км`;
+}
+
+function updateTraversalTimes(){
+  const moving=$('movingTimeMetric'), elapsed=$('elapsedTimeMetric');
+  const movingPace=$('movingPaceMetric'), elapsedPace=$('elapsedPaceMetric');
+  if(!moving || !elapsed) return;
+
+  const times=getTrackTimesFromGPX();
+  if(!times){
+    moving.textContent='нет времени в GPX';
+    elapsed.textContent='нет времени в GPX';
+    if(movingPace) movingPace.textContent='— мин/км';
+    if(elapsedPace) elapsedPace.textContent='— мин/км';
+    return;
+  }
+
+  moving.textContent=formatDurationSeconds(times.movingSec);
+  elapsed.textContent=formatDurationSeconds(times.elapsedSec);
+
+  const distanceKm=Number(state.dist||0);
+  if(movingPace) movingPace.textContent=formatTrackPace(times.movingSec,distanceKm);
+  if(elapsedPace) elapsedPace.textContent=formatTrackPace(times.elapsedSec,distanceKm);
 }
 
 function updateItraDifficulty(){
@@ -560,33 +729,68 @@ out tags geom;`;
 
 
 
-function findLikelyFords(samples){
-  if(!samples || samples.length<2) return [];
-  const fords=[];
+function analyzeWaterCrossings(samples,elements=[]){
+  if(!samples || samples.length<2) return {fords:[],bridges:[]};
+
+  const bridgeWays=(elements||[]).filter(el=>{
+    const t=el.tags||{};
+    return el.type==='way' && Array.isArray(el.geometry) && el.geometry.length>=2 &&
+      (t.bridge==='yes' || t.bridge==='true' || t.bridge==='viaduct' || t.man_made==='bridge');
+  });
+
+  function trackPointAtKm(km){
+    let best=null,bestDiff=Infinity;
+    for(const p of (state.track||[])){
+      if(!Number.isFinite(p.km)||!Number.isFinite(p.lat)||!Number.isFinite(p.lon)) continue;
+      const d=Math.abs(p.km-km);
+      if(d<bestDiff){best=p;bestDiff=d;}
+    }
+    return best;
+  }
+
+  function bridgeNearKm(km){
+    const p=trackPointAtKm(km);
+    if(!p) return false;
+    for(const way of bridgeWays){
+      const g=way.geometry||[];
+      for(let i=1;i<g.length;i++){
+        const a={lat:g[i-1].lat,lon:g[i-1].lon};
+        const b={lat:g[i].lat,lon:g[i].lon};
+        const d=distancePointToSegmentKm({lat:p.lat,lon:p.lon},a,b);
+        if(Number.isFinite(d) && d<=0.035) return true;
+      }
+    }
+    return false;
+  }
+
+  const fords=[],bridges=[];
   let inWater=false,startKm=0;
+
+  function finish(endKm){
+    const len=Math.max(0,endKm-startKm);
+    if(len>0.30) return;
+    const mid=(startKm+endKm)/2;
+    if(bridgeNearKm(mid)) bridges.push(mid);
+    else fords.push(mid);
+  }
 
   for(let i=0;i<samples.length;i++){
     const water=String(samples[i].cls||'').toLowerCase()==='water';
     if(water && !inWater){
       inWater=true;
       startKm=Number(samples[i].km||0);
-    }
-    if(!water && inWater){
-      const endKm=Number(samples[Math.max(0,i-1)].km||startKm);
-      const len=Math.max(0,endKm-startKm);
-      const mid=(startKm+endKm)/2;
-      if(len<=0.30) fords.push(mid);
+    }else if(!water && inWater){
+      finish(Number(samples[Math.max(0,i-1)].km||startKm));
       inWater=false;
     }
   }
 
-  if(inWater){
-    const endKm=Number(samples[samples.length-1].km||startKm);
-    const len=Math.max(0,endKm-startKm);
-    const mid=(startKm+endKm)/2;
-    if(len<=0.30) fords.push(mid);
-  }
-  return fords;
+  if(inWater) finish(Number(samples[samples.length-1].km||startKm));
+  return {fords,bridges};
+}
+
+function findLikelyFords(samples,elements=[]){
+  return analyzeWaterCrossings(samples,elements).fords;
 }
 
 function summarizeSurfaceClasses(samples){
@@ -685,13 +889,11 @@ async function analyzeMapOSM(){
   return {samples,summary,elements};
 }
 function renderMapAnalysis(result){
-  const fordKms=findLikelyFords((result&&result.samples)||[]);
-  const fordEl=$('fordCountMetric');
-  if(fordEl) fordEl.textContent=String(fordKms.length);
-  const fordList=$('fordKmList');
-  if(fordList) fordList.textContent=fordKms.length ? 'Броды на км: '+fordKms.map(x=>x.toFixed(1)).join(', ') : 'Броды: не обнаружены';
- if(fordEl) fordEl.textContent=String(countLikelyFords((result&&result.samples)||[]));
-  const {samples,summary}=result;
+  const {samples,summary,elements=[]}=result;
+  const crossings=analyzeWaterCrossings(samples,elements);
+  const fordKms=crossings.fords;
+  const bridgeKms=crossings.bridges;
+
   $('mapAnalysisResults').style.display='block';
   $('coverageMetric').textContent=summary.coverage.toFixed(0)+'%';
   $('wetlandMetric').textContent=summary.wetland.toFixed(1)+'%';
@@ -699,6 +901,20 @@ function renderMapAnalysis(result){
   $('trailMetric').textContent=summary.trail.toFixed(1)+'%';
   $('dirtMetric').textContent=summary.dirt.toFixed(1)+'%';
   $('pavedMetric').textContent=summary.paved.toFixed(1)+'%';
+
+  const fordCount=$('fordCountMetric');
+  if(fordCount) fordCount.textContent=String(fordKms.length);
+
+  const fordList=$('fordKmList');
+  if(fordList) fordList.textContent=fordKms.length
+    ? 'Броды на км: '+fordKms.map(x=>x.toFixed(1)).join(', ')
+    : 'Броды: не обнаружены';
+
+  const bridgeList=$('bridgeFordKmList');
+  if(bridgeList) bridgeList.textContent=bridgeKms.length
+    ? 'Пересечение воды по мосту на км: '+bridgeKms.map(x=>x.toFixed(1)).join(', ')
+    : 'По мосту: не обнаружено';
+
   $('mapAnalysisNote').textContent=`OSM-классификация маршрута. Неизвестно: ${(100-summary.coverage).toFixed(0)}%. Данные зависят от полноты разметки OpenStreetMap.`;
   drawSurfaceStrip(samples);
 }
@@ -717,86 +933,6 @@ function hms(sec){
 function paceFmt(sec){
   sec=Math.round(sec); return `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
 }
-
-let selectedShotFile=null;
-
-$('shotFiles').addEventListener('change', e=>{
-  selectedShotFile=e.currentTarget.files&&e.currentTarget.files[0] ? e.currentTarget.files[0] : null;
-  if(!selectedShotFile){
-    state.shots=[];
-    $('shotsName').innerHTML='<span class="file-check">○</span> Файл не выбран';
-    $('shotsStatus').textContent='1. Выберите один скриншот.';
-    $('shotsLoadBtn').disabled=true;
-    setActionState('shotsLoadBtn','idle');
-    return;
-  }
-  $('shotsName').innerHTML='<span class="file-check selected">✓</span> Выбран: '+selectedShotFile.name;
-  $('shotsStatus').textContent='2. Файл выбран. Нажмите кнопку загрузки.';
-  $('shotsLoadBtn').disabled=false;
-  setActionState('shotsLoadBtn','ready');
-});
-
-$('shotsLoadBtn').addEventListener('click',async ()=>{
-  if(!selectedShotFile){
-    $('shotsStatus').textContent='✕ Сначала выберите скриншот.';
-    setActionState('shotsLoadBtn','error');
-    return;
-  }
-
-  const btn=$('shotsLoadBtn'), p=$('shotsProgress');
-  btn.disabled=true;
-  setActionState('shotsLoadBtn','working');
-  p.style.display='block';
-  p.value=20;
-  $('shotsStatus').textContent='⏳ Загружаю скриншот…';
-
-  try{
-    state.shots=[selectedShotFile];
-    p.value=70;
-    renderShots();
-    await new Promise(r=>setTimeout(r,60));
-    p.value=100;
-    $('shotsStatus').textContent='✓ Скриншот успешно загружен.';
-    setActionState('shotsLoadBtn','success');
-    setTimeout(()=>{p.style.display='none';},1000);
-  }catch(err){
-    p.style.display='none';
-    $('shotsStatus').textContent='✕ Ошибка загрузки скриншота: '+(err.message||String(err));
-    setActionState('shotsLoadBtn','error');
-  }finally{
-    btn.disabled=false;
-  }
-});
-
-function renderShots(){
-  const box=$('shotsList'); box.innerHTML='';
-  state.shots.forEach((f,i)=>{
-    const url=URL.createObjectURL(f);
-    const d=document.createElement('div'); d.className='shot';
-    d.innerHTML=`<img src="${url}"><div><b>${f.name}</b><textarea id="shotText${i}" rows="4" placeholder="Вставьте текст с тренировки"></textarea></div>`;
-    box.appendChild(d);
-  });
-}
-
-$('ocrBtn').addEventListener('click', ()=>{
-  if(!state.shots.length){$('ocrStatus').textContent='Сначала загрузите скриншот.';return;}
-  let merged='';
-  for(let i=0;i<state.shots.length;i++){
-    const el=$(`shotText${i}`);
-    if(el) merged += '\\n' + el.value;
-  }
-  applyOCR(merged);
-  $('ocrStatus').textContent='Данные из вставленного текста применены. Проверь значения ниже.';
-});
-
-function applyOCR(text){
-  const low=text.toLowerCase().replace(',','.');
-  let m=low.match(/(\d+(?:\.\d+)?)\s*км/); if(m)$('refDist').value=m[1];
-  m=low.match(/(?:набор|elevation|gain|\+)\D{0,8}(\d{2,5})\s*м/); if(m)$('refGain').value=m[1];
-  m=low.match(/(?:средн\w*\s*пульс|avg\s*hr|average heart rate)\D{0,12}(\d{2,3})/); if(m)$('refAvgHr').value=m[1];
-  m=low.match(/(?:макс\w*\s*пульс|max\s*hr|max heart rate)\D{0,12}(\d{2,3})/); if(m)$('refMaxHr').value=m[1];
-}
-
 
 async function inflateRaw(bytes){
   if(typeof DecompressionStream==='undefined') throw new Error('Safari слишком старый для автономного XLSX. Сохраните файл как CSV.');
@@ -945,11 +1081,37 @@ $('genderFilter').addEventListener('change',renderRoster);
 
 function estimateLTHR(){
   const known=+$('lthr').value||0; if(known)return known;
-  const hr=+$('refAvgHr').value||0, mins=+$('refMinutes').value||100;
+  const hr=+$('refAvgHr').value||0, mins=trainingMovingMinutes()||100;
   if(mins<=50)return Math.round(hr*.98);
   if(mins<=100)return Math.round(hr*1.01);
   return Math.round(hr*1.03);
 }
+
+function movingTimeMinutes(){
+  const el=$('refMinutes');
+  if(!el) return 0;
+  const s=String(el.value||'').trim().replace(',','.');
+  let m=s.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+  if(m) return Number(m[1])*60+Number(m[2])+Number(m[3])/60;
+  m=s.match(/^(\d{1,3}):(\d{2})$/);
+  if(m) return Number(m[1])+Number(m[2])/60;
+  const n=Number(s);
+  return Number.isFinite(n)?n:0;
+}
+
+
+function trainingMovingMinutes(){
+  const el=$('refMinutes');
+  if(!el) return 0;
+  const s=String(el.value||'').trim().replace(',','.');
+  let m=s.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+  if(m) return Number(m[1])*60+Number(m[2])+Number(m[3])/60;
+  m=s.match(/^(\d{1,3}):(\d{2})$/);
+  if(m) return Number(m[1])+Number(m[2])/60;
+  const n=Number(s);
+  return Number.isFinite(n)?n:0;
+}
+
 function formScore(){
   let s=0;
   const d=+$('refDist').value||0,g=+$('refGain').value||0,hr=+$('refAvgHr').value||0;
@@ -959,6 +1121,109 @@ function formScore(){
   if(state.shots.length>=3)s+=2;
   return Math.min(12,s);
 }
+
+function hasAnalysisData(){
+  const pi=Number($('itraPi')?.value||0);
+  const training=
+    Number($('refDist')?.value||0)>0 ||
+    Number($('refGain')?.value||0)>0 ||
+    Number($('refAvgHr')?.value||0)>0 ||
+    (Array.isArray(state.shots) && state.shots.length>0);
+  const roster=Array.isArray(state.roster) && state.roster.length>0;
+  return Number(state.dist||0)>0 && (pi>0 || training || roster);
+}
+
+function clearResultForecast(){
+  ['finishMetric','podiumMetric','top10Metric','top30Metric','top50Metric','winMetric','rankMetric']
+    .forEach(id=>{
+      const el=$(id);
+      if(el) el.textContent='—';
+    });
+
+  const pt=$('planTable')?.querySelector('tbody');
+  if(pt) pt.innerHTML='';
+  const rt=$('rivalsTable')?.querySelector('tbody');
+  if(rt) rt.innerHTML='';
+}
+
+
+function getBestTrainingHr(){
+  const v=Number($('refAvgHr')?.value||state.bestTraining?.hr||0);
+  return Number.isFinite(v) ? v : 0;
+}
+
+function buildHrStrategy(){
+  const dist=Number(state.dist||0);
+  const avgHr=getBestTrainingHr();
+  if(!(dist>0) || !(avgHr>0)) return [];
+
+  // Use best-training HR as an anchor.
+  // Early race = controlled, middle = working range, final = race effort.
+  // Clamp to sane running ranges so OCR mistakes don't create absurd targets.
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,Math.round(x)));
+
+  const earlyLo=clamp(avgHr-10,120,185);
+  const earlyHi=clamp(avgHr-7,earlyLo,190);
+
+  const midLo=clamp(avgHr-7,120,190);
+  const midHi=clamp(avgHr-3,midLo,195);
+
+  const lateLo=clamp(avgHr-3,120,195);
+  const lateHi=clamp(avgHr+1,lateLo,198);
+
+  const finishLo=clamp(avgHr,120,198);
+  const finishHi=clamp(avgHr+5,finishLo,202);
+
+  const p1=Math.max(1,Math.round(dist*0.52));
+  const p2=Math.max(p1+1,Math.round(dist*0.78));
+  const p3=Math.max(p2+1,Math.round(dist*0.95));
+
+  return [
+    {
+      km:`0–${p1} км`,
+      hr:`${earlyLo}–${earlyHi}`,
+      mode:'На подъёмах держать запас. Короткий выход выше диапазона допустим, но не висеть там постоянно.'
+    },
+    {
+      km:`${p1}–${p2} км`,
+      hr:`${midLo}–${midHi}`,
+      mode:'Рабочий горный пульс. На спусках и лёгких участках дать пульсу опуститься и восстановиться.'
+    },
+    {
+      km:`${p2}–${p3} км`,
+      hr:`${lateLo}–${lateHi}`,
+      mode:'Если питание и ноги в порядке — постепенно повышать усилие. Основная атака.'
+    },
+    {
+      km:`${p3}–${dist.toFixed(1).replace(/\.0$/,'')} км`,
+      hr:`${finishLo}–${finishHi}+`,
+      mode:'Финишный участок. Можно работать без экономии, если нет признаков перегрева или развала.'
+    }
+  ];
+}
+
+function renderHrStrategy(){
+  const tbody=$('hrStrategyTable')?.querySelector('tbody');
+  const summary=$('hrStrategySummary');
+  if(!tbody || !summary) return;
+
+  const rows=buildHrStrategy();
+  tbody.innerHTML='';
+
+  if(!rows.length){
+    summary.textContent='Нужны GPX трассы и средний пульс лучшей тренировки.';
+    return;
+  }
+
+  rows.forEach(r=>{
+    tbody.insertAdjacentHTML('beforeend',
+      `<tr><td>${r.km}</td><td><b>${r.hr}</b></td><td>${r.mode}</td></tr>`);
+  });
+
+  const avgHr=getBestTrainingHr();
+  summary.textContent=`Основа: средний пульс лучшей тренировки ${avgHr} уд/мин. На спусках высокий пульс специально не удерживать.`;
+}
+
 function finishPrediction(){
   if(!state.dist)return 0;
   const base=paceSec($('basePace').value), tech=Math.max(1,computeTrailDifficulty().score), tm=terrainMultiplier();
@@ -977,16 +1242,35 @@ function gaussian(){
   return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
 }
 function monteCarlo(rows,name){
-  const sigma=+$('sigma').value||20, idx=rows.findIndex(r=>r.athlete.toLowerCase()===name.toLowerCase());
+  const sigma=+$('sigma').value||20;
+  const idx=rows.findIndex(r=>r.athlete.toLowerCase()===name.toLowerCase());
   if(idx<0)return null;
-  let win=0,pod=0,top5=0,ranks=[];
-  for(let n=0;n<10000;n++){
-    const p=rows.map(r=>score(r)+gaussian()*sigma), me=p[idx];
-    const rank=1+p.filter(x=>x>me).length;ranks.push(rank);
-    if(rank===1)win++;if(rank<=3)pod++;if(rank<=5)top5++;
+
+  let win=0,pod=0,top10=0,top30=0,top50=0,ranks=[];
+  const iterations=10000;
+
+  for(let n=0;n<iterations;n++){
+    const p=rows.map(r=>score(r)+gaussian()*sigma);
+    const me=p[idx];
+    const rank=1+p.filter(x=>x>me).length;
+    ranks.push(rank);
+
+    if(rank===1)win++;
+    if(rank<=3)pod++;
+    if(rank<=10)top10++;
+    if(rank<=30)top30++;
+    if(rank<=50)top50++;
   }
+
   ranks.sort((a,b)=>a-b);
-  return {win:win/10000,pod:pod/10000,top5:top5/10000,rank:ranks[Math.floor(ranks.length/2)]};
+  return {
+    win:win/iterations,
+    pod:pod/iterations,
+    top10:top10/iterations,
+    top30:top30/iterations,
+    top50:top50/iterations,
+    rank:ranks[Math.floor(ranks.length/2)]
+  };
 }
 function buildPlan(){
   const l=estimateLTHR(), rows=[], n=Math.max(6,Math.ceil(state.dist/5));
@@ -1007,14 +1291,1016 @@ function threat(delta){
   if(delta>30)return 'очень высокая';if(delta>12)return 'высокая';if(delta>=-12)return 'прямая';if(delta>=-30)return 'умеренная';return 'низкая';
 }
 
+$('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
+  const btn=$('mapAnalyzeBtn'), p=$('mapAnalyzeProgress');
+  if(!state.track || !state.track.length){
+    $('mapAnalyzeStatus').textContent='✕ Сначала обработайте GPX.';
+    setActionState('mapAnalyzeBtn','error');
+    return;
+  }
+  btn.disabled=true;
+  setActionState('mapAnalyzeBtn','working');
+  p.style.display='block'; p.value=15;
+  $('mapAnalyzeStatus').textContent='⏳ Запрашиваю OSM/Overpass…';
+  try{
+    const result=await analyzeMapOSM();
+    p.value=85;
+    renderMapAnalysis(result);
+    p.value=100;
+    $('mapAnalyzeStatus').textContent='✓ Анализ карты готов и сохранён локально.';
+    setActionState('mapAnalyzeBtn','success');
+    setTimeout(()=>p.style.display='none',1200);
+  }catch(err){
+    p.style.display='none';
+    $('mapAnalyzeStatus').textContent='✕ Ошибка анализа карты: '+(err.message||String(err));
+    setActionState('mapAnalyzeBtn','error');
+  }finally{
+    btn.disabled=false;
+  }
+});
 
 
 
 
+function getAthletePiElement(){
+  return $('athletePi') || $('itraPi') || $('pi');
+}
+
+function getManualOpenRouterKey(){
+  try{return localStorage.getItem('openRouterApiKey')||'';}catch(e){return '';}
+}
+
+async function refreshOpenRouterStatus(){
+  const el=$('openRouterStatus');
+  if(!el) return;
+  el.textContent='проверка…';
+  el.className='or-status or-checking';
+  try{
+    const manual=!!getManualOpenRouterKey();
+    const r=await fetch('/health',{cache:'no-store'});
+    const h=await r.json();
+    if(manual){
+      el.textContent='ключ на iPhone ✓';
+      el.className='or-status or-ok';
+    }else if(h.itra_enabled){
+      el.textContent='Render подключён ✓';
+      el.className='or-status or-ok';
+    }else{
+      el.textContent='ключ не настроен ✕';
+      el.className='or-status or-bad';
+    }
+  }catch(e){
+    el.textContent=getManualOpenRouterKey()?'ключ на iPhone ✓':'статус недоступен';
+    el.className='or-status '+(getManualOpenRouterKey()?'or-ok':'or-bad');
+  }
+}
+
+function initOpenRouterKeyUI(){
+  const input=$('openRouterKey');
+  if(!input) return;
+  input.value=getManualOpenRouterKey();
+
+  $('saveOpenRouterKeyBtn')?.addEventListener('click',()=>{
+    const key=input.value.trim();
+    try{
+      if(key) localStorage.setItem('openRouterApiKey',key);
+      else localStorage.removeItem('openRouterApiKey');
+    }catch(e){}
+    refreshOpenRouterStatus();
+  });
+
+  $('clearOpenRouterKeyBtn')?.addEventListener('click',()=>{
+    input.value='';
+    try{localStorage.removeItem('openRouterApiKey');}catch(e){}
+    refreshOpenRouterStatus();
+  });
+
+  refreshOpenRouterStatus();
+}
 
 
+
+
+$('itraLookupBtn')?.addEventListener('click', async ()=>{
+  if(!state.roster.length){
+    $('itraLookupStatus').textContent='Сначала загрузите стартовый список.';
+    setActionState('itraLookupBtn','ready');
+    return;
+  }
+
+  const btn=$('itraLookupBtn');
+  btn.disabled=true;
+  setActionState('itraLookupBtn','working');
+  $('itraLookupStatus').textContent='Ищу ITRA и анализирую участников…';
+
+  try{
+    const names=state.roster.map(r=>r.athlete).filter(Boolean);
+    const manualKey=getManualOpenRouterKey();
+    const headers={'Content-Type':'application/json'};
+    if(manualKey) headers['X-OpenRouter-Key']=manualKey;
+    const resp=await fetch('/api/itra-batch',{
+      method:'POST',
+      headers,
+      body:JSON.stringify({names})
+    });
+
+    if(!resp.ok){
+      let detail='';
+      try{
+        const e=await resp.json();
+        detail=e.error||'';
+      }catch(e){}
+      throw new Error('HTTP '+resp.status+(detail?' · '+detail:''));
+    }
+
+    const data=await resp.json();
+    let found=0;
+    (data.results||[]).forEach(x=>{
+      const r=state.roster.find(r=>r.athlete.toLowerCase()===String(x.name||'').toLowerCase());
+      if(r && x.pi){
+        r.pi=Number(x.pi);
+        found++;
+      }
+    });
+
+    renderRoster();
+    $('itraLookupStatus').textContent='✓ ITRA загружен: '+found+' из '+names.length+' участников.';
+    setActionState('itraLookupBtn','success');
+  }catch(err){
+    $('itraLookupStatus').textContent='✕ Ошибка ITRA: '+(err.message||String(err));
+    setActionState('itraLookupBtn','error');
+  }finally{
+    btn.disabled=false;
+  }
+});
+
+
+// ---------- Race forecast calibrated from a timed reference activity ----------
+// Model:
+// ln(v) = a + b1*G+ + b2*G+^2 + b3*G- + b4*G-^2 + b5*progress
+// v = speed in m/s, G+/G- = positive/negative decimal grade,
+// progress = 0..1 through the race.
+// "Effort %" scales speed relative to the reference activity.
+
+function fmtClockSec(sec){
+  if(!Number.isFinite(sec) || sec<0) return '—';
+  sec=Math.round(sec);
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+  return h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function fmtPaceSecPerKm(sec){
+  if(!Number.isFinite(sec) || sec<=0) return '—';
+  let m=Math.floor(sec/60), s=Math.round(sec%60);
+  if(s===60){m++;s=0;}
+  return `${m}:${String(s).padStart(2,'0')} /км`;
+}
+
+function solveLinearSystem(A,b){
+  const n=b.length;
+  const M=A.map((r,i)=>r.slice().concat([b[i]]));
+  for(let col=0;col<n;col++){
+    let pivot=col;
+    for(let r=col+1;r<n;r++) if(Math.abs(M[r][col])>Math.abs(M[pivot][col])) pivot=r;
+    if(Math.abs(M[pivot][col])<1e-10) return null;
+    [M[col],M[pivot]]=[M[pivot],M[col]];
+    const div=M[col][col];
+    for(let c=col;c<=n;c++) M[col][c]/=div;
+    for(let r=0;r<n;r++){
+      if(r===col) continue;
+      const f=M[r][col];
+      for(let c=col;c<=n;c++) M[r][c]-=f*M[col][c];
+    }
+  }
+  return M.map(r=>r[n]);
+}
+
+function fitRaceModel(samples){
+  // x=[1,up,up²,down,down²,progress], y=ln(speed)
+  const n=6;
+  const ATA=Array.from({length:n},()=>Array(n).fill(0));
+  const ATy=Array(n).fill(0);
+  for(const s of samples){
+    const up=Math.max(s.grade,0), dn=Math.max(-s.grade,0);
+    const x=[1,up,up*up,dn,dn*dn,s.progress];
+    const y=Math.log(s.speed);
+    for(let i=0;i<n;i++){
+      ATy[i]+=x[i]*y;
+      for(let j=0;j<n;j++) ATA[i][j]+=x[i]*x[j];
+    }
+  }
+  return solveLinearSystem(ATA,ATy);
+}
+
+function parseTimedActivityGPX(text){
+  const xml=new DOMParser().parseFromString(text,'application/xml');
+  if(xml.querySelector('parsererror')) throw new Error('Некорректный GPX activity');
+  let nodes=[...xml.getElementsByTagName('trkpt')];
+  if(!nodes.length) nodes=[...xml.getElementsByTagNameNS('*','trkpt')];
+  if(nodes.length<10) throw new Error('Слишком мало точек в activity');
+
+  const pts=[];
+  let km=0,prev=null,gain=0;
+  for(const n of nodes){
+    const lat=Number(n.getAttribute('lat')), lon=Number(n.getAttribute('lon'));
+    const e=n.getElementsByTagName('ele')[0]||n.getElementsByTagNameNS('*','ele')[0];
+    const t=n.getElementsByTagName('time')[0]||n.getElementsByTagNameNS('*','time')[0];
+    const ele=e?Number(e.textContent):NaN;
+    const ts=t?Date.parse(t.textContent):NaN;
+    if(!Number.isFinite(lat)||!Number.isFinite(lon)||!Number.isFinite(ele)||!Number.isFinite(ts)) continue;
+    if(prev){
+      const d=haversine(prev.lat,prev.lon,lat,lon)/1000;
+      if(Number.isFinite(d)&&d<5) km+=d;
+      const de=ele-prev.ele;
+      if(de>0) gain+=de;
+    }
+    pts.push({km,lat,lon,ele,ts});
+    prev={lat,lon,ele};
+  }
+  if(pts.length<10 || pts[pts.length-1].km<1) throw new Error('Недостаточно данных activity');
+
+  const totalKm=pts[pts.length-1].km;
+  const samples=[];
+  let st=0;
+  for(let i=1;i<pts.length;i++){
+    if(pts[i].km-pts[st].km>=0.20){
+      const dm=(pts[i].km-pts[st].km)*1000;
+      const de=pts[i].ele-pts[st].ele;
+      const dt=(pts[i].ts-pts[st].ts)/1000;
+      const speed=dm/dt;
+      const grade=dm>0?de/dm:0;
+      const progress=((pts[i].km+pts[st].km)/2)/totalKm;
+      // reject stops, teleportation and extreme GPS spikes
+      if(dt>=15 && dt<=1800 && speed>=0.20 && speed<=8 && Math.abs(grade)<0.60){
+        samples.push({speed,grade,progress});
+      }
+      st=i;
+    }
+  }
+  if(samples.length<20) throw new Error('Недостаточно валидных участков с временем');
+
+  const coeff=fitRaceModel(samples);
+  if(!coeff || coeff.some(x=>!Number.isFinite(x))) throw new Error('Не удалось откалибровать модель');
+
+  const elapsedSec=(pts[pts.length-1].ts-pts[0].ts)/1000;
+  return {
+    coeff,
+    source:'uploaded activity',
+    segmentCount:samples.length,
+    dist:totalKm,
+    gain,
+    elapsedSec,
+    avgSpeed:(totalKm*1000)/Math.max(1,elapsedSec)
+  };
+}
+
+function allRaceReferencesReady(){
+  return !!(state.raceReferences?.strength && state.raceReferences?.fastTrail && state.raceReferences?.flatRace);
+}
+
+function combinedRaceModelInfo(){
+  const r=state.raceReferences||{};
+  if(!allRaceReferencesReady()) return null;
+
+  // Absolute flat speed comes from the flat race (e.g. a 10 km race).
+  const flatSpeed=r.flatRace.avgSpeed;
+
+  // Grade-response is blended from two trail references:
+  // strength trail dominates steep grades; fast trail stabilizes moderate terrain.
+  const cs=r.strength.coeff, cf=r.fastTrail.coeff;
+  const gradeCoeff=[
+    0,
+    cs[1]*0.65+cf[1]*0.35,
+    cs[2]*0.65+cf[2]*0.35,
+    cs[3]*0.65+cf[3]*0.35,
+    cs[4]*0.65+cf[4]*0.35
+  ];
+
+  // Fatigue is learned from both trail files, with a conservative clamp
+  // because reference sessions are shorter than the target ultra.
+  const fatigueK=Math.max(-0.40,Math.min(0,
+    (Number(cs[5]||0)*0.55)+(Number(cf[5]||0)*0.45)
+  ));
+
+  // Fast-trail session provides a mild intensity/economy correction.
+  // Compare its estimated flat-equivalent intercept with the flat-race speed,
+  // but keep the correction small.
+  const fastFlatEstimate=Math.exp(cf[0]);
+  const intensityRatio=Math.max(0.90,Math.min(1.10,fastFlatEstimate/Math.max(0.1,flatSpeed)));
+  const fastTrailFactor=Math.pow(intensityRatio,0.20);
+
+  return {flatSpeed,gradeCoeff,fatigueK,fastTrailFactor};
+}
+
+function racePhysiologyFactors(elapsedSec){
+  const r=state.raceReferences||{};
+  const flatSec=Math.max(20*60, Number(r.flatRace?.elapsedSec||42*60));
+  const longSec=Math.max(Number(r.strength?.elapsedSec||0), Number(r.fastTrail?.elapsedSec||0));
+  const hours=Math.max(0,elapsedSec/3600);
+
+  // Duration/endurance decay: short flat-race speed cannot be transferred unchanged to an ultra.
+  // A genuinely long trail reference softens, but never removes, the decay.
+  const longHours=longSec/3600;
+  const durability=Math.max(0,Math.min(1,(longHours-1)/5));
+  const exponent=0.115-(0.035*durability); // ~0.115 without long work, ~0.080 after 6h reference
+  const durationRatio=Math.max(1,(elapsedSec+flatSec)/flatSec);
+  const durationFactor=Math.max(0.68,Math.pow(durationRatio,-exponent));
+
+  // HR / acidification proxy. This is not blood lactate measurement: it prevents a high-HR
+  // training effort from being extrapolated unchanged for many hours.
+  const avgHr=Number($('refAvgHr')?.value||0);
+  const lthr=estimateLTHR();
+  let hrFactor=1, hrRatio=0, acidHours=Infinity;
+  if(avgHr>0 && lthr>0){
+    hrRatio=avgHr/lthr;
+    // Above ~90% LTHR the sustainable window shortens rapidly.
+    const intensity=Math.max(0,(hrRatio-0.90)/0.10);
+    acidHours=Math.max(0.75, 5.5-4.5*Math.min(1,intensity));
+    const over=Math.max(0,hours-acidHours);
+    hrFactor=Math.max(0.72,Math.exp(-0.055*intensity*over));
+  }
+  // Optional VO2max: a deliberately small correction. If blank/invalid, it is neutral (1.00).
+  // VO2max is an aerobic ceiling, not a direct ultra-race pace predictor.
+  const vo2=Number($('vo2max')?.value||0);
+  let vo2Factor=1;
+  if(vo2>=20 && vo2<=90){
+    vo2Factor=Math.max(0.94,Math.min(1.06,1+(vo2-50)*0.002));
+  }
+  return {durationFactor,hrFactor,hrRatio,acidHours,exponent,vo2Factor,vo2};
+}
+
+function raceModelSpeed(grade,progress,effortPct=100,elapsedSec=0){
+  const info=combinedRaceModelInfo();
+  if(!info) return NaN;
+
+  const g=Math.max(-0.45,Math.min(0.45,grade));
+  const up=Math.max(g,0),dn=Math.max(-g,0);
+  const c=info.gradeCoeff;
+
+  const gradeFactor=Math.exp(
+    c[1]*up+c[2]*up*up+c[3]*dn+c[4]*dn*dn
+  );
+  const fatigueFactor=Math.exp(
+    info.fatigueK*Math.max(0,Math.min(1,progress))
+  );
+  const effortFactor=Math.max(70,Math.min(130,effortPct))/100;
+  const phys=racePhysiologyFactors(elapsedSec);
+
+  const v=info.flatSpeed*gradeFactor*info.fastTrailFactor*fatigueFactor*phys.durationFactor*phys.hrFactor*phys.vo2Factor*effortFactor;
+  return Math.max(0.25,Math.min(7,v));
+}
+
+function buildRaceMicroSegments(){
+  const tr=state.track||[];
+  if(tr.length<2 || !(state.dist>0)) return [];
+  const micro=[];
+  let st=0;
+  for(let i=1;i<tr.length;i++){
+    const dkm=tr[i].km-tr[st].km;
+    if(dkm>=0.20 || i===tr.length-1){
+      const dm=Math.max(1,dkm*1000);
+      const e0=Number(tr[st].ele),e1=Number(tr[i].ele);
+      const de=Number.isFinite(e0)&&Number.isFinite(e1)?e1-e0:0;
+      const grade=de/dm;
+      const progress=((tr[i].km+tr[st].km)/2)/state.dist;
+      micro.push({from:tr[st].km,to:tr[i].km,dm,de,grade,progress});
+      st=i;
+    }
+  }
+  return micro;
+}
+
+function calculateRaceForecast(){
+  if(!(state.dist>0) || !(state.track?.length>1)){
+    throw new Error('Сначала загрузите GPX трассы');
+  }
+  if(!allRaceReferencesReady()){
+    throw new Error('Загрузите все 3 эталонные GPX тренировки');
+  }
+  const effort=Number($('raceEffortPct')?.value||100);
+  const groupKm=Math.max(1,Math.min(10,Number($('forecastStepKm')?.value||5)));
+  const micro=buildRaceMicroSegments();
+  if(!micro.length) throw new Error('Не удалось разбить трассу на участки');
+
+  let totalSec=0;
+  const detailed=[];
+  for(const s of micro){
+    const v=raceModelSpeed(s.grade,s.progress,effort,totalSec);
+    const sec=s.dm/v;
+    totalSec+=sec;
+    detailed.push({...s,v,sec,cumSec:totalSec});
+  }
+
+  const groups=[];
+  let current=null;
+  for(const s of detailed){
+    const bucket=Math.floor(s.from/groupKm)*groupKm;
+    if(!current || current.bucket!==bucket){
+      if(current) groups.push(current);
+      current={bucket,from:s.from,to:s.to,distM:0,gain:0,loss:0,sec:0,cumSec:0,weightedGrade:0};
+    }
+    current.to=s.to;
+    current.distM+=s.dm;
+    current.sec+=s.sec;
+    current.cumSec=s.cumSec;
+    current.weightedGrade+=s.grade*s.dm;
+    if(s.de>0) current.gain+=s.de; else current.loss+=-s.de;
+  }
+  if(current) groups.push(current);
+
+  groups.forEach(g=>{
+    g.grade=g.distM?g.weightedGrade/g.distM:0;
+    g.paceSec=g.distM?g.sec/(g.distM/1000):0;
+  });
+
+  return {
+    totalSec,
+    avgPaceSec:totalSec/state.dist,
+    lowSec:totalSec*0.90,
+    highSec:totalSec*1.10,
+    effort,
+    groupKm,
+    groups,
+    physiology: racePhysiologyFactors(totalSec)
+  };
+}
+
+function raceFormulaText(){
+  const info=combinedRaceModelInfo();
+  if(!info) return 'Загрузите все 3 эталонные GPX.';
+  const c=info.gradeCoeff;
+  const f=n=>(n>=0?'+ ':'− ')+Math.abs(n).toFixed(3);
+  return `v = Vflat × Fgrade × FfastTrail × Ffatigue × Effort; `
+    + `Vflat=${info.flatSpeed.toFixed(2)} м/с; `
+    + `ln(Fgrade)=${f(c[1])}·G+ ${f(c[2])}·G+² ${f(c[3])}·G− ${f(c[4])}·G−²; `
+    + `FfastTrail=${info.fastTrailFactor.toFixed(3)}; fatigueK=${info.fatigueK.toFixed(3)}; `
+    + `Fduration=(T/T10)^−k; FHR=ограничение по пульсу/времени закисления; FVO2=небольшая необязательная поправка VO₂max`;
+}
+
+function renderRaceForecast(){
+  const tbody=$('raceForecastTable')?.querySelector('tbody');
+  if(!tbody) return;
+  try{
+    const f=calculateRaceForecast();
+    state.raceForecast=f;
+    tbody.innerHTML='';
+    f.groups.forEach(g=>{
+      const from=g.from.toFixed(1).replace('.0','');
+      const to=Math.min(state.dist,g.to).toFixed(1).replace('.0','');
+      tbody.insertAdjacentHTML('beforeend',
+        `<tr>
+          <td>${from}–${to}</td>
+          <td>+${Math.round(g.gain)} / −${Math.round(g.loss)} м</td>
+          <td>${(g.grade*100).toFixed(1)}%</td>
+          <td>${fmtPaceSecPerKm(g.paceSec)}</td>
+          <td>${fmtClockSec(g.sec)}</td>
+          <td>${fmtClockSec(g.cumSec)}</td>
+          <td>${Math.round(f.effort)}%</td>
+        </tr>`);
+    });
+    $('raceForecastTime').textContent=fmtClockSec(f.totalSec);
+    $('raceForecastPace').textContent=fmtPaceSecPerKm(f.avgPaceSec);
+    $('raceForecastRange').textContent=`${fmtClockSec(f.lowSec)}–${fmtClockSec(f.highSec)}`;
+    if($('raceDurationFactor')) $('raceDurationFactor').textContent=(f.physiology.durationFactor*100).toFixed(0)+'%';
+    if($('raceHrFactor')) $('raceHrFactor').textContent=(f.physiology.hrFactor*100).toFixed(0)+'%';
+    if($('raceAcidTime')) $('raceAcidTime').textContent=Number.isFinite(f.physiology.acidHours)?f.physiology.acidHours.toFixed(1)+' ч':'нет данных HR';
+    if($('raceVo2Factor')) $('raceVo2Factor').textContent=f.physiology.vo2 ? `${f.physiology.vo2.toFixed(1)} → ${(f.physiology.vo2Factor*100).toFixed(1)}%` : 'не используется';
+    $('raceModelSource').textContent=allRaceReferencesReady()
+      ? `${state.raceReferences.strength.source} + ${state.raceReferences.fastTrail.source} + ${state.raceReferences.flatRace.source}`
+      : 'нужно 3 GPX';
+    $('raceModelFormula').textContent=raceFormulaText();
+    $('raceForecastStatus').textContent=`✓ Общий прогноз по 3 GPX: ${state.dist.toFixed(1)} км.`;
+    setActionState('raceForecastBtn','success');
+  }catch(err){
+    tbody.innerHTML='';
+    $('raceForecastStatus').textContent='✕ '+(err.message||String(err));
+    setActionState('raceForecastBtn','error');
+  }
+}
+
+function updateRaceForecastAvailability(){
+  updateRaceReferenceState();
+}
+
+
+const raceRefSelections={strength:null,fastTrail:null,flatRace:null};
+
+function raceRefUI(role){
+  if(role==='strength') return ['strengthActivityFile','strengthActivityName','strengthActivityLoadBtn','strengthActivityStatus'];
+  if(role==='fastTrail') return ['fastTrailActivityFile','fastTrailActivityName','fastTrailActivityLoadBtn','fastTrailActivityStatus'];
+  return ['flatRaceActivityFile','flatRaceActivityName','flatRaceActivityLoadBtn','flatRaceActivityStatus'];
+}
+function raceRefTitle(role){
+  return role==='strength'?'Силовая трейловая GPX':
+         role==='fastTrail'?'Быстрая трейловая GPX':'Гоночная (плоская) GPX';
+}
+function updateRaceReferenceState(){
+  const count=['strength','fastTrail','flatRace'].filter(k=>state.raceReferences[k]).length;
+  if($('referenceCount')) $('referenceCount').textContent=`${count} / 3`;
+  if($('combinedModelState')) $('combinedModelState').textContent=count===3?'готова':'ожидает 3 GPX';
+  if($('raceModelFormula')) $('raceModelFormula').textContent=raceFormulaText();
+
+  const routeReady=state.dist>0 && state.track?.length>1;
+  const btn=$('raceForecastBtn');
+  if(btn){
+    btn.disabled=!(routeReady && count===3);
+    setActionState('raceForecastBtn',routeReady && count===3?'ready':'idle');
+  }
+  if($('raceForecastStatus')){
+    if(!routeReady) $('raceForecastStatus').textContent='Сначала загрузите GPX трассы во вкладке «Трасса».';
+    else if(count<3) $('raceForecastStatus').textContent=`Трасса готова. Загрузите ещё ${3-count} эталонных GPX.`;
+    else $('raceForecastStatus').textContent='Все 3 тренировки и трасса загружены. Можно считать общий прогноз.';
+  }
+}
+
+function bindRaceReference(role){
+  const [fileId,nameId,btnId,statusId]=raceRefUI(role);
+  const fileEl=$(fileId),nameEl=$(nameId),btn=$(btnId),status=$(statusId);
+  if(!fileEl||!nameEl||!btn||!status) return;
+
+  fileEl.addEventListener('change',e=>{
+    const f=e.currentTarget.files?.[0]||null;
+    raceRefSelections[role]=f;
+    state.raceReferences[role]=null;
+    if(!f){
+      nameEl.innerHTML='<span class="file-check">○</span> Файл не выбран';
+      btn.disabled=true;
+      setActionState(btnId,'idle');
+      status.textContent='Не загружена.';
+      updateRaceReferenceState();
+      return;
+    }
+    nameEl.innerHTML='<span class="file-check selected">✓</span> Выбран: '+f.name;
+    btn.disabled=false;
+    setActionState(btnId,'ready');
+    status.textContent='Файл выбран. Нажмите загрузить.';
+    updateRaceReferenceState();
+  });
+
+  btn.addEventListener('click',async()=>{
+    const f=raceRefSelections[role];
+    if(!f) return;
+    try{
+      setActionState(btnId,'working');
+      status.textContent='Анализирую '+raceRefTitle(role)+'…';
+      const text=await readFileIOS(f);
+      const parsed=parseTimedActivityGPX(text);
+      parsed.source=f.name;
+      state.raceReferences[role]=parsed;
+
+      status.textContent=
+        `✓ ${parsed.dist.toFixed(2)} км · +${Math.round(parsed.gain)} м · `
+        + `${fmtClockSec(parsed.elapsedSec)} · ${fmtPaceSecPerKm(parsed.elapsedSec/parsed.dist)}`;
+      setActionState(btnId,'success');
+      updateRaceReferenceState();
+    }catch(err){
+      state.raceReferences[role]=null;
+      status.textContent='✕ '+raceRefTitle(role)+': '+(err.message||String(err));
+      setActionState(btnId,'error');
+      updateRaceReferenceState();
+    }
+  });
+}
+
+bindRaceReference('strength');
+bindRaceReference('fastTrail');
+bindRaceReference('flatRace');
+
+$('raceForecastBtn')?.addEventListener('click',renderRaceForecast);
+$('raceEffortPct')?.addEventListener('change',()=>{if(state.dist>0) renderRaceForecast();});
+$('forecastStepKm')?.addEventListener('change',()=>{if(state.dist>0) renderRaceForecast();});
+
+window.addEventListener('DOMContentLoaded',()=>{
+  if($('raceModelFormula')) $('raceModelFormula').textContent=raceFormulaText();
+  updateRaceReferenceState();
+});
+
+$('calcBtn').addEventListener('click',()=>{
+  if(!hasAnalysisData()){
+    clearResultForecast();
+    renderHrStrategy();
+  document.querySelector('[data-tab="result"]').click();
+    return;
+  }
+
+  const finish = state.raceForecast?.totalSec || finishPrediction();
+  $('finishMetric').textContent=finish?hms(finish):'—';
+
+  const athlete=$('athleteName').value.trim();
+  const rows=state.roster.filter(x=>genderOkay(x.gender));
+  const a=rows.find(r=>r.athlete.toLowerCase()===athlete.toLowerCase());
+
+  if(a){
+    a.pi=+($('itraPi').value||a.pi);
+    a.form+=formScore();
+  }
+
+  const ranked=[...rows].sort((x,y)=>score(y)-score(x));
+  const me=ranked.find(r=>r.athlete.toLowerCase()===athlete.toLowerCase());
+  const meScore=me?score(me):0;
+  const mc=monteCarlo(ranked,athlete);
+
+  $('podiumMetric').textContent=mc?(mc.pod*100).toFixed(1)+'%':'—';
+  $('top10Metric').textContent=mc?(mc.top10*100).toFixed(1)+'%':'—';
+  $('top30Metric').textContent=mc?(mc.top30*100).toFixed(1)+'%':'—';
+  $('top50Metric').textContent=mc?(mc.top50*100).toFixed(1)+'%':'—';
+  $('winMetric').textContent=mc?(mc.win*100).toFixed(1)+'%':'—';
+  $('rankMetric').textContent=mc?String(mc.rank):'—';
+
+  const pt=$('planTable').querySelector('tbody');
+  pt.innerHTML='';
+  buildPlan().forEach(r=>pt.insertAdjacentHTML('beforeend',
+    `<tr><td>${r.km}</td><td>${r.hr}</td><td>${r.mode}</td><td>${r.pace}</td></tr>`));
+
+  const rt=$('rivalsTable').querySelector('tbody');
+  rt.innerHTML='';
+  ranked
+    .filter(r=>r.athlete.toLowerCase()!==athlete.toLowerCase())
+    .slice(0,10)
+    .forEach((r,i)=>{
+      const s=score(r), d=s-meScore;
+      rt.insertAdjacentHTML('beforeend',
+        `<tr><td>${i+1}</td><td>${r.athlete}</td><td>${r.pi||0}</td><td>${s.toFixed(1)}</td><td>${threat(d)}</td></tr>`);
+    });
+
+  document.querySelector('[data-tab="result"]').click();
+});
+
+$('saveBtn').addEventListener('click',()=>{
+  const payload={
+    athlete:$('athleteName').value, pi:$('itraPi').value,
+    route:{dist:state.dist,gain:state.gain,loss:state.loss},
+    training:{dist:$('refDist').value,gain:$('refGain').value,avgHr:$('refAvgHr').value,maxHr:$('refMaxHr').value,lthr:$('lthr').value},
+    roster:state.roster,
+    savedAt:new Date().toISOString()
+  };
+  localStorage.setItem('trailRaceAnalyzerState',JSON.stringify(payload));
+  $('saveStatus').textContent='Сохранено локально на этом iPhone.';
+});
+
+
+
+window.addEventListener('DOMContentLoaded',initOpenRouterKeyUI);
 
 window.addEventListener('DOMContentLoaded',syncMapAnalyzeButton);
 
 
 
+
+window.addEventListener('DOMContentLoaded',clearMapAnalysisOnPageStart);
+
+
+
+
+function clearBestTrainingData(){
+  if($('hrStrategyTable')){
+    const tb=$('hrStrategyTable').querySelector('tbody');
+    if(tb) tb.innerHTML='';
+  }
+  if($('hrStrategySummary')) $('hrStrategySummary').textContent='Стратегия появится после анализа трассы и лучшей тренировки.';
+
+  // upper OCR result cards
+  if($('ocrDistance')) $('ocrDistance').textContent='—';
+  if($('ocrTime')) $('ocrTime').textContent='—';
+  if($('ocrPace')) $('ocrPace').textContent='—';
+  if($('ocrHr')) $('ocrHr').textContent='—';
+  if($('ocrGain')) $('ocrGain').textContent='—';
+
+  // lower editable fields
+  if($('refDist')) $('refDist').value='';
+  if($('refMinutes')) $('refMinutes').value='';
+  if($('refPace')) $('refPace').value='';
+  if($('refAvgHr')) $('refAvgHr').value='';
+
+  // OCR stats
+  if($('ocrRecognitionPercent')) $('ocrRecognitionPercent').textContent='0%';
+  if($('ocrElapsedTime')) $('ocrElapsedTime').textContent='0.0 с';
+
+  if($('ocrPreview')) $('ocrPreview').style.display='none';
+  if($('ocrPreviewText')) $('ocrPreviewText').textContent='';
+
+  state.bestTraining=null;
+}
+
+
+function hardClearBestTrainingFields(clearFile=false){
+  const ids=['refDist','refMinutes','refPace','refAvgHr'];
+  ids.forEach(id=>{
+    const el=$(id);
+    if(el) el.value='';
+  });
+
+  const resultIds=['ocrDistance','ocrTime','ocrPace','ocrHr','ocrGain'];
+  resultIds.forEach(id=>{
+    const el=$(id);
+    if(el) el.textContent='—';
+  });
+
+  if($('ocrRecognitionPercent')) $('ocrRecognitionPercent').textContent='0%';
+  if($('ocrElapsedTime')) $('ocrElapsedTime').textContent='0.0 с';
+  if($('trainingOcrStatus')) $('trainingOcrStatus').textContent='Выберите один скриншот тренировки.';
+  if($('ocrSlowWarning')) $('ocrSlowWarning').style.display='none';
+
+  state.bestTraining=null;
+
+  try{
+    sessionStorage.removeItem('trail_best_training');
+    localStorage.removeItem('trail_best_training');
+    localStorage.removeItem('bestTraining');
+  }catch(e){}
+
+  if(clearFile && $('trainingScreenshot')) $('trainingScreenshot').value='';
+
+  if(clearFile && $('trainingSelectedFileName')) $('trainingSelectedFileName').textContent='';
+}
+
+function resetTrainingOcr(){
+  clearBestTrainingData();
+  if($('ocrSlowWarning')) $('ocrSlowWarning').style.display='none';
+  if($('ocrMeta')) $('ocrMeta').style.display='grid';
+  if($('ocrRecognitionPercent')) $('ocrRecognitionPercent').textContent='0%';
+  if($('ocrElapsedTime')) $('ocrElapsedTime').textContent='0.0 с';
+
+  if($('ocrParsedMetrics')) $('ocrParsedMetrics').style.display='none';
+  if($('trainingOcrText')) $('trainingOcrText').value='';
+  if($('trainingOcrStatus')) $('trainingOcrStatus').textContent='Скриншот выбран. Нажмите «Распознать текст со скриншота».';
+  setActionState('trainingOcrBtn','ready');
+}
+$('trainingScreenshot')?.addEventListener('change',resetTrainingOcr);
+$('trainingOcrBtn')?.addEventListener('click',async()=>{
+  const selected=$('trainingScreenshot')?.files?.[0];
+  if($('trainingSelectedFileName')) $('trainingSelectedFileName').textContent=selected ? `Выбран: ${selected.name}` : '';
+
+  hardClearBestTrainingFields(false);
+  const file=$('trainingScreenshot')?.files?.[0], status=$('trainingOcrStatus');
+  if(!file){ if(status) status.textContent='✕ Сначала выберите скриншот.'; setActionState('trainingOcrBtn','error'); return; }
+  
+  try{
+    const hr=await fetch('/api/ocr-health',{cache:'no-store'});
+    const hs=await hr.json().catch(()=>({}));
+    if(!hs.ok){
+      if(status) status.textContent='✕ OCR на сервере не установлен. Нужен Docker-deploy v0.63.';
+      setActionState('trainingOcrBtn','error');
+      return;
+    }
+  }catch(e){
+    if(status) status.textContent='✕ Не удалось проверить OCR-сервис.';
+    setActionState('trainingOcrBtn','error');
+    return;
+  }
+
+  const ocrStartedAt=performance.now();
+  let ocrTimer=setInterval(()=>{if($('ocrElapsedTime')) $('ocrElapsedTime').textContent=Math.min((performance.now()-ocrStartedAt)/1000,60).toFixed(1)+' с';},200);
+  let ocrSlowWarningTimer=setTimeout(()=>{
+    if($('ocrSlowWarning')) $('ocrSlowWarning').style.display='block';
+  },60000);
+  setActionState('trainingOcrBtn','loading');
+  if(status) status.textContent='Распознаю текст…';
+  try{
+    const fd=new FormData(); fd.append('image',file);
+    const controller=new AbortController();
+    const hardTimeout=setTimeout(()=>controller.abort(),60000);
+    let resp;
+    try{
+      resp=await fetch('/api/training-ocr',{
+        method:'POST',
+        body:fd,
+        signal:controller.signal
+      });
+    }finally{
+      clearTimeout(hardTimeout);
+    }
+    const data=await resp.json().catch(()=>({}));
+    if(!resp.ok) throw new Error(data.error||`HTTP ${resp.status}`);
+    const text=String(data.text||'').trim();
+    $('trainingOcrText').value=text;
+    let parsedMetrics=parseTrainingMetricsFromText(text);
+    parsedMetrics=normalizeGarminTrainingMetrics(text,parsedMetrics);
+    renderTrainingOcrMetrics(parsedMetrics);
+    renderHrStrategy();
+    if(typeof ocrTimer!=='undefined' && ocrTimer){clearInterval(ocrTimer);ocrTimer=null;}
+    const elapsedSec=(performance.now()-ocrStartedAt)/1000;
+    if($('ocrMeta')) $('ocrMeta').style.display='grid';
+    if($('ocrRecognitionPercent')) $('ocrRecognitionPercent').textContent=getOcrRecognitionPercent(parsedMetrics)+'%';
+    if($('ocrElapsedTime')) $('ocrElapsedTime').textContent=elapsedSec.toFixed(1)+' с';
+    if(status) status.textContent=text?'✓ Текст распознан. Можно исправить вручную.':'✕ Текст не найден.';
+    setActionState('trainingOcrBtn',text?'success':'error');
+  }catch(err){
+    if(err.name==='AbortError') clearBestTrainingData();
+    if(typeof ocrSlowWarningTimer!=='undefined') clearTimeout(ocrSlowWarningTimer);
+    if($('ocrSlowWarning')) $('ocrSlowWarning').style.display='none';
+    if(typeof ocrTimer!=='undefined' && ocrTimer){clearInterval(ocrTimer);ocrTimer=null;}
+    const failedSec=(performance.now()-ocrStartedAt)/1000;
+    if($('ocrMeta')) $('ocrMeta').style.display='grid';
+    if($('ocrRecognitionPercent')) $('ocrRecognitionPercent').textContent='0%';
+    if($('ocrElapsedTime')) $('ocrElapsedTime').textContent=(err.name==='AbortError'?'60.0 с':failedSec.toFixed(1)+' с');
+    if(status) status.textContent = err.name==='AbortError'
+      ? '✕ Ошибка распознавания: превышено 60 секунд. Повторите снова.'
+      : '✕ Ошибка распознавания: '+err.message;
+    setActionState('trainingOcrBtn','error');
+  }
+});
+
+
+function getOcrRecognitionPercent(metrics){
+  const keys=['distance','time','pace','hr'];
+  const found=keys.filter(k=>metrics && metrics[k]!==undefined && metrics[k]!==null && metrics[k]!=='').length;
+  return Math.round(found/keys.length*100);
+}
+
+function parseTrainingMetricsFromText(text){
+  const t=String(text||'').replace(/\u00a0/g,' ').replace(/,/g,'.');
+  const out={};
+
+  const dist=t.match(/(?:дистанц(?:ия|ии)?|distance)\s*[:\-]?\s*(\d+(?:\.\d+)?)\s*(?:км|km)\b/i)
+           || t.match(/\b(\d+(?:\.\d+)?)\s*(?:км|km)\b/i);
+  if(dist) out.distance=Number(dist[1]);
+
+  const gain=t.match(/(?:набор(?:\s+высоты)?|elevation\s*gain|ascent)\s*[:\-]?\s*(\d{2,5})\s*(?:м|m)\b/i);
+  if(gain) out.gain=Number(gain[1]);
+
+  const hr=t.match(/(?:средн(?:ий|яя)\s+пульс|avg(?:erage)?\s+hr|average\s+heart\s+rate)\s*[:\-]?\s*(\d{2,3})\b/i);
+  if(hr) out.hr=Number(hr[1]);
+
+  const pace=t.match(/(?:темп|pace)\s*[:\-]?\s*(\d{1,2})[:.](\d{2})\s*(?:\/км|\/km|min\/km|мин\/км)?/i);
+  if(pace) out.pace=`${pace[1]}:${pace[2]}`;
+
+  const time=t.match(/(?:время|time|elapsed\s*time|moving\s*time)\s*[:\-]?\s*(\d{1,2}):(\d{2}):(\d{2})\b/i)
+           || t.match(/\b(\d{1,2}):(\d{2}):(\d{2})\b/);
+  if(time) out.time=`${time[1]}:${time[2]}:${time[3]}`;
+
+  
+  // Garmin paired row: "Расстояние Набор высоты" -> "16.16 км 2755 м"
+  let pair=t.match(/Расстояние\s+Набор\s+высоты[\s\S]{0,100}?(\d+(?:\.\d+)?)\s*(?:км|km)\s+(\d{1,5})\s*(?:м|m)\b/i);
+  if(pair){
+    out.distance=Number(pair[1]);
+    out.gain=Number(pair[2]);
+  }
+
+  return out;
+}
+
+
+function normalizeGarminTrainingMetrics(text, metrics){
+  const s=String(text||'')
+    .replace(/\u00a0/g,' ')
+    .replace(/,/g,'.')
+    .replace(/\r/g,'');
+  const out={...(metrics||{})};
+  let m;
+
+  // Paired Garmin row:
+  // "Расстояние Средний темп"
+  // "8.03 км 5:53 /км"
+  m=s.match(/Расстояние\s+Средн(?:ий)?\s+темп[\s\S]{0,80}?(\d+(?:\.\d+)?)\s*(?:км|km)\s+(\d{1,2}):(\d{2})\s*\/?\s*(?:км|km)/i);
+  if(m){
+    out.distance=Number(m[1]);
+    out.pace=m[2]+':'+m[3];
+  }
+
+  // Explicit distance.
+  m=s.match(/(?:Расстояние|Дистанция|Distance)[\s\S]{0,80}?(\d+(?:\.\d+)?)\s*(?:км|km)\b/i);
+  if(m) out.distance=Number(m[1]);
+
+  // Explicit average pace, with unit context so 8.03 km cannot become 8:03 pace.
+  m=s.match(/(?:Средн(?:ий)?\s+темп|Темп|Pace)[\s\S]{0,100}?(\d{1,2}):(\d{2})\s*\/?\s*(?:км|km)\b/i);
+  if(m) out.pace=m[1]+':'+m[2];
+
+  // Paired Garmin row:
+  // "Время в движении Набор высоты"
+  // "47:14 17 м"
+  m=s.match(/Время\s+в\s+движении(?:\s+Набор\s+высоты)?[\s\S]{0,80}?(\d{1,2}:\d{2}(?::\d{2})?)/i);
+  if(m) out.time=m[1];
+
+  // Paired Garmin row:
+  // "Калории Сред. пульс"
+  // "636 Ккал 155 уд/мин"
+  m=s.match(/Калории\s+Сред\.?\s*пульс[\s\S]{0,80}?\d+\s*Ккал\s+(\d{2,3})\s*уд\/мин/i);
+  if(m) out.hr=Number(m[1]);
+
+  // Explicit average HR fallback.
+  m=s.match(/(?:Сред\.?\s*пульс|Средн(?:ий|яя)\s+пульс|Avg(?:erage)?\s+HR)[\s\S]{0,80}?(\d{2,3})\s*(?:уд\/мин|bpm)\b/i);
+  if(m) out.hr=Number(m[1]);
+
+  
+  // Paired Garmin row:
+  // "Расстояние Набор высоты"
+  // "16.16 км 2755 м"
+  m=s.match(/Расстояние\s+Набор\s+высоты[\s\S]{0,100}?(\d+(?:\.\d+)?)\s*(?:км|km)\s+(\d{1,5})\s*(?:м|m)\b/i);
+  if(m){
+    out.distance=Number(m[1]);
+    out.gain=Number(m[2]);
+  }
+
+  // More tolerant paired-label OCR: labels may be on one line,
+  // values on the following line with extra spaces/newlines.
+  if(out.distance==null){
+    m=s.match(/Расстояние[\s\S]{0,120}?(\d+(?:\.\d+)?)\s*(?:км|km)\b/i);
+    if(m) out.distance=Number(m[1]);
+  }
+
+  if(out.gain==null){
+    m=s.match(/Набор\s+высоты[\s\S]{0,120}?(\d{1,5})\s*(?:м|m)\b/i);
+    if(m) out.gain=Number(m[1]);
+  }
+
+  return out;
+}
+
+
+function setMovingTimeFieldFromOCR(value){
+  const el=$('refMinutes');
+  if(!el || !value) return;
+
+  const s=String(value).trim();
+  let seconds=null;
+  let m=s.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+  if(m){
+    seconds=Number(m[1])*3600+Number(m[2])*60+Number(m[3]);
+  }else{
+    m=s.match(/^(\d{1,3}):(\d{2})$/);
+    if(m) seconds=Number(m[1])*60+Number(m[2]);
+  }
+
+  // v0.80 lower field originally inherited a numeric "minutes" input.
+  if(el.type==='number'){
+    if(seconds!=null) el.value=(seconds/60).toFixed(2).replace(/\.00$/,'');
+    else{
+      const n=Number(s.replace(',','.'));
+      el.value=Number.isFinite(n)?String(n):'';
+    }
+  }else{
+    el.value=s;
+  }
+}
+
+function renderTrainingOcrMetrics(metrics){
+  if($('refDist') && metrics.distance!=null) $('refDist').value=metrics.distance;
+  if(metrics.time) setMovingTimeFieldFromOCR(metrics.time);
+  if($('refPace') && metrics.pace) $('refPace').value=metrics.pace;
+  if($('refAvgHr') && metrics.hr!=null) $('refAvgHr').value=metrics.hr;
+
+  const box=$('ocrParsedMetrics');
+  if(!box) return;
+
+  const has=Object.keys(metrics||{}).length>0;
+  box.style.display=has?'grid':'none';
+
+  if($('ocrDistance')) $('ocrDistance').textContent=metrics.distance!=null?`${metrics.distance} км`:'—';
+  if($('ocrGain')) $('ocrGain').textContent=metrics.gain!=null?`${metrics.gain} м`:'—';
+  if($('ocrTime')) $('ocrTime').textContent=metrics.time||'—';
+  if($('ocrPace')) $('ocrPace').textContent=metrics.pace?`${metrics.pace} /км`:'—';
+  if($('ocrHr')) $('ocrHr').textContent=metrics.hr!=null?`${metrics.hr} уд/мин`:'—';
+
+  // Auto-fill existing training fields when present.
+  if(metrics.distance!=null && $('refDist')) $('refDist').value=String(metrics.distance);
+  if(metrics.gain!=null && $('refGain')) $('refGain').value=String(metrics.gain);
+  if(metrics.hr!=null && $('refAvgHr')) $('refAvgHr').value=String(metrics.hr);
+}
+
+
+
+
+function clearBestTrainingOnPageLoad(){
+  hardClearBestTrainingFields(true);
+  // Safari may restore form values after DOMContentLoaded, so clear again shortly after paint.
+  requestAnimationFrame(()=>{
+    hardClearBestTrainingFields(true);
+    setTimeout(()=>hardClearBestTrainingFields(true),120);
+    setTimeout(()=>hardClearBestTrainingFields(true),500);
+  });
+}
+
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',clearBestTrainingOnPageLoad,{once:true});
+}else{
+  clearBestTrainingOnPageLoad();
+}
+
+window.addEventListener('pageshow',()=>{
+  clearBestTrainingOnPageLoad();
+});
+
+
+// ---------- OFFLINE BUILD ----------
+const OFFLINE_BUILD=true;
+
+function disableOnlineFeaturesOffline(){
+  const ocr=$('trainingOcrBtn');
+  if(ocr){
+    ocr.disabled=true;
+    ocr.textContent='OCR недоступен офлайн';
+  }
+  const map=$('mapAnalyzeBtn');
+  if(map){
+    map.disabled=true;
+    map.textContent='Анализ карты — нужен интернет';
+  }
+  const ai=$('itraLookupBtn');
+  if(ai){
+    ai.disabled=true;
+    ai.textContent='ITRA через AI — нужен интернет';
+  }
+  if($('serverStatus')) $('serverStatus').textContent='OFFLINE';
+}
+window.addEventListener('DOMContentLoaded',disableOnlineFeaturesOffline);
