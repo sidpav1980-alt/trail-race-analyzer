@@ -94,6 +94,7 @@ const state = {
   raceForecast: null,
   forecastMode: null,
   mapAnalysis: null,
+  mapAnalysisReadyForCurrentGpx: false,
   deferredPrompt: null
 };
 
@@ -212,12 +213,21 @@ function syncMapAnalyzeButton(){
   const btn=$('mapAnalyzeBtn');
   if(!btn) return;
   const ready=!!(state.track && state.track.length>1 && state.dist>0);
-  if(typeof OFFLINE_BUILD_V014!=='undefined' && OFFLINE_BUILD_V014){
-    btn.disabled=true;
+  const online=navigator.onLine!==false;
+
+  btn.disabled=!(ready&&online);
+
+  if(!online){
     setActionState('mapAnalyzeBtn','idle');
+    const cached=state.mapAnalysis || (()=>{try{return JSON.parse(localStorage.getItem('trailMapAnalysis')||'null')}catch(e){return null}})();
+    if($('mapAnalyzeStatus')){
+      $('mapAnalyzeStatus').textContent=cached
+        ? 'Офлайн: новый анализ карты недоступен. Сохранённый анализ можно использовать в прогнозе.'
+        : 'Офлайн: анализ карты требует интернет. Обычный прогноз по GPX доступен.';
+    }
     return;
   }
-  btn.disabled=!ready;
+
   if(ready){
     setActionState('mapAnalyzeBtn','ready');
     if($('mapAnalyzeStatus') && !$('mapAnalyzeStatus').textContent.includes('✓')){
@@ -227,6 +237,21 @@ function syncMapAnalyzeButton(){
     setActionState('mapAnalyzeBtn','idle');
   }
 }
+
+function updateOfflineUi(){
+  const el=$('offlineState');
+  const online=navigator.onLine!==false;
+  if(el){
+    el.textContent=online?'ONLINE / OFFLINE READY':'OFFLINE';
+    el.className='app-offline-state '+(online?'online':'offline');
+  }
+  syncMapAnalyzeButton();
+}
+
+window.addEventListener('online',updateOfflineUi);
+window.addEventListener('offline',updateOfflineUi);
+setTimeout(updateOfflineUi,0);
+
 
 
 
@@ -347,12 +372,33 @@ function readFileIOS(file){
   });
 }
 let selectedGPXFile=null;
+let mapAnalysisAbortController=null;
+let mapAnalysisRunId=0;
+
+function abortMapAnalysisForNewGpx(){
+  mapAnalysisRunId++;
+  if(mapAnalysisAbortController){
+    try{ mapAnalysisAbortController.abort(); }catch(e){}
+    mapAnalysisAbortController=null;
+  }
+  stopMapAnalysisTimer();
+  const p=$('mapAnalyzeProgress');
+  if(p){ p.value=0; p.style.display='none'; }
+  const btn=$('mapAnalyzeBtn');
+  if(btn){
+    btn.disabled=true;
+    setActionState('mapAnalyzeBtn','idle');
+  }
+  const status=$('mapAnalyzeStatus');
+  if(status) status.textContent='Анализ карты остановлен. Сначала обработайте новый GPX.';
+}
 
 
 $('basePace').addEventListener('change',()=>{ if(state.track&&state.track.length) drawTrackProfiles(); });
 window.addEventListener('resize',()=>{ if(state.track&&state.track.length) drawTrackProfiles(); });
 
 $('gpxFile').addEventListener('change', e=>{
+  abortMapAnalysisForNewGpx();
   invalidateRaceForecast();
   state.hasElevation=false;
   state.raceForecast=null;
@@ -363,7 +409,10 @@ $('gpxFile').addEventListener('change', e=>{
 
   clearResultForecast();
   selectedGPXFile=e.currentTarget.files&&e.currentTarget.files[0] ? e.currentTarget.files[0] : null;
+  state.mapAnalysis=null;
+  state.mapAnalysisReadyForCurrentGpx=false;
   resetMapAnalysisForNewGPX();
+  applyForecastModeColors();
   resetOwnItraForNewGPX();
   if(!selectedGPXFile){
     $('gpxName').innerHTML='<span id="gpxCheck" class="file-check">○</span> Файл не выбран';
@@ -378,6 +427,7 @@ $('gpxFile').addEventListener('change', e=>{
 });
 
 $('gpxLoadBtn').addEventListener('click',async ()=>{
+  abortMapAnalysisForNewGpx();
   if(!selectedGPXFile){
     $('gpxStatus').textContent='✕ Сначала выберите GPX.'; setActionState('gpxLoadBtn','error');
     return;
@@ -500,13 +550,37 @@ function updateTraversalTimes(){
   if(elapsedPace) elapsedPace.textContent=formatTrackPace(times.elapsedSec,distanceKm);
 }
 
+
+function adjustedTrailEndurancePoints(kmEffort){
+  let pts=itraEndurancePoints(kmEffort);
+  const d=computeTrailDifficulty();
+  const vertPerKm=(state.gain||0)/Math.max(0.1,state.dist||0);
+
+  const nearNextBoundary =
+    (pts===1 && kmEffort>=42) ||
+    (pts===2 && kmEffort>=72) ||
+    (pts===3 && kmEffort>=112) ||
+    (pts===4 && kmEffort>=152) ||
+    (pts===5 && kmEffort>=205);
+
+  const extremeVertical =
+    vertPerKm>=120 ||
+    d.steep15Pct>=40 ||
+    d.score>=7.5;
+
+  if(pts<6 && nearNextBoundary && extremeVertical) pts+=1;
+  return pts;
+}
+
 function updateItraDifficulty(){
   const kmEffort=(state.dist||0)+((state.gain||0)/100);
   const points=itraEndurancePoints(kmEffort);
-  const k=$('itraKmEffort'), p=$('itraPoints');
+  const k=$('itraKmEffort'), p=$('itraPoints'), ap=$('itraAdjustedPoints');
+  const adjustedPoints=adjustedTrailEndurancePoints(kmEffort);
   if(k) k.textContent=kmEffort ? kmEffort.toFixed(1) : '—';
   if(p) p.textContent=(state.dist||state.gain) ? String(points) : '—';
-  return {kmEffort, points};
+  if(ap) ap.textContent=(state.dist||state.gain) ? String(adjustedPoints) : '—';
+  return {kmEffort, points, adjustedPoints};
 }
 
 
@@ -524,6 +598,7 @@ function computeTrailDifficulty(){
   let steep15Dist=0;
   let steep10Dist=0;
   let steep20Dist=0;
+  let steepDown15Dist=0;
   let maxGrade=0;
   let reversals=0;
   let prevSign=0;
@@ -540,6 +615,7 @@ function computeTrailDifficulty(){
     if(absGrade>=10) steep10Dist+=dk;
     if(absGrade>=15) steep15Dist+=dk;
     if(absGrade>=20) steep20Dist+=dk;
+    if(grade<=-15) steepDown15Dist+=dk;
     if(absGrade>maxGrade && absGrade<80) maxGrade=absGrade;
 
     const sign=de>1 ? 1 : (de<-1 ? -1 : 0);
@@ -559,42 +635,49 @@ function computeTrailDifficulty(){
   const steep15Pct=totalHoriz>0 ? (steep15Dist/totalHoriz)*100 : 0;
   const steep10Pct=totalHoriz>0 ? (steep10Dist/totalHoriz)*100 : 0;
   const steep20Pct=totalHoriz>0 ? (steep20Dist/totalHoriz)*100 : 0;
+  const steepDown15Pct=totalHoriz>0 ? (steepDown15Dist/totalHoriz)*100 : 0;
 
-  // Trail Difficulty 0-10.
-  // Weights emphasize vertical density and sustained steepness.
+  // Trail Difficulty 0-10, v0.43.
+  // Short repeated steep climbs/descents matter more; long climbs are only
+  // an extra factor and can no longer pull a punchy course score too low.
   let score=0;
 
-  // vertical density: 0..3.5
-  score += Math.min(3.5, vertPerKm/30);
+  // Vertical density: 0..3.0. Around 25-30 m+/km is already meaningful.
+  score += Math.min(3.0, vertPerKm/22);
 
-  // steepness exposure: 0..3.0
-  score += Math.min(1.5, steep10Pct/20);
-  score += Math.min(1.0, steep15Pct/18);
-  score += Math.min(0.5, steep20Pct/15);
+  // Exposure to steep terrain: 0..3.6.
+  // These intentionally overlap: a >20% section is harder than a plain >10% one.
+  score += Math.min(1.4, steep10Pct/18);
+  score += Math.min(1.4, steep15Pct/14);
+  score += Math.min(0.8, steep20Pct/12);
 
-  // profile ruggedness / reversals: 0..1.5
+  // Steep descents add eccentric/technical load: 0..0.8.
+  score += Math.min(0.8, steepDown15Pct/12);
+
+  // Profile ruggedness / repeated up-down changes: 0..1.2.
   const revPer10=(reversals/Math.max(state.dist,1))*10;
-  score += Math.min(1.5, revPer10/8);
+  score += Math.min(1.2, revPer10/9);
 
-  // sustained climbs: 0..1.0
-  score += Math.min(1.0, longClimbs/6);
+  // Sustained climbs are a bonus, not a prerequisite for difficulty: 0..0.5.
+  score += Math.min(0.5, longClimbs/8);
 
-  // very steep max grade: 0..1.0
-  if(maxGrade>=30) score+=1.0;
-  else if(maxGrade>=20) score+=0.7;
-  else if(maxGrade>=15) score+=0.4;
+  // Max grade contributes modestly because a single GPS spike can exaggerate it.
+  if(maxGrade>=30) score+=0.6;
+  else if(maxGrade>=20) score+=0.45;
+  else if(maxGrade>=15) score+=0.3;
 
   score=Math.max(0,Math.min(10,score));
 
   let label='Почти плоская';
-  if(score>=9) label='Очень тяжёлая / альпийская';
-  else if(score>=7) label='Тяжёлая';
-  else if(score>=5) label='Средняя';
-  else if(score>=3) label='Лёгкий трейл';
+  if(score>=8.5) label='Очень тяжёлая / альпийская';
+  else if(score>=6.5) label='Тяжёлая';
+  else if(score>=4.5) label='Средняя';
+  else if(score>=2.5) label='Лёгкий трейл';
 
   return {
     score,
     steep15Pct,
+    steepDown15Pct,
     vertPerKm,
     maxGrade,
     reversals,
@@ -609,7 +692,7 @@ function updateTrailDifficulty(){
   if(s) s.textContent=(state.dist>0)?d.score.toFixed(1)+'/10':'—';
   if(p) p.textContent=(state.dist>0)?d.steep15Pct.toFixed(1)+'%':'—';
   if(v) v.textContent=(state.dist>0)?d.vertPerKm.toFixed(0)+' м/км':'—';
-  if(l) l.textContent=(state.dist>0)?`${d.label} · max уклон ${d.maxGrade.toFixed(0)}% · подъёмов >500 м: ${d.longClimbs}`:'—';
+  if(l) l.textContent=(state.dist>0)?`${d.label} · max уклон ${d.maxGrade.toFixed(0)}% · подъёмов длиной >500 м: ${d.longClimbs}`:'—';
   return d;
 }
 
@@ -862,7 +945,9 @@ function analyzeWaterCrossings(samples,elements=[]){
 
   function finish(endKm){
     const len=Math.max(0,endKm-startKm);
-    if(len>0.30) return;
+    // Ignore tiny OSM/GPS water fragments: a crossing must be at least 2 metres.
+    // Keep every contiguous water section consistent with the forecast table.
+    if(len<0.002) return;
     const mid=(startKm+endKm)/2;
     if(bridgeNearKm(mid)) bridges.push(mid);
     else fords.push(mid);
@@ -969,7 +1054,7 @@ function filterFordCandidatesClient(fords){
   const arr=fords
     .filter(f=>{
       const w=Number(f?.width_m ?? f?.width);
-      return !(Number.isFinite(w) && w<1.0);
+      return !(Number.isFinite(w) && w<2.0);
     })
     .filter(f=>Number.isFinite(Number(f?.km)))
     .sort((a,b)=>Number(a.km)-Number(b.km));
@@ -988,13 +1073,24 @@ function filterFordCandidatesClient(fords){
 async function analyzeMapOSM(){
   startMapAnalysisTimer();
   if(!state.track || !state.track.length) throw new Error('Сначала обработайте GPX');
+
+  const runId=++mapAnalysisRunId;
+  if(mapAnalysisAbortController){
+    try{ mapAnalysisAbortController.abort(); }catch(e){}
+  }
+  mapAnalysisAbortController=new AbortController();
+  const controller=mapAnalysisAbortController;
+
   const pts=sampleTrackPoints(220);
   const query=buildOverpassQuery(pts);
 
   $('mapAnalyzeStatus').textContent='⏳ Отправляю запрос через Render proxy…';
 
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),45000);
+  let analysisTimedOut=false;
+  const timer=setTimeout(()=>{
+    analysisTimedOut=true;
+    controller.abort();
+  },25000);
 
   let resp;
   try{
@@ -1009,6 +1105,14 @@ async function analyzeMapOSM(){
     clearTimeout(timer);
   }
 
+  if(runId!==mapAnalysisRunId || controller.signal.aborted){
+    const err=new Error(analysisTimedOut
+      ? 'Анализ карты остановлен: превышено 25 секунд'
+      : 'Анализ карты остановлен');
+    err.name=analysisTimedOut?'TimeoutError':'AbortError';
+    throw err;
+  }
+
   if(!resp.ok){
     let detail='';
     try{
@@ -1019,6 +1123,14 @@ async function analyzeMapOSM(){
   }
 
   const data=await resp.json();
+  if(runId!==mapAnalysisRunId || controller.signal.aborted){
+    const err=new Error(analysisTimedOut
+      ? 'Анализ карты остановлен: превышено 25 секунд'
+      : 'Анализ карты остановлен');
+    err.name=analysisTimedOut?'TimeoutError':'AbortError';
+    throw err;
+  }
+  mapAnalysisAbortController=null;
     normalizeFordData(data);
     {
       let rawFordKm=[];
@@ -1067,6 +1179,18 @@ function renderMapAnalysis(result){
     fordCount:fordKms.length,
     bridgeKms:[...bridgeKms]
   };
+  state.mapAnalysisReadyForCurrentGpx=true;
+
+  // New route analysis becomes the source of automatic segment boundaries.
+  // Reset any previously entered manual table step back to AUTO.
+  const stepEl=$('forecastStepKm');
+  if(stepEl) stepEl.value='';
+  if($('recalcForecastStepBtn')){
+    $('recalcForecastStepBtn').disabled=true;
+    setActionState('recalcForecastStepBtn','idle');
+  }
+
+  applyForecastModeColors();
 
   $('mapAnalysisResults').style.display='block';
   $('coverageMetric').textContent=summary.coverage.toFixed(0)+'%';
@@ -1322,56 +1446,59 @@ function clearResultForecast(){
 
 
 function getBestTrainingHr(){
-  const v=Number($('refAvgHr')?.value||state.bestTraining?.hr||0);
-  return Number.isFinite(v) ? v : 0;
+  const cal=trainingHrCalibration();
+  return cal ? cal.upperWorkingHr : 0;
 }
 
 function buildHrStrategy(){
   const dist=Number(state.dist||0);
-  const avgHr=getBestTrainingHr();
-  if(!(dist>0) || !(avgHr>0)) return [];
+  const cal=trainingHrCalibration();
+  if(!(dist>0) || !cal) return [];
 
-  // Use best-training HR as an anchor.
-  // Early race = controlled, middle = working range, final = race effort.
-  // Clamp to sane running ranges so OCR mistakes don't create absurd targets.
   const clamp=(x,a,b)=>Math.max(a,Math.min(b,Math.round(x)));
+  const sustainable=cal.sustainableHr;
+  const upper=cal.upperWorkingHr;
+  const threshold=cal.thresholdHr;
+  const finish=cal.finishCeiling;
 
-  const earlyLo=clamp(avgHr-10,120,185);
-  const earlyHi=clamp(avgHr-7,earlyLo,190);
+  // Long-race guidance is now bounded by BOTH endurance GPXs and the observed
+  // fast-session distribution.
+  const earlyLo=clamp(sustainable-7,120,195);
+  const earlyHi=clamp(Math.min(upper-8,sustainable+1),earlyLo,198);
 
-  const midLo=clamp(avgHr-7,120,190);
-  const midHi=clamp(avgHr-3,midLo,195);
+  const midLo=clamp(sustainable-3,120,198);
+  const midHi=clamp(Math.min(upper-3,threshold-3),midLo,200);
 
-  const lateLo=clamp(avgHr-3,120,195);
-  const lateHi=clamp(avgHr+1,lateLo,198);
+  const lateLo=clamp(Math.max(sustainable,upper-6),120,200);
+  const lateHi=clamp(Math.min(threshold+1,upper+2),lateLo,202);
 
-  const finishLo=clamp(avgHr,120,198);
-  const finishHi=clamp(avgHr+5,finishLo,202);
+  const finishLo=clamp(Math.max(upper-2,threshold-4),120,202);
+  const finishHi=clamp(finish,finishLo,205);
 
-  const p1=Math.max(1,Math.round(dist*0.52));
-  const p2=Math.max(p1+1,Math.round(dist*0.78));
-  const p3=Math.max(p2+1,Math.round(dist*0.95));
+  const p1=Math.max(1,Math.round(dist*0.35));
+  const p2=Math.max(p1+1,Math.round(dist*0.70));
+  const p3=Math.max(p2+1,Math.round(dist*0.92));
 
   return [
     {
       km:`0–${p1} км`,
       hr:`${earlyLo}–${earlyHi}`,
-      mode:'На подъёмах держать запас. Короткий выход выше диапазона допустим, но не висеть там постоянно.'
+      mode:'Контролируемый старт. На подъёмах допустим короткий выход к верхней границе, но без раннего закисления.'
     },
     {
       km:`${p1}–${p2} км`,
       hr:`${midLo}–${midHi}`,
-      mode:'Рабочий горный пульс. На спусках и лёгких участках дать пульсу опуститься и восстановиться.'
+      mode:'Рабочая зона по данным тренировочных GPX. На спусках пульс специально не удерживать.'
     },
     {
       km:`${p2}–${p3} км`,
       hr:`${lateLo}–${lateHi}`,
-      mode:'Если питание и ноги в порядке — постепенно повышать усилие. Основная атака.'
+      mode:'При нормальном питании и состоянии можно постепенно переходить к верхнему рабочему диапазону.'
     },
     {
       km:`${p3}–${dist.toFixed(1).replace(/\.0$/,'')} км`,
-      hr:`${finishLo}–${finishHi}+`,
-      mode:'Финишный участок. Можно работать без экономии, если нет признаков перегрева или развала.'
+      hr:`${finishLo}–${finishHi}`,
+      mode:'Финишный блок. Верхняя граница основана на реально наблюдавшемся HR скоростной тренировки.'
     }
   ];
 }
@@ -1385,7 +1512,7 @@ function renderHrStrategy(){
   tbody.innerHTML='';
 
   if(!rows.length){
-    summary.textContent='Нужны GPX трассы и средний пульс лучшей тренировки.';
+    summary.textContent='Нужны GPX трассы и тренировочные GPX с HR.';
     return;
   }
 
@@ -1394,8 +1521,11 @@ function renderHrStrategy(){
       `<tr><td>${r.km}</td><td><b>${r.hr}</b></td><td>${r.mode}</td></tr>`);
   });
 
-  const avgHr=getBestTrainingHr();
-  summary.textContent=`Основа: средний пульс лучшей тренировки ${avgHr} уд/мин. На спусках высокий пульс специально не удерживать.`;
+  const cal=trainingHrCalibration();
+  summary.textContent=
+    `HR-модель по распределению тренировок: устойчивый ${Math.round(cal.sustainableHr)}, `
+    + `скоростной рабочий ${Math.round(cal.upperWorkingHr)}, `
+    + `пороговый ориентир ${Math.round(cal.thresholdHr)} уд/мин.`;
 }
 
 function finishPrediction(){
@@ -1466,6 +1596,11 @@ function threat(delta){
 }
 
 $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
+  if(navigator.onLine===false){
+    $('mapAnalyzeStatus').textContent='Офлайн: анализ карты требует интернет. Используйте обычный прогноз или ранее сохранённый анализ.';
+    return;
+  }
+
   const btn=$('mapAnalyzeBtn'), p=$('mapAnalyzeProgress');
   if(!state.track || !state.track.length){
     $('mapAnalyzeStatus').textContent='✕ Сначала обработайте GPX.';
@@ -1477,7 +1612,9 @@ $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
   p.style.display='block'; p.value=15;
   $('mapAnalyzeStatus').textContent='⏳ Запрашиваю OSM/Overpass…';
   try{
+    const myRunId=mapAnalysisRunId+1;
     const result=await analyzeMapOSM();
+    if(myRunId!==mapAnalysisRunId) return;
     p.value=85;
     renderMapAnalysis(result);
     p.value=100;
@@ -1487,10 +1624,19 @@ $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
     setTimeout(()=>p.style.display='none',1200);
   }catch(err){
     p.style.display='none';
-    $('mapAnalyzeStatus').textContent='✕ Ошибка анализа карты: '+(err.message||String(err));
-    setActionState('mapAnalyzeBtn','error');
+    if(err?.name==='AbortError'){
+      $('mapAnalyzeStatus').textContent='Анализ карты остановлен.';
+      setActionState('mapAnalyzeBtn','idle');
+    }else if(err?.name==='TimeoutError'){
+      $('mapAnalyzeStatus').textContent='Анализ карты остановлен: превышено 25 секунд.';
+      setActionState('mapAnalyzeBtn','idle');
+    }else{
+      $('mapAnalyzeStatus').textContent='✕ Ошибка анализа карты: '+(err.message||String(err));
+      setActionState('mapAnalyzeBtn','error');
+    }
   }finally{
-    btn.disabled=false;
+    mapAnalysisAbortController=null;
+    syncMapAnalyzeButton();
   }
 });
 
@@ -1508,6 +1654,11 @@ function getManualOpenRouterKey(){
 async function refreshOpenRouterStatus(){
   const el=$('openRouterStatus');
   if(!el) return;
+  if(navigator.onLine===false){
+    el.textContent='офлайн';
+    el.className='or-status or-bad';
+    return;
+  }
   el.textContent='проверка…';
   el.className='or-status or-checking';
   try{
@@ -1681,8 +1832,14 @@ function parseTimedActivityGPX(text){
     const lat=Number(n.getAttribute('lat')), lon=Number(n.getAttribute('lon'));
     const e=n.getElementsByTagName('ele')[0]||n.getElementsByTagNameNS('*','ele')[0];
     const t=n.getElementsByTagName('time')[0]||n.getElementsByTagNameNS('*','time')[0];
+
+    let hrNode=null;
+    const descendants=[...n.getElementsByTagName('*')];
+    hrNode=descendants.find(x=>String(x.localName||x.nodeName||'').toLowerCase()==='hr')||null;
+
     const ele=e?Number(e.textContent):NaN;
     const ts=t?Date.parse(t.textContent):NaN;
+    const hr=hrNode?Number(hrNode.textContent):NaN;
     if(!Number.isFinite(lat)||!Number.isFinite(lon)||!Number.isFinite(ele)||!Number.isFinite(ts)) continue;
     if(prev){
       const d=haversine(prev.lat,prev.lon,lat,lon)/1000;
@@ -1690,7 +1847,7 @@ function parseTimedActivityGPX(text){
       const de=ele-prev.ele;
       if(de>0) gain+=de;
     }
-    pts.push({km,lat,lon,ele,ts});
+    pts.push({km,lat,lon,ele,ts,hr:Number.isFinite(hr)&&hr>=50&&hr<=230?hr:NaN});
     prev={lat,lon,ele};
   }
   if(pts.length<10 || pts[pts.length-1].km<1) throw new Error('Недостаточно данных activity');
@@ -1708,7 +1865,10 @@ function parseTimedActivityGPX(text){
       const progress=((pts[i].km+pts[st].km)/2)/totalKm;
       // reject stops, teleportation and extreme GPS spikes
       if(dt>=15 && dt<=1800 && speed>=0.20 && speed<=8 && Math.abs(grade)<0.60){
-        samples.push({speed,grade,progress});
+        const h1=Number(pts[st].hr),h2=Number(pts[i].hr);
+        const hrs=[h1,h2].filter(x=>Number.isFinite(x)&&x>=50&&x<=230);
+        const hr=hrs.length?hrs.reduce((a,b)=>a+b,0)/hrs.length:NaN;
+        samples.push({speed,grade,progress,hr});
       }
       st=i;
     }
@@ -1719,6 +1879,60 @@ function parseTimedActivityGPX(text){
   if(!coeff || coeff.some(x=>!Number.isFinite(x))) throw new Error('Не удалось откалибровать модель');
 
   const elapsedSec=(pts[pts.length-1].ts-pts[0].ts)/1000;
+  const avgSpeed=(totalKm*1000)/Math.max(1,elapsedSec);
+
+  const flatSpeeds=samples
+    .filter(s=>Math.abs(Number(s.grade)||0)<=0.015)
+    .map(s=>Number(s.speed))
+    .filter(v=>Number.isFinite(v)&&v>0.5&&v<8)
+    .sort((a,b)=>a-b);
+
+  function q(arr,p){
+    if(!arr.length) return NaN;
+    const x=(arr.length-1)*p, lo=Math.floor(x), hi=Math.ceil(x);
+    if(lo===hi) return arr[lo];
+    return arr[lo]+(arr[hi]-arr[lo])*(x-lo);
+  }
+
+  const q50=q(flatSpeeds,0.50);
+  const q75=q(flatSpeeds,0.75);
+  const q85=q(flatSpeeds,0.85);
+  const variability=(Number.isFinite(q85)&&Number.isFinite(q50)&&q50>0)?q85/q50:1;
+  const fastWeight=Math.max(0.20,Math.min(0.65,(variability-1)*2.2+0.25));
+  const calibratedFlatSpeed=Number.isFinite(q75)
+    ? Math.max(avgSpeed*0.95,Math.min(avgSpeed*1.45,
+        q75*(1-fastWeight)+(Number.isFinite(q85)?q85:q75)*fastWeight))
+    : avgSpeed;
+
+  const climbDensity=totalKm>0?gain/totalKm:0;
+  const durationHours=elapsedSec/3600;
+
+  const pointHrs=pts.map(p=>Number(p.hr)).filter(x=>Number.isFinite(x)&&x>=50&&x<=230);
+  const avgHr=pointHrs.length?pointHrs.reduce((a,b)=>a+b,0)/pointHrs.length:NaN;
+  const sortedHrs=pointHrs.slice().sort((a,b)=>a-b);
+  const hrQ25=q(sortedHrs,0.25);
+  const hrQ50=q(sortedHrs,0.50);
+  const hrQ75=q(sortedHrs,0.75);
+  const hrQ90=q(sortedHrs,0.90);
+  const hrQ95=q(sortedHrs,0.95);
+  const hrMax=sortedHrs.length?sortedHrs[sortedHrs.length-1]:NaN;
+  const highHrThreshold=Number.isFinite(hrQ75)?hrQ75:avgHr;
+  const highHrShare=(pointHrs.length && Number.isFinite(highHrThreshold))
+    ? pointHrs.filter(v=>v>=highHrThreshold).length/pointHrs.length
+    : 0;
+
+  const hrSamples=samples.filter(s=>Number.isFinite(s.hr)&&s.hr>=50&&s.hr<=230);
+  let hrSpeedSlope=30;
+  if(hrSamples.length>=8){
+    const xs=hrSamples.map(s=>s.speed/Math.max(0.5,avgSpeed));
+    const ys=hrSamples.map(s=>s.hr);
+    const mx=xs.reduce((a,b)=>a+b,0)/xs.length;
+    const my=ys.reduce((a,b)=>a+b,0)/ys.length;
+    const cov=xs.reduce((a,v,i)=>a+(v-mx)*(ys[i]-my),0);
+    const vr=xs.reduce((a,v)=>a+(v-mx)*(v-mx),0);
+    if(vr>1e-6) hrSpeedSlope=Math.max(10,Math.min(55,cov/vr));
+  }
+
   return {
     coeff,
     source:'uploaded activity',
@@ -1726,7 +1940,28 @@ function parseTimedActivityGPX(text){
     dist:totalKm,
     gain,
     elapsedSec,
-    avgSpeed:(totalKm*1000)/Math.max(1,elapsedSec)
+    avgSpeed,
+    avgHr:Number.isFinite(avgHr)?avgHr:0,
+    hrPointCount:pointHrs.length,
+    hrSpeedSlope,
+    hrStats:{
+      q25:Number.isFinite(hrQ25)?hrQ25:0,
+      median:Number.isFinite(hrQ50)?hrQ50:0,
+      q75:Number.isFinite(hrQ75)?hrQ75:0,
+      q90:Number.isFinite(hrQ90)?hrQ90:0,
+      q95:Number.isFinite(hrQ95)?hrQ95:0,
+      max:Number.isFinite(hrMax)?hrMax:0,
+      highShare:highHrShare
+    },
+    calibratedFlatSpeed,
+    calibrationStats:{
+      flatQ50:q50,
+      flatQ75:q75,
+      flatQ85:q85,
+      variability,
+      climbDensity,
+      durationHours
+    }
   };
 }
 
@@ -1738,70 +1973,176 @@ function combinedRaceModelInfo(){
   const r=state.raceReferences||{};
   if(!allRaceReferencesReady()) return null;
 
-  // Absolute flat speed comes from the flat race (e.g. a 10 km race).
-  const flatSpeed=r.flatRace.avgSpeed;
+  const strength=r.strength;
+  const fast=r.fastTrail;
+  const flat=r.flatRace;
 
-  // Grade-response is blended from two trail references:
-  // strength trail dominates steep grades; fast trail stabilizes moderate terrain.
-  const cs=r.strength.coeff, cf=r.fastTrail.coeff;
+  const ss=strength.calibrationStats||{};
+  const fs=fast.calibrationStats||{};
+
+  const strengthLoad=
+    Math.max(0,Number(ss.climbDensity||0))/35 * 0.55 +
+    Math.max(0,Number(ss.durationHours||0))/4 * 0.45;
+
+  const fastLoad=
+    Math.max(0,Number(fs.climbDensity||0))/35 * 0.35 +
+    Math.max(0,Number(fs.durationHours||0))/4 * 0.20 +
+    Math.max(0,Number(fast.calibratedFlatSpeed||fast.avgSpeed||0))/4 * 0.45;
+
+  const sum=Math.max(0.001,strengthLoad+fastLoad);
+  const strengthW=Math.max(0.30,Math.min(0.75,strengthLoad/sum));
+  const fastW=1-strengthW;
+
+  const cs=strength.coeff, cf=fast.coeff;
   const gradeCoeff=[
     0,
-    cs[1]*0.65+cf[1]*0.35,
-    cs[2]*0.65+cf[2]*0.35,
-    cs[3]*0.65+cf[3]*0.35,
-    cs[4]*0.65+cf[4]*0.35
+    cs[1]*strengthW+cf[1]*fastW,
+    cs[2]*strengthW+cf[2]*fastW,
+    cs[3]*strengthW+cf[3]*fastW,
+    cs[4]*strengthW+cf[4]*fastW
   ];
 
-  // Fatigue is learned from both trail files, with a conservative clamp
-  // because reference sessions are shorter than the target ultra.
-  const fatigueK=Math.max(-0.40,Math.min(0,
-    (Number(cs[5]||0)*0.55)+(Number(cf[5]||0)*0.45)
+  const fatigueK=Math.max(-0.30,Math.min(0,
+    Number(cs[5]||0)*strengthW+Number(cf[5]||0)*fastW
   ));
 
-  // Fast-trail session provides a mild intensity/economy correction.
-  // Compare its estimated flat-equivalent intercept with the flat-race speed,
-  // but keep the correction small.
-  const fastFlatEstimate=Math.exp(cf[0]);
-  const intensityRatio=Math.max(0.90,Math.min(1.10,fastFlatEstimate/Math.max(0.1,flatSpeed)));
-  const fastTrailFactor=Math.pow(intensityRatio,0.20);
+  const flatSpeed=Number(flat.calibratedFlatSpeed||flat.avgSpeed);
+  const fastFlat=Number(fast.calibratedFlatSpeed||fast.avgSpeed);
+  const fastTrailFactor=Math.pow(
+    Math.max(0.94,Math.min(1.06,fastFlat/Math.max(0.1,flatSpeed))),
+    0.12
+  );
 
-  return {flatSpeed,gradeCoeff,fatigueK,fastTrailFactor};
+  return {flatSpeed,gradeCoeff,fatigueK,fastTrailFactor,strengthW,fastW};
+}
+function trainingHrCalibration(){
+  const refsObj=state.raceReferences||{};
+  const refs=Object.values(refsObj).filter(Boolean);
+  const withHr=refs.filter(r=>Number(r.avgHr)>60 && Number(r.avgHr)<220);
+  const manual=Number($('refAvgHr')?.value||state.bestTraining?.hr||0);
+  const manualLthr=Number($('lthr')?.value||0);
+
+  if(withHr.length){
+    // Sustainable anchor: longer sessions are more representative of long-race HR.
+    let wSum=0, sustainableSum=0, slopeSum=0, slopeW=0;
+    for(const r of withHr){
+      const hours=Math.max(0.4,Number(r.elapsedSec||0)/3600);
+      const durationW=Math.max(0.65,Math.min(2.2,Math.sqrt(hours)));
+      const med=Number(r.hrStats?.median||r.avgHr);
+      const sustainable=(Number(r.avgHr)*0.55 + med*0.45);
+      sustainableSum+=sustainable*durationW;
+      wSum+=durationW;
+      if(Number(r.hrSpeedSlope)>0){
+        slopeSum+=Number(r.hrSpeedSlope)*durationW;
+        slopeW+=durationW;
+      }
+    }
+
+    const sustainableHr=sustainableSum/Math.max(0.001,wSum);
+
+    // The short/flat speed reference is the best upper physiological anchor.
+    // If it has HR, use its real distribution instead of pulling targets down
+    // to the mean of all training files.
+    const speedRef=(refsObj.flatRace && Number(refsObj.flatRace.avgHr)>60)
+      ? refsObj.flatRace
+      : withHr.slice().sort((a,b)=>(a.elapsedSec||0)-(b.elapsedSec||0))[0];
+
+    const speedStats=speedRef?.hrStats||{};
+    const speedAvg=Number(speedRef?.avgHr||0);
+    const speedMedian=Number(speedStats.median||speedAvg);
+    const speedQ75=Number(speedStats.q75||speedAvg);
+    const speedQ90=Number(speedStats.q90||speedQ75||speedAvg);
+    const speedQ95=Number(speedStats.q95||speedQ90||speedAvg);
+    const speedMax=Number(speedStats.max||speedQ95||speedAvg);
+
+    // Upper working HR is intentionally based mostly on the actual speed-race
+    // average/median. q75/q90 are kept as threshold/finish ceilings.
+    const upperWorkingHr=Math.max(
+      sustainableHr,
+      speedAvg*0.60 + speedMedian*0.25 + speedQ75*0.15
+    );
+
+    // Estimate threshold only from observed HR distribution; don't invent it
+    // below the athlete's actual fast-session average.
+    const estimatedLthr=manualLthr>0
+      ? manualLthr
+      : Math.max(upperWorkingHr+2, Math.min(speedQ90||upperWorkingHr+5, speedQ95||upperWorkingHr+8));
+
+    return {
+      anchorHr:sustainableHr,
+      sustainableHr,
+      upperWorkingHr,
+      thresholdHr:estimatedLthr,
+      finishCeiling:Math.max(estimatedLthr,Math.min(speedMax||estimatedLthr+6,estimatedLthr+10)),
+      speedSlope:slopeW?slopeSum/slopeW:30,
+      source:`GPX: ${withHr.length}/3 с HR; верхний ориентир ${Math.round(upperWorkingHr)}`,
+      count:withHr.length,
+      lthr:estimatedLthr,
+      speedRefAvg:speedAvg,
+      speedRefMedian:speedMedian,
+      speedRefQ75:speedQ75,
+      speedRefQ90:speedQ90,
+      speedRefMax:speedMax
+    };
+  }
+
+  if(manual>60){
+    const lthr=manualLthr>0?manualLthr:manual+7;
+    return {
+      anchorHr:manual,sustainableHr:manual,upperWorkingHr:manual+4,
+      thresholdHr:lthr,finishCeiling:lthr+6,speedSlope:30,
+      source:'ручной средний пульс',count:0,lthr
+    };
+  }
+  if(manualLthr>0){
+    return {
+      anchorHr:manualLthr*0.88,sustainableHr:manualLthr*0.88,
+      upperWorkingHr:manualLthr*0.95,thresholdHr:manualLthr,
+      finishCeiling:manualLthr+6,speedSlope:30,
+      source:'LTHR',count:0,lthr:manualLthr
+    };
+  }
+  return null;
 }
 
 function racePhysiologyFactors(predictedSec){
   const refs=Object.values(state.raceReferences||{}).filter(Boolean);
   const T=Math.max(0.5,predictedSec/3600);
-  const longRef=state.raceReferences?.strength || refs.slice().sort((a,b)=>(b.elapsedSec||0)-(a.elapsedSec||0))[0];
-  const T10=Math.max(0.5,(longRef?.elapsedSec||3600)/3600);
-  const k=Math.max(0.10,Math.min(0.32,0.16 + Math.max(0,3-T10)*0.025 - Math.max(0,T10-4)*0.012));
-  const durationFactor=Math.max(0.68,Math.min(1.03,Math.pow(Math.max(1,T/T10),-k)));
 
-  const vo2=Number($('vo2max')?.value||0);
+  // Reference duration: prefer the longest uploaded effort because it best describes endurance.
+  const longRef=refs.slice().sort((x,y)=>(y.elapsedSec||0)-(x.elapsedSec||0))[0];
+  const Tref=Math.max(0.5,(longRef?.elapsedSec||3600)/3600);
+
+  // Fatigue grows when target duration exceeds the athlete's longest uploaded reference.
+  // k is intentionally meaningful for ultra/trail distances: pace must not stay at short-race level.
+  const ratio=Math.max(1,T/Tref);
+  const baseK=0.10;
+  const extraK=Math.min(0.10,Math.max(0,ratio-1)*0.035);
+  const k=baseK+extraK;
+  const durationFactor=Math.max(0.78,Math.min(1.0,Math.pow(ratio,-k)));
+
+  const vo2=Number($('vo2max')?.value||52);
   if(!(vo2>=20 && vo2<=90)) throw new Error('Введите VO₂max от 20 до 90 мл/кг/мин');
-  const vo2Factor=Math.max(0.94,Math.min(1.06,1+(vo2-50)*0.002));
+  const vo2Factor=Math.max(0.97,Math.min(1.03,1+(vo2-50)*0.002));
 
   const hrVals=refs.map(r=>Number(r.avgHr||0)).filter(x=>x>60);
-  const avgHr=hrVals.length?hrVals.reduce((a,b)=>a+b,0)/hrVals.length:0;
+  const avgHr=hrVals.length?hrVals.reduce((x,y)=>x+y,0)/hrVals.length:0;
   const lthr=Number($('lthr')?.value||0);
-  let hrFactor=1,hrRatio=0,acidHours=0,acidSource='';
 
+  let hrFactor=1,hrRatio=0,acidHours=0,acidSource='';
   if(avgHr>0 && lthr>0){
     hrRatio=avgHr/lthr;
     acidHours=hrRatio>=1.02?0.75:hrRatio>=0.98?1.5:hrRatio>=0.94?2.5:hrRatio>=0.90?4:hrRatio>=0.86?6:10;
     acidSource='HR/LTHR';
-    if(T>acidHours) hrFactor=Math.max(0.72,Math.pow(acidHours/T,0.10));
+    if(T>acidHours) hrFactor=Math.max(0.88,Math.pow(acidHours/T,0.045));
   }else{
-    // VO2max fallback: sustainable aerobic fraction falls with duration.
-    const sustainableFrac=Math.max(0.62,Math.min(0.90,0.90-0.09*Math.log2(Math.max(1,T))));
-    const reserve=Math.max(0.92,Math.min(1.08,1+(vo2-50)*0.004));
-    hrFactor=Math.max(0.70,Math.min(1.0,sustainableFrac*reserve/0.90));
-    // Near-threshold endurance estimate, not a lactate measurement.
-    acidHours=Math.max(1.0,Math.min(3.0,2.0+(vo2-50)*0.025));
+    acidHours=Math.max(1.0,Math.min(3.5,2.0+(vo2-50)*0.025));
     acidSource='VO₂max';
   }
-  return {durationFactor,hrFactor,hrRatio,acidHours,exponent:k,vo2Factor,vo2,acidSource};
-}
 
+  return {durationFactor,hrFactor,hrRatio,acidHours,exponent:k,vo2Factor,vo2,acidSource,
+          targetHours:T,referenceHours:Tref,fatigueRatio:ratio};
+}
 function raceModelSpeed(grade,progress,effortPct=100,elapsedSec=0){
   const info=combinedRaceModelInfo();
   if(!info) return NaN;
@@ -1855,28 +2196,79 @@ function riegelExponentForDistance(targetKm,refKm){
   return 1.12;
 }
 
+
+function vo2SpeedForDistanceKm(vo2,km){
+  const v=Number(vo2);
+  const d=Math.max(5,Math.min(15,Number(km)||10));
+  if(!(v>=20&&v<=90)) return null;
+
+  // Conservative sustainable fraction of VO2max for a 5–15 km speed anchor.
+  // 5 km ~93%, 10 km ~90%, 15 km ~87%.
+  const frac=Math.max(0.87,Math.min(0.93,0.93-(d-5)*0.006));
+  const targetO2=v*frac;
+
+  // Daniels oxygen-cost relation, v in metres/min.
+  const a=0.000104, b=0.182258, c=-4.60-targetO2;
+  const disc=b*b-4*a*c;
+  if(!(disc>0)) return null;
+  const mPerMin=(-b+Math.sqrt(disc))/(2*a);
+  if(!(mPerMin>0)) return null;
+  return mPerMin/60; // m/s
+}
+
+function vo2AdjustedFlatCalibration(ref,vo2){
+  const refKm=Math.max(5,Math.min(Number(ref?.dist||0),15));
+  const fileSpeed=Math.max(0.5,Number(ref?.calibratedFlatSpeed||ref?.avgSpeed||0));
+  const vo2Speed=vo2SpeedForDistanceKm(vo2,refKm);
+
+  if(!(vo2Speed>0)){
+    return {speed:fileSpeed,mode:'file',fileSpeed,vo2Speed:0,vo2Weight:0,refKm};
+  }
+
+  const filePace=1000/fileSpeed;
+  const vo2Pace=1000/vo2Speed;
+
+  // Only intervene when the uploaded "speed" file is clearly slower than
+  // the conservative VO2-derived capability estimate.
+  const slowRatio=filePace/vo2Pace;
+  if(slowRatio<=1.08){
+    return {speed:fileSpeed,mode:'file',fileSpeed,vo2Speed,vo2Weight:0,refKm,slowRatio};
+  }
+
+  // The slower the file, the more VO2 contributes, but never 100%.
+  const vo2Weight=Math.max(0.25,Math.min(0.70,(slowRatio-1.08)*1.8+0.25));
+  const speed=fileSpeed*(1-vo2Weight)+vo2Speed*vo2Weight;
+
+  return {speed,mode:'blend',fileSpeed,vo2Speed,vo2Weight,refKm,slowRatio};
+}
+
 function flatRaceAnchorForTarget(){
   const ref=state.raceReferences?.flatRace;
-  if(!ref || !(ref.dist>=10) || !(ref.elapsedSec>0)) return null;
+  if(!ref || !(ref.dist>=5) || !(ref.elapsedSec>0)) return null;
 
   const targetKm=Number(state.dist||0);
   const exponent=riegelExponentForDistance(targetKm,ref.dist);
-  const targetSec=ref.elapsedSec*Math.pow(targetKm/ref.dist,exponent);
+  const vo2=Number($('vo2max')?.value||52);
+
+  const speedCal=vo2AdjustedFlatCalibration(ref,vo2);
+  const calibrationSpeed=Math.max(0.5,speedCal.speed);
+
+  const refKm=Math.max(5,Math.min(ref.dist,15));
+  const refSec=(refKm*1000)/calibrationSpeed;
+  const targetSec=refSec*Math.pow(targetKm/refKm,exponent);
   const targetPaceSec=targetSec/Math.max(0.001,targetKm);
   const targetSpeed=(targetKm*1000)/Math.max(1,targetSec);
 
   return {
-    refKm:ref.dist,
-    refSec:ref.elapsedSec,
-    refPaceSec:ref.elapsedSec/ref.dist,
-    exponent,
-    targetKm,
-    targetSec,
-    targetPaceSec,
-    targetSpeed
+    refKm,refSec,
+    rawFileKm:ref.dist,
+    rawFileSec:ref.elapsedSec,
+    rawFilePaceSec:ref.elapsedSec/ref.dist,
+    refPaceSec:refSec/refKm,
+    exponent,targetKm,targetSec,targetPaceSec,targetSpeed,calibrationSpeed,
+    speedCalibration:speedCal
   };
 }
-
 function gradeOnlyFactor(grade){
   const info=combinedRaceModelInfo();
   if(!info) return 1;
@@ -1898,6 +2290,228 @@ function longDistanceEnduranceFactor(baseSec,vo2){
   return 1+extra;
 }
 
+
+function forecastCustomStepKm(){
+  const raw=String($('forecastStepKm')?.value||'').trim();
+  if(!raw) return 0;
+  const n=Number(raw);
+  return Number.isFinite(n) && n>=1 && n<=10 ? n : 0;
+}
+
+function forecastSurfaceAtKm(km){
+  const samples=state.mapAnalysis?.samples||state.mapAnalysis?.result?.samples||[];
+  if(!Array.isArray(samples)||!samples.length) return '';
+  let best=samples[0],bestD=Math.abs(Number(samples[0].km||0)-km);
+  for(let i=1;i<samples.length;i++){
+    const d=Math.abs(Number(samples[i].km||0)-km);
+    if(d<bestD){best=samples[i];bestD=d;}
+  }
+  return String(best?.cls||'');
+}
+
+function autoForecastBoundariesFromAnalysis(){
+  const dist=Number(state.dist||0);
+  const samples=(state.mapAnalysis?.samples||state.mapAnalysis?.result?.samples||[])
+    .filter(x=>Number.isFinite(Number(x?.km)))
+    .sort((a,b)=>Number(a.km)-Number(b.km));
+  if(!samples.length) return [0,dist];
+
+  const boundaries=[0,dist];
+  let lastClass=String(samples[0]?.cls||'unknown');
+  let lastBoundary=0;
+
+  for(let i=1;i<samples.length;i++){
+    const km=Number(samples[i].km);
+    const cls=String(samples[i]?.cls||'unknown');
+    if(cls!==lastClass && km-lastBoundary>=0.25 && dist-km>=0.15){
+      boundaries.push(km);
+      lastBoundary=km;
+    }
+    if(cls!==lastClass) lastClass=cls;
+  }
+
+  const eventKms=[
+    ...(state.mapAnalysis?.fordKms||[])
+  ].map(Number).filter(Number.isFinite);
+
+  for(const km of eventKms){
+    if(km>0.1 && km<dist-0.1) boundaries.push(km);
+  }
+
+  const clean=[...new Set(boundaries.map(x=>Math.max(0,Math.min(dist,Number(x)))))]
+    .filter(Number.isFinite).sort((a,b)=>a-b);
+
+  const out=[clean[0]||0];
+  for(let i=1;i<clean.length;i++){
+    const x=clean[i];
+    if(x-out[out.length-1]<0.15 && x<dist) continue;
+    out.push(x);
+  }
+  if(out[out.length-1]!==dist) out.push(dist);
+  return out;
+}
+
+function buildForecastGroups(detailed){
+  const customStep=forecastCustomStepKm();
+  const groups=[];
+
+  if(customStep>0){
+    let current=null;
+    for(const s of detailed){
+      const bucket=Math.floor(s.from/customStep)*customStep;
+      if(!current||current.bucket!==bucket){
+        if(current) groups.push(current);
+        current={bucket,from:s.from,to:s.to,distM:0,gain:0,loss:0,sec:0,cumSec:0,weightedGrade:0,segmentMode:'step'};
+      }
+      current.to=s.to;
+      current.distM+=s.dm;
+      current.sec+=s.sec;
+      current.cumSec=s.cumSec;
+      current.weightedGrade+=s.grade*s.dm;
+      if(s.de>0) current.gain+=s.de; else current.loss+=-s.de;
+    }
+    if(current) groups.push(current);
+    return {groups,groupKm:customStep,mode:'step'};
+  }
+
+  if(!state.mapAnalysis){
+    // No route analysis: safe default = 5 km rows.
+    const fallbackStep=5;
+    let current=null;
+    for(const s of detailed){
+      const bucket=Math.floor(s.from/fallbackStep)*fallbackStep;
+      if(!current||current.bucket!==bucket){
+        if(current) groups.push(current);
+        current={bucket,from:s.from,to:s.to,distM:0,gain:0,loss:0,sec:0,cumSec:0,weightedGrade:0,segmentMode:'fallback5'};
+      }
+      current.to=s.to;
+      current.distM+=s.dm;
+      current.sec+=s.sec;
+      current.cumSec=s.cumSec;
+      current.weightedGrade+=s.grade*s.dm;
+      if(s.de>0) current.gain+=s.de; else current.loss+=-s.de;
+    }
+    if(current) groups.push(current);
+    return {groups,groupKm:fallbackStep,mode:'fallback5'};
+  }
+
+  const bounds=autoForecastBoundariesFromAnalysis();
+  for(let bi=0;bi<bounds.length-1;bi++){
+    const from=bounds[bi],to=bounds[bi+1];
+    const g={bucket:bi,from,to,distM:0,gain:0,loss:0,sec:0,cumSec:0,weightedGrade:0,segmentMode:'auto'};
+    for(const s of detailed){
+      const left=Math.max(from,s.from),right=Math.min(to,s.to);
+      if(right<=left) continue;
+      const frac=(right-left)/Math.max(1e-9,s.to-s.from);
+      const dm=s.dm*frac;
+      g.distM+=dm;
+      g.sec+=s.sec*frac;
+      g.weightedGrade+=s.grade*dm;
+      const de=s.de*frac;
+      if(de>0) g.gain+=de; else g.loss+=-de;
+    }
+    if(g.distM>=20){
+      g.surface=forecastSurfaceAtKm((from+to)/2);
+      g.fordAtStart=(state.mapAnalysis?.fordKms||[]).some(k=>Math.abs(Number(k)-from)<0.12);
+      g.bridgeAtStart=(state.mapAnalysis?.bridgeKms||[]).some(k=>Math.abs(Number(k)-from)<0.12);
+      g.cumSec=groups.length?groups[groups.length-1].cumSec+g.sec:g.sec;
+      groups.push(g);
+    }
+  }
+  // Merge adjacent AUTO rows when they are genuinely the same route type.
+  // A ford/bridge starts a new event row and therefore must not be swallowed
+  // by the preceding ordinary surface row.
+  const merged=[];
+  for(const g of groups){
+    const prev=merged[merged.length-1];
+    const sameSurface=prev && String(prev.surface||'')===String(g.surface||'');
+    const eventBoundary=!!g.fordAtStart;
+    const prevEvent=prev && !!prev.fordAtStart;
+    if(prev && sameSurface && !eventBoundary && !prevEvent){
+      prev.to=g.to;
+      prev.distM+=g.distM;
+      prev.gain+=g.gain;
+      prev.loss+=g.loss;
+      prev.sec+=g.sec;
+      prev.weightedGrade+=g.weightedGrade;
+      prev.cumSec=(merged.length>1?merged[merged.length-2].cumSec:0)+prev.sec;
+    }else{
+      const copy={...g};
+      copy.cumSec=(merged.length?merged[merged.length-1].cumSec:0)+copy.sec;
+      merged.push(copy);
+    }
+  }
+  return {groups:merged,groupKm:0,mode:'auto'};
+}
+
+function forecastSurfaceLabel(cls){
+  const m={paved:'асфальт',trail:'тропа',dirt:'грунт',wetland:'болото',water:'вода',unknown:'неизвестно'};
+  return m[String(cls||'')]||'';
+}
+
+
+function enduranceCapacityFromReferences(){
+  const r=state.raceReferences||{};
+  const strength=r.strength;
+  const fast=r.fastTrail;
+  if(!strength || !fast) return null;
+
+  function eqHours(ref,role){
+    const sec=Number(ref.elapsedSec||0);
+    const h=Math.max(0.25,sec/3600);
+    const km=Math.max(0.1,Number(ref.dist||0));
+    const gain=Math.max(0,Number(ref.gain||0));
+    const climbDensity=gain/km; // m+/km
+
+    // Vertical load increases the endurance value of the session.
+    // Strength reference is intentionally more influential than fast-trail.
+    const verticalBonus=Math.min(role==='strength'?0.55:0.30,
+      (climbDensity/120)*(role==='strength'?0.55:0.30));
+
+    return h*(1+Math.max(0,verticalBonus));
+  }
+
+  const strengthEq=eqHours(strength,'strength');
+  const fastEq=eqHours(fast,'fast');
+
+  // Both files matter, but the strength/trail-long reference is the main durability source.
+  const capacityHours=0.72*strengthEq+0.28*fastEq;
+
+  return {
+    capacityHours,
+    strengthEqHours:strengthEq,
+    fastEqHours:fastEq
+  };
+}
+
+function enduranceCalibrationFactor(baseSec){
+  const c=enduranceCapacityFromReferences();
+  if(!c) return {factor:1,capacityHours:0,targetHours:baseSec/3600,ratio:1};
+
+  const targetHours=Math.max(0.25,baseSec/3600);
+  const ratio=targetHours/Math.max(0.5,c.capacityHours);
+
+  // If target duration fits inside demonstrated durability, no extra slowdown.
+  // If it exceeds it, pace gradually falls with duration.
+  let factor=1;
+  if(ratio>1){
+    factor=1+Math.min(0.24,Math.pow(ratio-1,1.08)*0.115);
+  }else if(ratio<0.70){
+    // Strong long-duration evidence can slightly reduce the generic ultra penalty,
+    // but never make the forecast unrealistically faster.
+    factor=0.995;
+  }
+
+  return {
+    factor,
+    capacityHours:c.capacityHours,
+    targetHours,
+    ratio,
+    strengthEqHours:c.strengthEqHours,
+    fastEqHours:c.fastEqHours
+  };
+}
+
 function calculateRaceForecast(){
   if(!(state.dist>0) || !(state.track?.length>1)){
     throw new Error('Сначала загрузите GPX трассы');
@@ -1906,18 +2520,18 @@ function calculateRaceForecast(){
     throw new Error('Загрузите все 3 эталонные GPX тренировки');
   }
 
-  const vo2=Number($('vo2max')?.value||0);
+  const vo2=Number($('vo2max')?.value||52);
   if(!(vo2>=20 && vo2<=90)){
     throw new Error('Введите обязательный VO₂max от 20 до 90 мл/кг/мин');
   }
 
   const flatAnchor=flatRaceAnchorForTarget();
   if(!flatAnchor){
-    throw new Error('Гоночная (плоская) GPX должна быть не менее 10 км и содержать корректное время');
+    throw new Error('Скоростная плоская GPX должна быть не менее 5 км и содержать корректное время');
   }
 
   const effort=Number($('raceEffortPct')?.value||100);
-  const groupKm=Math.max(1,Math.min(10,Number($('forecastStepKm')?.value||5)));
+  const requestedStepKm=forecastCustomStepKm();
   const micro=buildRaceMicroSegments();
   if(!micro.length) throw new Error('Не удалось разбить трассу на участки');
 
@@ -1966,22 +2580,132 @@ function calculateRaceForecast(){
     });
   }
 
-  const groups=[];
-  let current=null;
-  for(const s of detailed){
-    const bucket=Math.floor(s.from/groupKm)*groupKm;
-    if(!current || current.bucket!==bucket){
-      if(current) groups.push(current);
-      current={bucket,from:s.from,to:s.to,distM:0,gain:0,loss:0,sec:0,cumSec:0,weightedGrade:0};
+  // v0.52: steep-course reality checks.
+  // 1) Strength GPX becomes increasingly important when the race has much more
+  //    ascent per km than the strength reference.
+  // 2) If the race GPX itself contains timestamps (same-course prior effort),
+  //    that real moving time is an additional anchor on very vertical routes.
+
+  const strengthRef=state.raceReferences?.strength;
+  const routeGainNow=Math.max(0,Number(state.gain||0));
+  const routeDistNow=Math.max(0.1,Number(state.dist||0));
+  const routeVD=routeGainNow/routeDistNow; // m+/km
+
+  let strengthRealityFloorSec=0;
+  let sameCourseFloorSec=0;
+
+  if(strengthRef && Number(strengthRef.elapsedSec)>0 && Number(strengthRef.dist)>0){
+    const refVD=Math.max(0,Number(strengthRef.gain||0))/Math.max(0.1,Number(strengthRef.dist||0));
+
+    if(routeVD>=50 && refVD>=20){
+      const targetEffortKm=routeDistNow+routeGainNow/100;
+      const refEffortKm=Number(strengthRef.dist||0)+Math.max(0,Number(strengthRef.gain||0))/100;
+
+      let scaledStrengthSec=Number(strengthRef.elapsedSec)*Math.pow(
+        Math.max(0.25,targetEffortKm/Math.max(0.25,refEffortKm)),1.06
+      );
+
+      // Nonlinear vertical-density penalty.
+      // If target VD is 2–3x the strength reference, km-effort alone is too optimistic.
+      const vdRatio=routeVD/Math.max(20,refVD);
+      let verticalPenalty=1;
+
+      if(routeVD>80){
+        const absoluteExcess=(routeVD-80)/80;
+        verticalPenalty *= 1 + Math.min(0.28,0.13*Math.pow(absoluteExcess,1.15));
+      }
+      if(vdRatio>1.35){
+        verticalPenalty *= 1 + Math.min(0.30,0.12*Math.pow(vdRatio-1.35,1.20));
+      }
+
+      scaledStrengthSec*=verticalPenalty;
+
+      // Race day may be better than training, but less improvement is allowed
+      // as vertical density becomes extreme.
+      const allowedGain =
+        routeVD>=140 ? 0.08 :
+        routeVD>=110 ? 0.10 :
+        routeVD>=80  ? 0.12 : 0.15;
+
+      strengthRealityFloorSec=scaledStrengthSec*(1-allowedGain);
+
+      if(totalSec<strengthRealityFloorSec){
+        const scale=strengthRealityFloorSec/Math.max(1,totalSec);
+        totalSec=0;
+        detailed.forEach(s=>{
+          s.sec*=scale;
+          totalSec+=s.sec;
+          s.cumSec=totalSec;
+        });
+      }
     }
-    current.to=s.to;
-    current.distM+=s.dm;
-    current.sec+=s.sec;
-    current.cumSec=s.cumSec;
-    current.weightedGrade+=s.grade*s.dm;
-    if(s.de>0) current.gain+=s.de; else current.loss+=-s.de;
   }
-  if(current) groups.push(current);
+
+  // Same-course anchor: if the route GPX has timestamps, it may be a previously
+  // completed activity on this exact profile. On extreme vertical terrain,
+  // do not assume an enormous unexplained improvement over that real moving time.
+  const routeTimes=getTrackTimesFromGPX();
+  if(routeTimes && Number(routeTimes.movingSec)>0 && routeVD>=70){
+    const actualMovingSec=Number(routeTimes.movingSec);
+
+    // Ignore obviously broken timestamps.
+    const actualPace=actualMovingSec/routeDistNow;
+    if(actualPace>=180 && actualPace<=3600){
+      const maxImprovement =
+        routeVD>=140 ? 0.12 :
+        routeVD>=110 ? 0.14 :
+        routeVD>=80  ? 0.16 : 0.18;
+
+      sameCourseFloorSec=actualMovingSec*(1-maxImprovement);
+
+      if(totalSec<sameCourseFloorSec){
+        const scale=sameCourseFloorSec/Math.max(1,totalSec);
+        totalSec=0;
+        detailed.forEach(s=>{
+          s.sec*=scale;
+          totalSec+=s.sec;
+          s.cumSec=totalSec;
+        });
+      }
+
+      // v0.53: the same-course result is not only a lower bound.
+      // If the generic mountain model becomes much slower than a real completed
+      // effort on this exact route, cap the pessimism as well.
+      const maxSlowdown =
+        routeVD>=140 ? 0.08 :
+        routeVD>=110 ? 0.10 :
+        routeVD>=80  ? 0.12 : 0.15;
+      const sameCourseCeilingSec=actualMovingSec*(1+maxSlowdown);
+      if(totalSec>sameCourseCeilingSec){
+        const scale=sameCourseCeilingSec/Math.max(1,totalSec);
+        totalSec=0;
+        detailed.forEach(s=>{
+          s.sec*=scale;
+          totalSec+=s.sec;
+          s.cumSec=totalSec;
+        });
+      }
+    }
+  }
+
+
+  // v0.28: durability must react to the uploaded strength and fast-trail files.
+  // Previously physiology was mostly diagnostic and replacing the strength GPX
+  // could leave the race prediction unchanged.
+  const enduranceCalibration=enduranceCalibrationFactor(totalSec);
+  if(enduranceCalibration.factor!==1){
+    totalSec=0;
+    detailed.forEach(s=>{
+      s.sec*=enduranceCalibration.factor;
+      totalSec+=s.sec;
+      s.cumSec=totalSec;
+    });
+  }
+
+  const grouped=buildForecastGroups(detailed);
+  const groups=grouped.groups;
+  const groupKm=grouped.groupKm;
+  const segmentMode=grouped.mode;
 
   const avgRacePaceSec=totalSec/state.dist;
 
@@ -1996,8 +2720,18 @@ function calculateRaceForecast(){
     else if(mid<0.75) pacingFactor=1.000;
     else pacingFactor=0.995;
 
-    const terrainRatio=(g.sec/Math.max(1,g.distM/1000))/avgRacePaceSec;
+    const terrainRatio=(g.sec/Math.max(0.001,g.distM/1000))/avgRacePaceSec;
     g.recommendedPaceSec=avgRacePaceSec*terrainRatio*pacingFactor;
+
+    // A short final remainder (for example 20.1–20.7 km) must not absorb
+    // normalization error and turn into an impossible sprint. On an effectively
+    // flat route keep every recommended split close to the race-average pace.
+    // Hills still retain their terrain-derived variation.
+    if(flatEnough){
+      const lo=avgRacePaceSec*0.96;
+      const hi=avgRacePaceSec*1.04;
+      g.recommendedPaceSec=Math.max(lo,Math.min(hi,g.recommendedPaceSec));
+    }
     g.recommendedSec=g.recommendedPaceSec*(g.distM/1000);
   });
 
@@ -2009,6 +2743,16 @@ function calculateRaceForecast(){
   groups.forEach(g=>{
     g.recommendedSec*=norm;
     g.recommendedPaceSec*=norm;
+
+    // Final safety clamp for flat/road races. The last partial split is a
+    // recommendation, not a requirement to sprint unrealistically fast.
+    if(flatEnough){
+      const lo=avgRacePaceSec*0.95;
+      const hi=avgRacePaceSec*1.05;
+      g.recommendedPaceSec=Math.max(lo,Math.min(hi,g.recommendedPaceSec));
+      g.recommendedSec=g.recommendedPaceSec*(g.distM/1000);
+    }
+
     recommendedCum+=g.recommendedSec;
     g.recommendedCumSec=recommendedCum;
     g.paceSec=g.recommendedPaceSec;
@@ -2025,10 +2769,12 @@ function calculateRaceForecast(){
     highSec:totalSec*1.05,
     effort,
     groupKm,
+    segmentMode,
     groups,
     physiology,
     flatAnchor,
-    ultraFactor
+    ultraFactor,
+    enduranceCalibration
   };
 }
 
@@ -2036,17 +2782,28 @@ function raceFormulaText(){
   const info=combinedRaceModelInfo();
   const anchor=flatRaceAnchorForTarget();
   if(!info || !anchor) return 'Загрузите все 3 эталонные GPX.';
-  const c=info.gradeCoeff;
-  const f=n=>(n>=0?'+ ':'− ')+Math.abs(n).toFixed(3);
-  return `База = реальный результат плоской GPX × Riegel(D₂/D₁)^${anchor.exponent.toFixed(3)}; `
-    + `эталон ${anchor.refKm.toFixed(1)} км за ${fmtClockSec(anchor.refSec)} `
-    + `(${fmtPaceSecPerKm(anchor.refPaceSec)}) → базовый прогноз ${anchor.targetKm.toFixed(1)} км `
-    + `за ${fmtClockSec(anchor.targetSec)} (${fmtPaceSecPerKm(anchor.targetPaceSec)}). `
-    + `Затем: Fgrade по двум трейловым GPX; VO₂max = небольшая поправка; `
-    + `на длинных гонках добавляется Fendurance; при анализе GPX отдельно добавляются тропа, грунт и броды.`;
+
+  const cap=enduranceCapacityFromReferences();
+  const sc=anchor.speedCalibration;
+  let speedText='';
+  if(sc?.mode==='blend'){
+    speedText=`Скоростная плоская GPX оказалась медленнее оценки по VO₂max, поэтому скоростной якорь смешан: `
+      + `файл ${fmtPaceSecPerKm(1000/sc.fileSpeed)} + VO₂max ${fmtPaceSecPerKm(1000/sc.vo2Speed)}, `
+      + `доля VO₂max ${(sc.vo2Weight*100).toFixed(0)}%. `;
+  }else{
+    speedText=`Скоростная плоская GPX используется напрямую как скоростной якорь. `;
+  }
+
+  return `Калибровка считается по фактическим данным трёх загруженных GPX. `
+    + speedText
+    + `Итоговый скоростной якорь: ${fmtPaceSecPerKm(anchor.refPaceSec)} на ${anchor.refKm.toFixed(1)} км. `
+    + `Быстрая трейловая GPX влияет на рабочую скорость и рельеф. `
+    + `Силовая трейловая GPX влияет на уклон и запас выносливости. `
+    + (cap?`Запас выносливости: ${cap.capacityHours.toFixed(1)} ч. `:'')
+    + `Далее применяются Riegel, усталость по длительности, рельеф и анализ покрытия. `
+    + `На очень вертикальных трассах действует нелинейная поправка по м+/км и силовому GPX. `
+    + `Если GPX самой трассы содержит реальные временные метки предыдущего прохождения, его moving time используется как дополнительный reality-check.`;
 }
-
-
 
 function surfaceDistanceInRange(samples,fromKm,toKm,cls){
   if(!Array.isArray(samples) || samples.length<2) return 0;
@@ -2081,21 +2838,25 @@ function renderRaceForecast(options={}){
     const trailSamples=Array.isArray(options.trailSamples)?options.trailSamples:[];
     const trailPenaltyPerKmSec=Number(options.trailPenaltyPerKmSec)||0;
     const dirtPenaltyPerKmSec=Number(options.dirtPenaltyPerKmSec)||0;
+    const unknownPenaltyPerKmSec=Number(options.unknownPenaltyPerKmSec)||0;
     let extraTotal=0;
     let fordExtraTotal=0;
     let trailExtraTotal=0;
     let dirtExtraTotal=0;
+    let unknownExtraTotal=0;
     let totalTrailKm=0;
     let totalDirtKm=0;
+    let totalUnknownKm=0;
 
     // Analysis-mode local penalties:
     // ford: +40 sec each;
     // trail: +60 sec per OSM trail km;
-    // dirt: +30 sec per OSM dirt/ground/gravel km.
+    // dirt: +30 sec/km; unknown: local pace floor 6:30/km.
     if(
       (fordPenaltyPer>0 && fordKms.length) ||
       (trailPenaltyPerKmSec>0 && trailSamples.length) ||
-      (dirtPenaltyPerKmSec>0 && trailSamples.length)
+      (dirtPenaltyPerKmSec>0 && trailSamples.length) ||
+      (trailSamples.length>0)
     ){
       let cumExtra=0;
       f.groups.forEach(g=>{
@@ -2112,10 +2873,27 @@ function renderRaceForecast(options={}){
           : 0;
         const dirtExtra=dirtKm*dirtPenaltyPerKmSec;
 
-        const extra=fordExtra+trailExtra+dirtExtra;
+        const unknownKm=trailSamples.length
+          ? surfaceDistanceInRange(trailSamples,g.from,g.to,'unknown')
+          : 0;
+        const waterKm=trailSamples.length
+          ? surfaceDistanceInRange(trailSamples,g.from,g.to,'water')
+          : 0;
+
+        // Unknown and WATER must never be modeled faster than 6:30/km.
+        const groupKm=Math.max(0.001,g.distM/1000);
+        const knownExtra=fordExtra+trailExtra+dirtExtra;
+        const paceAfterKnown=(g.sec+knownExtra)/groupKm;
+        const slowKm=Math.min(groupKm,unknownKm+waterKm);
+        const slowShare=Math.max(0,Math.min(1,slowKm/groupKm));
+        const slowTargetPace=Math.max(paceAfterKnown,390);
+        const unknownExtra=(slowTargetPace-paceAfterKnown)*slowShare*groupKm;
+
+        const extra=knownExtra+unknownExtra;
 
         g.trailKm=trailKm;
         g.dirtKm=dirtKm;
+        g.unknownKm=unknownKm;
         g.fordCount=fordCount;
 
         g.sec+=extra;
@@ -2128,11 +2906,13 @@ function renderRaceForecast(options={}){
         fordExtraTotal+=fordExtra;
         trailExtraTotal+=trailExtra;
         dirtExtraTotal+=dirtExtra;
+        unknownExtraTotal+=unknownExtra;
         totalTrailKm+=trailKm;
         totalDirtKm+=dirtKm;
+        totalUnknownKm+=unknownKm;
       });
 
-      extraTotal=fordExtraTotal+trailExtraTotal+dirtExtraTotal;
+      extraTotal=fordExtraTotal+trailExtraTotal+dirtExtraTotal+unknownExtraTotal;
 
       f.fordCount=fordKms.length;
       f.fordPenaltySec=fordExtraTotal;
@@ -2143,6 +2923,9 @@ function renderRaceForecast(options={}){
       f.dirtKm=totalDirtKm;
       f.dirtPenaltySec=dirtExtraTotal;
 
+      f.unknownKm=totalUnknownKm;
+      f.unknownPenaltySec=unknownExtraTotal;
+
       f.analysisPenaltySec=extraTotal;
 
       f.totalSec+=extraTotal;
@@ -2151,17 +2934,81 @@ function renderRaceForecast(options={}){
       f.highSec=f.totalSec*1.10;
       f.physiology=racePhysiologyFactors(f.totalSec);
     }
+    // v0.50: HR targets use the real HR DISTRIBUTION of the uploaded GPXs.
+    // Fast/flat GPX sets the upper working/threshold anchor; longer GPXs set
+    // sustainable HR. Race duration decides where between those anchors we sit.
+    const hrCal=trainingHrCalibration();
+    const forecastHrForGroup=(g)=>{
+      if(!hrCal) return '—';
+
+      const totalHours=Math.max(0.5,Number(f.totalSec||0)/3600);
+      const raceAvg=Math.max(1,Number(f.avgPaceSec||g.paceSec));
+      const localPace=Math.max(1,Number(g.paceSec||raceAvg));
+      const speedRatio=Math.max(0.65,Math.min(1.35,raceAvg/localPace));
+      const progress=Math.max(0,Math.min(1,((g.from+g.to)/2)/Math.max(0.1,state.dist)));
+
+      // v0.53: for multi-hour races HR is based on a sustainable fraction of
+      // the athlete's observed threshold, not on short-race HR.
+      const lthr=Math.max(120,Number(hrCal.thresholdHr||hrCal.lthr||hrCal.upperWorkingHr));
+      let frac;
+      if(totalHours<=1.5) frac=0.92;
+      else if(totalHours<=3) frac=0.89;
+      else if(totalHours<=5) frac=0.86;
+      else if(totalHours<=7) frac=0.83;
+      else frac=0.80;
+
+      let center=lthr*frac;
+
+      // Small personalization from the longer uploaded training files.
+      const sustainable=Number(hrCal.sustainableHr||center);
+      center=center*0.70+sustainable*0.30;
+
+      // Terrain pace is a weak HR signal: 30–40 min/km on a climb must not
+      // imply either walking HR or threshold HR by itself.
+      center+=(speedRatio-1)*8;
+
+      // Conservative progression. Only the final part may approach threshold.
+      center+=progress<0.15?-4:
+              progress<0.50?-1:
+              progress<0.80?1:
+              progress<0.95?3:6;
+
+      const grade=Number(g.grade||0);
+      if(grade>0.04) center+=Math.min(4,grade*25);
+      if(grade<-0.05) center-=Math.min(3,Math.abs(grade)*15);
+
+      // Long-duration ceiling: sustained 170+ bpm for 4–7 hours should not be
+      // proposed merely because a 10 km reference reached that HR.
+      const durationCeiling =
+        totalHours>=7 ? lthr*0.88 :
+        totalHours>=5 ? lthr*0.90 :
+        totalHours>=3 ? lthr*0.93 :
+        lthr*0.97;
+      const finishCeiling=progress>=0.95
+        ? Math.min(Number(hrCal.finishCeiling||lthr), lthr*0.97)
+        : durationCeiling;
+
+      center=Math.min(center,finishCeiling);
+      center=Math.max(105,center);
+
+      const spread=totalHours>=4?3:4;
+      return `${Math.round(center-spread)}–${Math.round(center+spread)}`;
+    };
     state.raceForecast=f;
     tbody.innerHTML='';
     f.groups.forEach(g=>{
       const from=g.from.toFixed(1).replace('.0','');
       const to=Math.min(state.dist,g.to).toFixed(1).replace('.0','');
+      const autoLabel=g.segmentMode==='auto'
+        ? [forecastSurfaceLabel(g.surface),g.fordAtStart?'брод':''].filter(Boolean).join(' · ')
+        : '';
       tbody.insertAdjacentHTML('beforeend',
         `<tr>
-          <td>${from}–${to}</td>
+          <td>${from}–${to}${autoLabel?`<small class="forecast-segment-label">${autoLabel}</small>`:''}</td>
           <td>+${Math.round(g.gain)} / −${Math.round(g.loss)} м</td>
           <td>${(g.grade*100).toFixed(1)}%</td>
           <td>${fmtPaceSecPerKm(g.paceSec)}</td>
+          <td><b>${forecastHrForGroup(g)}</b></td>
           <td>${fmtClockSec(g.sec)}</td>
           <td>${fmtClockSec(g.cumSec)}</td>
           <td>${Math.round(f.effort)}%</td>
@@ -2170,21 +3017,44 @@ function renderRaceForecast(options={}){
     $('raceForecastTime').textContent=fmtClockSec(f.totalSec);
     $('raceForecastPace').textContent=fmtPaceSecPerKm(f.avgPaceSec);
     if($('raceCalibration') && f.flatAnchor){
+      const sc=f.flatAnchor.speedCalibration;
+      const extra=sc?.mode==='blend'
+        ? ` · VO₂max в скоростном якоре ${(sc.vo2Weight*100).toFixed(0)}%`
+        : '';
       $('raceCalibration').textContent=
         `${state.raceReferences.flatRace.source}: ${f.flatAnchor.refKm.toFixed(1)} км · `
-        + `${fmtClockSec(f.flatAnchor.refSec)} · ${fmtPaceSecPerKm(f.flatAnchor.refPaceSec)} → `
-        + `${f.flatAnchor.targetKm.toFixed(1)} км: ${fmtPaceSecPerKm(f.flatAnchor.targetPaceSec)}`;
+        + `${fmtClockSec(f.flatAnchor.refSec)} · ${fmtPaceSecPerKm(f.flatAnchor.refPaceSec)}`
+        + extra
+        + ` → ${f.flatAnchor.targetKm.toFixed(1)} км: ${fmtPaceSecPerKm(f.flatAnchor.targetPaceSec)}`;
     }
     $('raceForecastRange').textContent=`${fmtClockSec(f.lowSec)}–${fmtClockSec(f.highSec)}`;
-    if($('raceDurationFactor')) $('raceDurationFactor').textContent=(f.physiology.durationFactor*100).toFixed(0)+'%';
+    if($('raceDurationFactor')){
+      const ec=f.enduranceCalibration;
+      if(ec){
+        const pct=(100/Math.max(1,ec.factor)).toFixed(0);
+        $('raceDurationFactor').textContent=`${pct}% · запас ${ec.capacityHours.toFixed(1)} ч`;
+      }else{
+        $('raceDurationFactor').textContent=(f.physiology.durationFactor*100).toFixed(0)+'%';
+      }
+    }
     if($('raceHrFactor')) $('raceHrFactor').textContent=(f.physiology.hrFactor*100).toFixed(0)+'%';
     if($('raceAcidTime')) $('raceAcidTime').textContent=Number.isFinite(f.physiology.acidHours)?f.physiology.acidHours.toFixed(1)+' ч':'—';
-    if($('raceVo2Factor')) $('raceVo2Factor').textContent=`${f.physiology.vo2.toFixed(1)} → ${(f.physiology.vo2Factor*100).toFixed(1)}%`;
+    if($('raceVo2Factor')) {
+      const vo2Delta=(f.physiology.vo2Factor-1)*100;
+      $('raceVo2Factor').textContent=`${vo2Delta>=0?'+':''}${vo2Delta.toFixed(1)}%`;
+    }
+    if($('raceVo2Value')) $('raceVo2Value').textContent=`VO₂max: ${f.physiology.vo2.toFixed(0)} мл/кг/мин`;
     $('raceModelSource').textContent=allRaceReferencesReady()
       ? `${state.raceReferences.strength.source} + ${state.raceReferences.fastTrail.source} + ${state.raceReferences.flatRace.source}`
       : 'нужно 3 GPX';
     $('raceModelFormula').textContent=raceFormulaText();
+    const hrSource=trainingHrCalibration();
     $('raceForecastStatus').textContent=f.fordPenaltySec ? `✓ Прогноз с анализом GPX: ${state.dist.toFixed(1)} км · бродов ${f.fordCount} · +${f.fordPenaltySec} с (${f.fordCount} × 40 с).` : `✓ Общий прогноз по 3 GPX: ${state.dist.toFixed(1)} км. Темпы участков нормированы к среднему прогнозному темпу.`;
+    if(hrSource){
+      $('raceForecastStatus').textContent += ` Целевой пульс: ${hrSource.source}.`;
+    }else{
+      $('raceForecastStatus').textContent += ' В GPX нет HR — целевой пульс не рассчитан.';
+    }
     state.forecastMode=options.analysisMode?'analysis':'normal';
     applyForecastModeColors();
     updateFinalCalcAvailability();
@@ -2213,13 +3083,13 @@ function raceRefUI(role){
 }
 function raceRefTitle(role){
   return role==='strength'?'Силовая трейловая GPX':
-         role==='fastTrail'?'Быстрая трейловая GPX':'Гоночная (плоская) GPX';
+         role==='fastTrail'?'Быстрая трейловая GPX':'Скоростная плоская GPX';
 }
 
 function forecastInputsReady(){
   const count=['strength','fastTrail','flatRace'].filter(k=>state.raceReferences?.[k]).length;
   const routeReady=Number(state.dist||0)>0 && state.track?.length>1;
-  const vo2=Number($('vo2max')?.value||0);
+  const vo2=Number($('vo2max')?.value||52);
   return routeReady && count===3 && vo2>=20 && vo2<=90;
 }
 
@@ -2231,16 +3101,19 @@ function applyForecastModeColors(){
   if(!normal || !analysis) return;
 
   normal.disabled=!ready;
-  analysis.disabled=true;
-  if(typeof OFFLINE_BUILD_V014!=='undefined' && OFFLINE_BUILD_V014){
-    analysis.style.display='none';
-  }else{
-    analysis.disabled=!ready;
-  }
+  const analysisReady=ready && !!state.mapAnalysis && state.mapAnalysisReadyForCurrentGpx===true;
+  analysis.disabled=!analysisReady;
+  analysis.title=analysisReady ? 'Анализ текущего GPX готов' : 'Сначала выполните «Анализ карты» для текущего GPX';
 
   if(!ready){
     setActionState('raceForecastBtn','idle');
     setActionState('raceForecastGpxBtn','idle');
+    return;
+  }
+  if(!analysisReady){
+    setActionState('raceForecastBtn',state.forecastMode==='normal'?'success':'ready');
+    setActionState('raceForecastGpxBtn','idle');
+    if(state.forecastMode==='analysis') state.forecastMode=null;
     return;
   }
 
@@ -2281,9 +3154,45 @@ function updateFinalCalcAvailability(){
   }
 }
 
+
+function clearRaceForecastUI(){
+  const simpleIds=[
+    'raceForecastTime',
+    'raceForecastPace',
+    'raceForecastRange',
+    'raceDurationFactor',
+    'raceHrFactor',
+    'raceAcidTime',
+    'raceVo2Factor'
+  ];
+
+  simpleIds.forEach(id=>{
+    const el=$(id);
+    if(el) el.textContent='—';
+  });
+
+  const source=$('raceModelSource');
+  if(source) source.textContent='—';
+
+  const vo2Value=$('raceVo2Value');
+  if(vo2Value) vo2Value.textContent='VO₂max: — мл/кг/мин';
+
+  const tbody=$('raceForecastTable')?.querySelector('tbody');
+  if(tbody) tbody.innerHTML='';
+
+  const formula=$('raceModelFormula');
+  if(formula) formula.textContent='—';
+
+  const status=$('raceForecastStatus');
+  if(status) status.textContent='Прогноз очищен. Загрузите новый эталонный GPX.';
+
+  clearResultForecast();
+}
+
 function invalidateRaceForecast(){
   state.raceForecast=null;
   state.forecastMode=null;
+  clearRaceForecastUI();
   applyForecastModeColors();
   updateFinalCalcAvailability();
 }
@@ -2295,7 +3204,7 @@ function updateRaceReferenceState(){
   if($('raceModelFormula')) $('raceModelFormula').textContent=raceFormulaText();
 
   const routeReady=state.dist>0 && state.track?.length>1;
-  const vo2=Number($('vo2max')?.value||0);
+  const vo2=Number($('vo2max')?.value||52);
   const vo2Ready=vo2>=20 && vo2<=90;
   const ready=routeReady && count===3 && vo2Ready;
   applyForecastModeColors();
@@ -2307,16 +3216,33 @@ if($('raceForecastStatus')){
   }
 }
 
+let lastForecastModeBeforeReferenceChange=null;
+const pendingReferenceForecastMode={strength:null,fastTrail:null,flatRace:null};
+
 function bindRaceReference(role){
   const [fileId,nameId,btnId,statusId]=raceRefUI(role);
   const fileEl=$(fileId),nameEl=$(nameId),btn=$(btnId),status=$(statusId);
   if(!fileEl||!nameEl||!btn||!status) return;
 
   fileEl.addEventListener('change',e=>{
-    invalidateRaceForecast();
+    const previousMode=state.forecastMode || lastForecastModeBeforeReferenceChange || null;
+    pendingReferenceForecastMode[role]=previousMode;
+    lastForecastModeBeforeReferenceChange=previousMode;
+
     const f=e.currentTarget.files?.[0]||null;
     raceRefSelections[role]=f;
+
+    // Remove the previous etalon before clearing the UI, so nothing stale can be reused.
     state.raceReferences[role]=null;
+    state.raceForecast=null;
+    state.forecastMode=null;
+    clearRaceForecastUI();
+    applyForecastModeColors();
+    updateFinalCalcAvailability();
+
+    if($('raceForecastStatus')){
+      $('raceForecastStatus').textContent='Эталонный GPX изменён. Старый прогноз очищен. Загрузите выбранный файл.';
+    }
     if(!f){
       nameEl.innerHTML='<span class="file-check">○</span> Файл не выбран';
       btn.disabled=true;
@@ -2336,14 +3262,53 @@ function bindRaceReference(role){
     const f=raceRefSelections[role];
     if(!f) return;
     try{
+      state.raceForecast=null;
+      state.forecastMode=null;
+      clearRaceForecastUI();
+      applyForecastModeColors();
+      updateFinalCalcAvailability();
       setActionState(btnId,'working');
       status.textContent='Анализирую '+raceRefTitle(role)+'…';
       const text=await readFileIOS(f);
       const parsed=parseTimedActivityGPX(text);
 
-      if(role==='flatRace' && parsed.dist < 10){
+      // v0.51: reject a speed/flat GPX when it is loaded as the strength-trail reference.
+      const verticalPerKm=parsed.dist>0 ? parsed.gain/parsed.dist : 0;
+      const avgPace=parsed.dist>0 ? parsed.elapsedSec/parsed.dist : 0;
+
+      if(role==='strength'){
+        const tooFlat = verticalPerKm < 20 || (parsed.dist >= 5 && parsed.gain < 250);
+        const clearlySpeedLike =
+          parsed.dist >= 5 && parsed.dist <= 15 &&
+          avgPace > 0 && avgPace < 330 &&
+          verticalPerKm < 25;
+
+        if(tooFlat || clearlySpeedLike){
+          throw new Error(
+            `Этот GPX не подходит для «Силовой трейловой»: `
+            + `${parsed.dist.toFixed(2)} км · +${Math.round(parsed.gain)} м · `
+            + `${Math.round(verticalPerKm)} м набора/км · ${fmtPaceSecPerKm(avgPace)}. `
+            + `Силовой эталон должен быть действительно горным: минимум 20 м набора/км, `
+            + `а для файла от 5 км — не менее +250 м. `
+            + `Быстрый почти плоский файл загрузите как скоростной эталон.`
+          );
+        }
+      }
+
+      if(role==='flatRace'){
+        const tooMountainous = verticalPerKm > 35 || (parsed.dist >= 5 && parsed.gain > 500);
+        if(tooMountainous){
+          throw new Error(
+            `Этот GPX слишком горный для «Скоростной плоской»: `
+            + `${parsed.dist.toFixed(2)} км · +${Math.round(parsed.gain)} м `
+            + `(${Math.round(verticalPerKm)} м/км). Используйте его как силовую/трейловую тренировку.`
+          );
+        }
+      }
+
+      if(role==='flatRace' && parsed.dist < 5){
         throw new Error(
-          `Гоночная (плоская) GPX должна быть не менее 10 км. В файле: ${parsed.dist.toFixed(2)} км.`
+          `Скоростная плоская GPX должна быть не менее 5 км. В файле: ${parsed.dist.toFixed(2)} км.`
         );
       }
 
@@ -2352,9 +3317,56 @@ function bindRaceReference(role){
 
       status.textContent=
         `✓ ${parsed.dist.toFixed(2)} км · +${Math.round(parsed.gain)} м · `
-        + `${fmtClockSec(parsed.elapsedSec)} · ${fmtPaceSecPerKm(parsed.elapsedSec/parsed.dist)}`;
+        + `${fmtClockSec(parsed.elapsedSec)} · ${fmtPaceSecPerKm(parsed.elapsedSec/parsed.dist)}`
+        + (parsed.avgHr>0
+          ? ` · HR ср ${Math.round(parsed.avgHr)} · med ${Math.round(parsed.hrStats?.median||parsed.avgHr)} · q75 ${Math.round(parsed.hrStats?.q75||parsed.avgHr)} · max ${Math.round(parsed.hrStats?.max||parsed.avgHr)}`
+          : ' · HR нет');
       setActionState(btnId,'success');
       updateRaceReferenceState();
+
+      // v0.31: after a new etalon has been parsed successfully,
+      // always build a fresh forecast when all inputs are ready.
+      // Prefer the previously selected mode; otherwise use the normal forecast.
+      if(forecastInputsReady()){
+        const rememberedMode=
+          pendingReferenceForecastMode[role] ||
+          lastForecastModeBeforeReferenceChange ||
+          'normal';
+
+        if(
+          rememberedMode==='analysis' &&
+          state.mapAnalysis &&
+          state.mapAnalysisReadyForCurrentGpx===true
+        ){
+          const fordKms=state.mapAnalysis?.fordKms||[];
+          const trailSamples=state.mapAnalysis?.samples||state.mapAnalysis?.result?.samples||[];
+
+          renderRaceForecast({
+            fordKms,
+            fordPenaltyPerSec:40,
+            trailSamples,
+            trailPenaltyPerKmSec:60,
+            dirtPenaltyPerKmSec:30,
+            unknownPenaltyPerKmSec:0,
+            analysisMode:true
+          });
+        }else{
+          renderRaceForecast({analysisMode:false});
+        }
+
+        pendingReferenceForecastMode[role]=null;
+        lastForecastModeBeforeReferenceChange=state.forecastMode;
+
+        if($('raceForecastStatus')){
+          $('raceForecastStatus').textContent +=
+            ` · Эталон «${raceRefTitle(role)}» загружен, прогноз рассчитан заново.`;
+        }
+      }else{
+        if($('raceForecastStatus')){
+          $('raceForecastStatus').textContent=
+            'Эталон загружен. Для нового прогноза нужны трасса, все 3 GPX и VO₂max.';
+        }
+      }
     }catch(err){
       state.raceReferences[role]=null;
       status.textContent='✕ '+raceRefTitle(role)+': '+(err.message||String(err));
@@ -2381,6 +3393,10 @@ window.addEventListener('DOMContentLoaded',()=>{
 
 $('raceForecastGpxBtn')?.addEventListener('click',async()=>{
   const btn=$('raceForecastGpxBtn');
+  if(!(state.mapAnalysis && state.mapAnalysisReadyForCurrentGpx===true)){
+    applyForecastModeColors();
+    return;
+  }
   try{
     if(!state.track?.length) throw new Error('Сначала загрузите GPX трассы во вкладке «Трасса».');
     setActionState('raceForecastGpxBtn','working'); btn.disabled=true;
@@ -2397,6 +3413,7 @@ $('raceForecastGpxBtn')?.addEventListener('click',async()=>{
       trailSamples,
       trailPenaltyPerKmSec:60,
       dirtPenaltyPerKmSec:30,
+      unknownPenaltyPerKmSec:0,
       analysisMode:true
     });
     state.forecastMode='analysis';
@@ -2411,6 +3428,49 @@ $('raceForecastGpxBtn')?.addEventListener('click',async()=>{
   }
 });
 
+
+function updateForecastStepRecalcButton(){
+  const btn=$('recalcForecastStepBtn');
+  if(!btn) return;
+  const raw=String($('forecastStepKm')?.value||'').trim();
+  const step=Number(raw);
+  const valid=raw!=='' && Number.isFinite(step) && step>=1 && step<=10;
+  btn.disabled=!(valid && state.raceForecast);
+  setActionState('recalcForecastStepBtn',btn.disabled?'idle':'ready');
+}
+
+function recalculateForecastWithCurrentMode(){
+  if(state.forecastMode==='analysis'){
+    if(!state.mapAnalysis) throw new Error('Сначала выполните анализ трассы.');
+    const fordKms=state.mapAnalysis?.fordKms||[];
+    const trailSamples=state.mapAnalysis?.samples||state.mapAnalysis?.result?.samples||[];
+    renderRaceForecast({
+      fordKms,
+      fordPenaltyPerSec:40,
+      trailSamples,
+      trailPenaltyPerKmSec:60,
+      dirtPenaltyPerKmSec:30,
+      unknownPenaltyPerKmSec:0,
+      analysisMode:true
+    });
+  }else{
+    renderRaceForecast({analysisMode:false});
+  }
+}
+
+$('recalcForecastStepBtn')?.addEventListener('click',()=>{
+  try{
+    setActionState('recalcForecastStepBtn','working');
+    recalculateForecastWithCurrentMode();
+    setActionState('recalcForecastStepBtn','success');
+  }catch(err){
+    if($('raceForecastStatus')) $('raceForecastStatus').textContent='✕ '+(err.message||String(err));
+    setActionState('recalcForecastStepBtn','error');
+  }
+});
+
+$('forecastStepKm')?.addEventListener('input',updateForecastStepRecalcButton);
+
 $('vo2max')?.addEventListener('input',()=>{
   if(state.raceForecast) invalidateRaceForecast();
   updateRaceReferenceState();
@@ -2419,7 +3479,7 @@ $('raceForecastBtn')?.addEventListener('click',()=>{
   renderRaceForecast({analysisMode:false});
 });
 $('raceEffortPct')?.addEventListener('change',()=>{invalidateRaceForecast(); updateRaceReferenceState();});
-$('forecastStepKm')?.addEventListener('change',()=>{invalidateRaceForecast(); updateRaceReferenceState();});
+$('forecastStepKm')?.addEventListener('change',updateForecastStepRecalcButton);
 
 window.addEventListener('DOMContentLoaded',()=>{
   if($('raceModelFormula')) $('raceModelFormula').textContent=raceFormulaText();
@@ -2834,40 +3894,3 @@ if(document.readyState==='loading'){
 window.addEventListener('pageshow',()=>{
   clearBestTrainingOnPageLoad();
 });
-
-
-// ---------- v0.14 OFFLINE ----------
-const OFFLINE_BUILD_V014 = true;
-
-function applyOfflineModeV014(){
-  // Network-only controls remain in DOM for compatibility, but are unavailable.
-  const mapBtn=$('mapAnalyzeBtn');
-  if(mapBtn){
-    mapBtn.disabled=true;
-    mapBtn.textContent='Анализ карты — нужен интернет';
-  }
-
-  const aiBtn=$('itraLookupBtn');
-  if(aiBtn){
-    aiBtn.disabled=true;
-    aiBtn.textContent='ITRA через AI — нужен интернет';
-  }
-
-  const analysisBtn=$('raceForecastGpxBtn');
-  if(analysisBtn){
-    analysisBtn.disabled=true;
-    analysisBtn.style.display='none';
-  }
-
-  // Offline build always uses the normal local forecast.
-  if(state.forecastMode==='analysis'){
-    state.forecastMode=null;
-    state.raceForecast=null;
-  }
-  applyForecastModeColors();
-  updateFinalCalcAvailability();
-}
-
-window.addEventListener('DOMContentLoaded',applyOfflineModeV014);
-window.addEventListener('pageshow',applyOfflineModeV014);
-

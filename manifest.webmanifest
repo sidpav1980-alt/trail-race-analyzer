@@ -17,5 +17,5 @@
       "type": "image/png"
     }
   ],
-  "description": "Офлайн-анализ GPX и прогноз гонки"
+  "scope": "./"
 }

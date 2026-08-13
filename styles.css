@@ -378,7 +378,5 @@ button.action-error:disabled {
   opacity:1 !important;
 }
 
-/* v0.14 OFFLINE */
-.offline-hidden {
-  display:none !important;
-}
+.forecast-segment-label{display:block;margin-top:4px;font-size:.72em;font-weight:500;color:#94a3b8;white-space:normal}
+#recalcForecastStepBtn{margin-top:10px;width:100%}
