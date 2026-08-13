@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="app-version">v0.93 OFFLINE FULL</div>
+<div class="app-version">v0.94 ONLINE FULL</div>
   <header class="app-header">
     <div>
       <div class="eyebrow">Trail Race Analyzer</div>
@@ -25,7 +25,7 @@
   <main>
     <section class="card hero">
       <h2>Новая гонка</h2>
-      <p>Офлайн-режим: GPX, три эталонные тренировки, прогноз гонки и ручные данные работают без интернета.</p>
+      <p>Загрузи GPX, лучшую тренировку и стартовый список. Приложение рассчитает стратегию, прогноз финиша и шансы против соперников.</p>
       <div class="grid2">
         <label class="field">
           <span>Имя спортсмена</span>
@@ -78,7 +78,7 @@
 
         <div class="field">
           <span>Анализ карты</span>
-          <button id="mapAnalyzeBtn" type="button" class="primary action-idle" disabled>Анализ карты — нужен интернет</button>
+          <button id="mapAnalyzeBtn" type="button" class="primary action-idle" disabled>Анализ карты</button>
           <div id="mapAnalyzeStatus" class="muted">Сначала загрузите и обработайте GPX.</div>
           <progress id="mapAnalyzeProgress" value="0" max="100" style="width:100%;display:none"></progress>
         </div>
@@ -163,8 +163,8 @@
         <div class="upload-box">
           <b>Скриншот тренировки</b>
           <input id="trainingScreenshot" type="file" accept="image/*"><div id="trainingSelectedFileName" class="status"></div>
-          <button class="action ready" id="trainingOcrBtn" disabled type="button">OCR недоступен офлайн</button>
-          <div class="status" id="trainingOcrStatus">Офлайн: данные тренировки введите вручную в поля ниже.</div><div id="ocrTimeoutNote" class="status">Серверный OCR отключён в офлайн-версии.</div><div id="ocrSlowWarning" class="status" style="display:none">⚠ Распознавание занимает необычно много времени. OCR продолжает работать.</div>
+          <button class="action ready" id="trainingOcrBtn" type="button">Загрузить и распознать</button>
+          <div class="status" id="trainingOcrStatus">Выберите один скриншот тренировки и нажмите «Загрузить и распознать».</div><div id="ocrTimeoutNote" class="status">Среднее время ожидания OCR — 56 секунд. Максимальное время ожидания — 60 секунд.</div><div id="ocrSlowWarning" class="status" style="display:none">⚠ Распознавание занимает необычно много времени. OCR продолжает работать.</div>
           <div class="ocr-meta" id="ocrMeta">
             <div><span>Распознано показателей</span><b id="ocrRecognitionPercent">0%</b></div>
             <div><span>Время обработки</span><b id="ocrElapsedTime">0.0 с</b></div>
@@ -228,8 +228,8 @@
         </div>
 
         <div class="itra-online-box">
-          <button id="itraLookupBtn" type="button" class="secondary action-idle" disabled>ITRA через AI — нужен интернет</button>
-          <div id="itraLookupStatus" class="muted">Офлайн: ITRA PI можно заполнить вручную; анализ стартового списка работает локально.</div>
+          <button id="itraLookupBtn" type="button" class="secondary action-ready">Загрузить ITRA через AI</button>
+          <div id="itraLookupStatus" class="muted">После загрузки стартового списка нажмите кнопку для поиска ITRA PI участников.</div>
         </div>
         <label class="field">
             <span>Зачёт</span>
@@ -308,8 +308,8 @@
             <input id="forecastStepKm" type="number" min="1" max="10" step="1" value="5">
           </label>
           <label class="field">
-            <span>VO₂max, мл/кг/мин (необязательно)</span>
-            <input id="vo2max" type="number" min="20" max="90" step="0.1" placeholder="например 55">
+            <span>VO₂max, мл/кг/мин — обязательно</span>
+            <input id="vo2max" type="number" min="20" max="90" step="0.1" placeholder="например 55" required>
           </label>
         </div>
 
@@ -320,7 +320,7 @@
           <div><span>Прогноз движения</span><b id="raceForecastTime">—</b></div>
           <div><span>Средний темп</span><b id="raceForecastPace">—</b></div>
           <div><span>Диапазон ±10%</span><b id="raceForecastRange">—</b></div>
-          <div><span>Калибровка</span><b id="raceModelSource">activity preset</b></div>
+          <div><span>Калибровка</span><b id="raceModelSource">нужно 3 GPX + VO₂max</b></div>
         </div>
 
         <div class="metrics big">
