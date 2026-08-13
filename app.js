@@ -1,4 +1,83 @@
 
+let mapAnalysisStartedAt=0;
+let mapAnalysisTimer=null;
+function startMapAnalysisTimer(){
+  mapAnalysisStartedAt=performance.now();
+  if(mapAnalysisTimer) clearInterval(mapAnalysisTimer);
+  mapAnalysisTimer=setInterval(()=>{
+    const sec=(performance.now()-mapAnalysisStartedAt)/1000;
+    const el=$('mapTimingNote');
+    if(el) el.textContent=`Среднее время анализа карты — 15 секунд. Прошло: ${sec.toFixed(1)} с`;
+  },200);
+}
+function stopMapAnalysisTimer(){
+  if(mapAnalysisTimer){clearInterval(mapAnalysisTimer);mapAnalysisTimer=null;}
+  const sec=mapAnalysisStartedAt?((performance.now()-mapAnalysisStartedAt)/1000):0;
+  const el=$('mapTimingNote');
+  if(el) el.textContent=`Среднее время анализа карты — 15 секунд. Последний анализ: ${sec.toFixed(1)} с`;
+}
+
+
+function syncFordCards(data){
+  normalizeFordData(data);
+  const count=String(data?.ford_count ?? 0);
+  const list=(data?.ford_labels||[]).join(', ');
+
+  // Use visible labels to find the actual cards, independent of legacy element ids.
+  const all=[...document.querySelectorAll('div,span,p')];
+  for(const el of all){
+    const t=(el.textContent||'').trim();
+    if(t==='Броды'){
+      const card=el.parentElement;
+      if(card){
+        const vals=[...card.querySelectorAll('div,span,p')].filter(x=>x!==el);
+        const target=vals.find(x=>/^\d+$/.test((x.textContent||'').trim()));
+        if(target) target.textContent=count;
+      }
+    }
+    if(t.startsWith('Броды на км:')){
+      el.textContent='Броды на км: '+(list||'—');
+    }
+  }
+}
+
+
+function normalizeFordData(data){
+  if(!data || typeof data!=='object') return data;
+
+  let raw=[];
+  if(Array.isArray(data._raw_ford_kms)) raw=data._raw_ford_kms;
+  else if(Array.isArray(data.ford_kms)) raw=data.ford_kms;
+  else if(Array.isArray(data.fords)) raw=data.fords.map(f=>Number(f?.km)).filter(Number.isFinite);
+
+  raw=raw.map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
+  const groups=[];
+  let cur=null;
+  for(const km of raw){
+    if(!cur || km-cur.start>0.500001){
+      if(cur) groups.push(cur);
+      cur={start:km,end:km};
+    }else{
+      cur.end=km;
+    }
+  }
+  if(cur) groups.push(cur);
+
+  const starts=groups.map(g=>Number(g.start.toFixed(1)));
+  data._raw_ford_kms=raw;
+  data.ford_kms=starts;
+  data.ford_count=starts.length;
+  data.ford_labels=starts.map(x=>x.toFixed(1));
+
+  // Also overwrite common aliases so no old renderer can display raw crossings.
+  if('fordCount' in data) data.fordCount=starts.length;
+  if('fords_count' in data) data.fords_count=starts.length;
+  if('ford_points' in data) data.ford_points=starts;
+  if('ford_crossings' in data) data.ford_crossings=starts;
+  return data;
+}
+
+
 const state = {
   track: [],
   dist: 0,
@@ -13,6 +92,8 @@ const state = {
   },
   raceModel: null,
   raceForecast: null,
+  forecastMode: null,
+  mapAnalysis: null,
   deferredPrompt: null
 };
 
@@ -131,6 +212,11 @@ function syncMapAnalyzeButton(){
   const btn=$('mapAnalyzeBtn');
   if(!btn) return;
   const ready=!!(state.track && state.track.length>1 && state.dist>0);
+  if(typeof OFFLINE_BUILD_V014!=='undefined' && OFFLINE_BUILD_V014){
+    btn.disabled=true;
+    setActionState('mapAnalyzeBtn','idle');
+    return;
+  }
   btn.disabled=!ready;
   if(ready){
     setActionState('mapAnalyzeBtn','ready');
@@ -220,6 +306,7 @@ function parseGPX(text){
   });
 
   const out=smoothElevations(raw);
+  state.hasElevation=raw.filter(p=>Number.isFinite(p.ele)).length>=2;
 
   // Count ascent/descent only after a 3 m threshold to avoid tiny GPS noise.
   let gain=0,loss=0,lastAccepted=null;
@@ -246,8 +333,8 @@ function parseGPX(text){
 state.dist=total/1000;state.gain=gain;state.loss=loss;
   syncMapAnalyzeButton();
   $('distMetric').textContent=state.dist.toFixed(1)+' км';
-  $('gainMetric').textContent=Math.round(gain)+' м';
-  $('lossMetric').textContent=Math.round(loss)+' м';
+  $('gainMetric').textContent=state.hasElevation ? Math.round(gain)+' м' : 'нет данных';
+  $('lossMetric').textContent=state.hasElevation ? Math.round(loss)+' м' : 'нет данных';
   updateItraDifficulty();
   updateTrailDifficulty();
   drawTrackProfiles();
@@ -266,6 +353,8 @@ $('basePace').addEventListener('change',()=>{ if(state.track&&state.track.length
 window.addEventListener('resize',()=>{ if(state.track&&state.track.length) drawTrackProfiles(); });
 
 $('gpxFile').addEventListener('change', e=>{
+  invalidateRaceForecast();
+  state.hasElevation=false;
   state.raceForecast=null;
   if($('raceForecastTable')) $('raceForecastTable').querySelector('tbody').innerHTML='';
   if($('raceForecastTime')) $('raceForecastTime').textContent='—';
@@ -306,7 +395,9 @@ $('gpxLoadBtn').addEventListener('click',async ()=>{
     await new Promise(r=>setTimeout(r,30));
     parseGPX(text);
     prog.value=100;
-    $('gpxStatus').textContent='✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(state.gain)+' м · −'+Math.round(state.loss)+' м';
+    $('gpxStatus').textContent=state.hasElevation
+      ? '✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(state.gain)+' м · −'+Math.round(state.loss)+' м'
+      : '⚠ GPX обработан: '+state.dist.toFixed(1)+' км. В файле нет данных высоты — профиль высоты, набор и сброс не рассчитываются.';
     syncMapAnalyzeButton(); setActionState('gpxLoadBtn','success');
     setTimeout(()=>{prog.style.display='none';},1200);
   }catch(err){
@@ -571,7 +662,10 @@ function drawElevationCanvas(canvasId, xMode){
   if(pts.length<2){
     ctx.fillStyle='#94a3b8';
     ctx.font='14px system-ui,-apple-system,sans-serif';
-    ctx.fillText('Загрузите GPX для построения профиля',16,30);
+    const msg=(state.track?.length && state.hasElevation===false)
+      ? 'В GPX нет данных высоты'
+      : 'Загрузите GPX для построения профиля';
+    ctx.fillText(msg,16,30);
     return;
   }
 
@@ -839,7 +933,60 @@ function drawSurfaceStrip(samples){
   ctx.fillText(end,w-tw,74);
 }
 
+
+
+function groupFordKmPoints(kms){
+  const pts=(Array.isArray(kms)?kms:[])
+    .map(Number)
+    .filter(Number.isFinite)
+    .sort((a,b)=>a-b);
+
+  const groups=[];
+  let current=null;
+
+  for(const km of pts){
+    if(!current || km-current.start>0.50){
+      if(current) groups.push(current);
+      current={start:km,end:km,points:[km]};
+    }else{
+      current.end=km;
+      current.points.push(km);
+    }
+  }
+  if(current) groups.push(current);
+
+  return groups.map(g=>({
+    start:g.start,
+    end:g.end,
+    points:g.points,
+    label:g.start.toFixed(1)
+  }));
+}
+
+function filterFordCandidatesClient(fords){
+  if(!Array.isArray(fords)) return [];
+
+  const arr=fords
+    .filter(f=>{
+      const w=Number(f?.width_m ?? f?.width);
+      return !(Number.isFinite(w) && w<1.0);
+    })
+    .filter(f=>Number.isFinite(Number(f?.km)))
+    .sort((a,b)=>Number(a.km)-Number(b.km));
+
+  const groups=groupFordKmPoints(arr.map(f=>Number(f.km)));
+
+  return groups.map(g=>({
+    km:g.start,
+    km_start:g.start,
+    km_end:g.end,
+    km_label:g.label,
+    crossing_count:g.points.length
+  }));
+}
+
 async function analyzeMapOSM(){
+  startMapAnalysisTimer();
   if(!state.track || !state.track.length) throw new Error('Сначала обработайте GPX');
   const pts=sampleTrackPoints(220);
   const query=buildOverpassQuery(pts);
@@ -872,6 +1019,23 @@ async function analyzeMapOSM(){
   }
 
   const data=await resp.json();
+    normalizeFordData(data);
+    {
+      let rawFordKm=[];
+      if(Array.isArray(data.ford_kms)) rawFordKm=data.ford_kms;
+      else if(Array.isArray(data.fords)) rawFordKm=data.fords.map(f=>Number(f?.km)).filter(Number.isFinite);
+
+      const groupedFords=groupFordKmPoints(rawFordKm);
+      data.ford_groups=groupedFords;
+      data.ford_count=groupedFords.length;
+      data.ford_kms=groupedFords.map(g=>g.start);
+      data.ford_labels=groupedFords.map(g=>g.label);
+      const cEl=$('fordCount')||$('fordsCount')||$('ford-count');
+      if(cEl) cEl.textContent=String(data.ford_count);
+      const lEl=$('fordKms')||$('fordsKm')||$('fordKmList')||$('ford-kms');
+      if(lEl) lEl.textContent=data.ford_labels.length ? 'Броды на км: '+data.ford_labels.join(', ') : 'Броды на км: —';
+    }
+
   const elements=data.elements||[];
 
   const samples=pts.map(p=>({km:p.km,cls:classifyPointFromOSM(p,elements)}));
@@ -891,8 +1055,18 @@ async function analyzeMapOSM(){
 function renderMapAnalysis(result){
   const {samples,summary,elements=[]}=result;
   const crossings=analyzeWaterCrossings(samples,elements);
-  const fordKms=crossings.fords;
+  // One physical water section = one ford. Display only the first (entry) km.
+  const fordGroups=groupFordKmPoints(crossings.fords);
+  const fordKms=fordGroups.map(g=>g.start);
   const bridgeKms=crossings.bridges;
+  state.mapAnalysis={
+    result,
+    samples:[...samples],
+    summary:{...summary},
+    fordKms:[...fordKms],
+    fordCount:fordKms.length,
+    bridgeKms:[...bridgeKms]
+  };
 
   $('mapAnalysisResults').style.display='block';
   $('coverageMetric').textContent=summary.coverage.toFixed(0)+'%';
@@ -1308,6 +1482,7 @@ $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
     renderMapAnalysis(result);
     p.value=100;
     $('mapAnalyzeStatus').textContent='✓ Анализ карты готов и сохранён локально.';
+    stopMapAnalysisTimer();
     setActionState('mapAnalyzeBtn','success');
     setTimeout(()=>p.style.display='none',1200);
   }catch(err){
@@ -1414,6 +1589,7 @@ $('itraLookupBtn')?.addEventListener('click', async ()=>{
     }
 
     const data=await resp.json();
+    normalizeFordData(data);
     let found=0;
     (data.results||[]).forEach(x=>{
       const r=state.roster.find(r=>r.athlete.toLowerCase()===String(x.name||'').toLowerCase());
@@ -1593,10 +1769,10 @@ function combinedRaceModelInfo(){
 }
 
 function racePhysiologyFactors(predictedSec){
-  const refs=Object.values(state.raceRefs||{}).filter(Boolean);
+  const refs=Object.values(state.raceReferences||{}).filter(Boolean);
   const T=Math.max(0.5,predictedSec/3600);
-  const longRef=state.raceRefs?.strength || refs.slice().sort((a,b)=>(b.durationSec||0)-(a.durationSec||0))[0];
-  const T10=Math.max(0.5,(longRef?.durationSec||3600)/3600);
+  const longRef=state.raceReferences?.strength || refs.slice().sort((a,b)=>(b.elapsedSec||0)-(a.elapsedSec||0))[0];
+  const T10=Math.max(0.5,(longRef?.elapsedSec||3600)/3600);
   const k=Math.max(0.10,Math.min(0.32,0.16 + Math.max(0,3-T10)*0.025 - Math.max(0,T10-4)*0.012));
   const durationFactor=Math.max(0.68,Math.min(1.03,Math.pow(Math.max(1,T/T10),-k)));
 
@@ -1615,9 +1791,11 @@ function racePhysiologyFactors(predictedSec){
     acidSource='HR/LTHR';
     if(T>acidHours) hrFactor=Math.max(0.72,Math.pow(acidHours/T,0.10));
   }else{
+    // VO2max fallback: sustainable aerobic fraction falls with duration.
     const sustainableFrac=Math.max(0.62,Math.min(0.90,0.90-0.09*Math.log2(Math.max(1,T))));
     const reserve=Math.max(0.92,Math.min(1.08,1+(vo2-50)*0.004));
     hrFactor=Math.max(0.70,Math.min(1.0,sustainableFrac*reserve/0.90));
+    // Near-threshold endurance estimate, not a lactate measurement.
     acidHours=Math.max(1.0,Math.min(3.0,2.0+(vo2-50)*0.025));
     acidSource='VO₂max';
   }
@@ -1665,6 +1843,61 @@ function buildRaceMicroSegments(){
   return micro;
 }
 
+
+function riegelExponentForDistance(targetKm,refKm){
+  const ratio=Math.max(1,targetKm/Math.max(0.1,refKm));
+  // 10 km -> HM: classic Riegel ~1.06.
+  // Longer targets get progressively more conservative.
+  if(targetKm<=25) return 1.06;
+  if(targetKm<=42.5) return 1.07;
+  if(targetKm<=60) return 1.085;
+  if(targetKm<=100) return 1.10;
+  return 1.12;
+}
+
+function flatRaceAnchorForTarget(){
+  const ref=state.raceReferences?.flatRace;
+  if(!ref || !(ref.dist>=10) || !(ref.elapsedSec>0)) return null;
+
+  const targetKm=Number(state.dist||0);
+  const exponent=riegelExponentForDistance(targetKm,ref.dist);
+  const targetSec=ref.elapsedSec*Math.pow(targetKm/ref.dist,exponent);
+  const targetPaceSec=targetSec/Math.max(0.001,targetKm);
+  const targetSpeed=(targetKm*1000)/Math.max(1,targetSec);
+
+  return {
+    refKm:ref.dist,
+    refSec:ref.elapsedSec,
+    refPaceSec:ref.elapsedSec/ref.dist,
+    exponent,
+    targetKm,
+    targetSec,
+    targetPaceSec,
+    targetSpeed
+  };
+}
+
+function gradeOnlyFactor(grade){
+  const info=combinedRaceModelInfo();
+  if(!info) return 1;
+  const g=Math.max(-0.45,Math.min(0.45,grade));
+  const up=Math.max(g,0),dn=Math.max(-g,0);
+  const c=info.gradeCoeff;
+  return Math.max(0.20,Math.min(2.5,Math.exp(
+    c[1]*up+c[2]*up*up+c[3]*dn+c[4]*dn*dn
+  )));
+}
+
+function longDistanceEnduranceFactor(baseSec,vo2){
+  const hours=Math.max(0,baseSec/3600);
+  if(hours<=2) return 1;
+  // Riegel already accounts for distance-related slowdown.
+  // This is only an extra ultra-duration correction.
+  const vo2Adj=Math.max(0.85,Math.min(1.20,50/Math.max(20,vo2)));
+  const extra=Math.min(0.28,(hours-2)*0.012*vo2Adj);
+  return 1+extra;
+}
+
 function calculateRaceForecast(){
   if(!(state.dist>0) || !(state.track?.length>1)){
     throw new Error('Сначала загрузите GPX трассы');
@@ -1672,18 +1905,65 @@ function calculateRaceForecast(){
   if(!allRaceReferencesReady()){
     throw new Error('Загрузите все 3 эталонные GPX тренировки');
   }
+
+  const vo2=Number($('vo2max')?.value||0);
+  if(!(vo2>=20 && vo2<=90)){
+    throw new Error('Введите обязательный VO₂max от 20 до 90 мл/кг/мин');
+  }
+
+  const flatAnchor=flatRaceAnchorForTarget();
+  if(!flatAnchor){
+    throw new Error('Гоночная (плоская) GPX должна быть не менее 10 км и содержать корректное время');
+  }
+
   const effort=Number($('raceEffortPct')?.value||100);
   const groupKm=Math.max(1,Math.min(10,Number($('forecastStepKm')?.value||5)));
   const micro=buildRaceMicroSegments();
   if(!micro.length) throw new Error('Не удалось разбить трассу на участки');
 
+  // Main anchor = actual flat-race performance scaled to target distance.
+  // At 100% effort, a flat asphalt route stays close to the Riegel-scaled anchor.
+  const effortFactor=Math.max(0.75,Math.min(1.20,100/Math.max(70,Math.min(130,effort))));
+  const vo2Factor=Math.max(0.97,Math.min(1.03,1-(vo2-50)*0.0015));
+
   let totalSec=0;
   const detailed=[];
+
   for(const s of micro){
-    const v=raceModelSpeed(s.grade,s.progress,effort,totalSec);
-    const sec=s.dm/v;
+    const gradeFactor=gradeOnlyFactor(s.grade);
+    const flatSec=s.dm/Math.max(0.25,flatAnchor.targetSpeed);
+    // gradeFactor >1 means faster in the legacy speed model, so convert to time.
+    const terrainTimeFactor=1/Math.max(0.25,gradeFactor);
+    const sec=flatSec*terrainTimeFactor*effortFactor*vo2Factor;
     totalSec+=sec;
-    detailed.push({...s,v,sec,cumSec:totalSec});
+    detailed.push({...s,sec,cumSec:totalSec});
+  }
+
+  // Normalize completely flat routes to the real flat-race anchor.
+  // For hilly routes, keep the relative terrain cost learned from trail references.
+  const routeGain=Number(state.gain||0);
+  const flatEnough=(routeGain/state.dist)<=8; // <=8 m gain/km: effectively flat/rolling
+  if(flatEnough && totalSec>0){
+    const desired=flatAnchor.targetSec*effortFactor*vo2Factor;
+    const scale=desired/totalSec;
+    totalSec=0;
+    detailed.forEach(s=>{
+      s.sec*=scale;
+      totalSec+=s.sec;
+      s.cumSec=totalSec;
+    });
+  }
+
+  // Additional correction is only for long events; Riegel already includes normal
+  // distance-related slowdown from 10 km to half/marathon distances.
+  const ultraFactor=longDistanceEnduranceFactor(totalSec,vo2);
+  if(ultraFactor!==1){
+    totalSec=0;
+    detailed.forEach(s=>{
+      s.sec*=ultraFactor;
+      totalSec+=s.sec;
+      s.cumSec=totalSec;
+    });
   }
 
   const groups=[];
@@ -1703,83 +1983,174 @@ function calculateRaceForecast(){
   }
   if(current) groups.push(current);
 
-  // Recommended pacing:
-  // Use the physiology-adjusted TOTAL forecast as the anchor.
-  // Terrain only redistributes effort moderately around the race-average pace.
-  // Then normalize all group times so their weighted average exactly equals the
-  // predicted total moving time.
   const avgRacePaceSec=totalSec/state.dist;
 
   groups.forEach(g=>{
     g.grade=g.distM?g.weightedGrade/g.distM:0;
 
-    // Moderate terrain factor:
-    // uphill slows recommended pace, downhill speeds it up only slightly.
-    // This deliberately avoids "4:13 early / 10:24 late" death-march pacing.
-    const gradePct=g.grade*100;
-    let terrainFactor=1;
-    if(gradePct>0){
-      terrainFactor += Math.min(0.22, gradePct*0.035);
-    }else{
-      terrainFactor -= Math.min(0.10, Math.abs(gradePct)*0.018);
-    }
-
-    // Small negative-split bias: first half slightly easier, final third only
-    // slightly faster if terrain allows. This is pacing guidance, not max pace.
+    // Recommended distribution around the target average:
+    // no artificial "very slow first 5 km" on a flat road race.
     const mid=((g.from+g.to)/2)/state.dist;
     let pacingFactor=1;
-    if(mid<0.33) pacingFactor=1.035;
-    else if(mid<0.66) pacingFactor=1.000;
-    else pacingFactor=0.985;
+    if(mid<0.25) pacingFactor=1.010;       // only ~1% conservative early
+    else if(mid<0.75) pacingFactor=1.000;
+    else pacingFactor=0.995;
 
-    g.recommendedPaceSec=avgRacePaceSec*terrainFactor*pacingFactor;
+    const terrainRatio=(g.sec/Math.max(1,g.distM/1000))/avgRacePaceSec;
+    g.recommendedPaceSec=avgRacePaceSec*terrainRatio*pacingFactor;
     g.recommendedSec=g.recommendedPaceSec*(g.distM/1000);
   });
 
-  // Normalize recommended section times to the physiology-adjusted total.
-  const recommendedRaw=groups.reduce((s,g)=>s+g.recommendedSec,0);
+  // Normalize section recommendations to total forecast time.
+  const recommendedRaw=groups.reduce((sum,g)=>sum+g.recommendedSec,0);
   const norm=recommendedRaw>0?totalSec/recommendedRaw:1;
   let recommendedCum=0;
+
   groups.forEach(g=>{
     g.recommendedSec*=norm;
     g.recommendedPaceSec*=norm;
     recommendedCum+=g.recommendedSec;
     g.recommendedCumSec=recommendedCum;
-    // Keep legacy fields pointing to recommended values for the renderer.
     g.paceSec=g.recommendedPaceSec;
     g.sec=g.recommendedSec;
     g.cumSec=g.recommendedCumSec;
   });
 
+  const physiology=racePhysiologyFactors(totalSec);
+
   return {
     totalSec,
     avgPaceSec:totalSec/state.dist,
-    lowSec:totalSec*0.90,
-    highSec:totalSec*1.10,
+    lowSec:totalSec*0.95,
+    highSec:totalSec*1.05,
     effort,
     groupKm,
     groups,
-    physiology: racePhysiologyFactors(totalSec)
+    physiology,
+    flatAnchor,
+    ultraFactor
   };
 }
 
 function raceFormulaText(){
   const info=combinedRaceModelInfo();
-  if(!info) return 'Загрузите все 3 эталонные GPX.';
+  const anchor=flatRaceAnchorForTarget();
+  if(!info || !anchor) return 'Загрузите все 3 эталонные GPX.';
   const c=info.gradeCoeff;
   const f=n=>(n>=0?'+ ':'− ')+Math.abs(n).toFixed(3);
-  return `v = Vflat × Fgrade × FfastTrail × Ffatigue × Effort; `
-    + `Vflat=${info.flatSpeed.toFixed(2)} м/с; `
-    + `ln(Fgrade)=${f(c[1])}·G+ ${f(c[2])}·G+² ${f(c[3])}·G− ${f(c[4])}·G−²; `
-    + `FfastTrail=${info.fastTrailFactor.toFixed(3)}; fatigueK=${info.fatigueK.toFixed(3)}; `
-    + `Fduration=(T/T10)^−k; FHR=ограничение по пульсу/времени закисления; FVO2=небольшая необязательная поправка VO₂max`;
+  return `База = реальный результат плоской GPX × Riegel(D₂/D₁)^${anchor.exponent.toFixed(3)}; `
+    + `эталон ${anchor.refKm.toFixed(1)} км за ${fmtClockSec(anchor.refSec)} `
+    + `(${fmtPaceSecPerKm(anchor.refPaceSec)}) → базовый прогноз ${anchor.targetKm.toFixed(1)} км `
+    + `за ${fmtClockSec(anchor.targetSec)} (${fmtPaceSecPerKm(anchor.targetPaceSec)}). `
+    + `Затем: Fgrade по двум трейловым GPX; VO₂max = небольшая поправка; `
+    + `на длинных гонках добавляется Fendurance; при анализе GPX отдельно добавляются тропа, грунт и броды.`;
 }
 
-function renderRaceForecast(){
+
+
+function surfaceDistanceInRange(samples,fromKm,toKm,cls){
+  if(!Array.isArray(samples) || samples.length<2) return 0;
+  const s=[...samples]
+    .filter(x=>Number.isFinite(Number(x?.km)))
+    .sort((a,b)=>Number(a.km)-Number(b.km));
+
+  let km=0;
+  for(let i=0;i<s.length-1;i++){
+    const a=Number(s[i].km), b=Number(s[i+1].km);
+    if(!(b>a)) continue;
+    if(s[i].cls!==cls) continue;
+
+    const left=Math.max(fromKm,a);
+    const right=Math.min(toKm,b);
+    if(right>left) km+=right-left;
+  }
+  return km;
+}
+
+function trailDistanceInRange(samples,fromKm,toKm){
+  return surfaceDistanceInRange(samples,fromKm,toKm,'trail');
+}
+
+function renderRaceForecast(options={}){
   const tbody=$('raceForecastTable')?.querySelector('tbody');
   if(!tbody) return;
   try{
     const f=calculateRaceForecast();
+    const fordKms=Array.isArray(options.fordKms)?options.fordKms:[];
+    const fordPenaltyPer=Number(options.fordPenaltyPerSec)||0;
+    const trailSamples=Array.isArray(options.trailSamples)?options.trailSamples:[];
+    const trailPenaltyPerKmSec=Number(options.trailPenaltyPerKmSec)||0;
+    const dirtPenaltyPerKmSec=Number(options.dirtPenaltyPerKmSec)||0;
+    let extraTotal=0;
+    let fordExtraTotal=0;
+    let trailExtraTotal=0;
+    let dirtExtraTotal=0;
+    let totalTrailKm=0;
+    let totalDirtKm=0;
+
+    // Analysis-mode local penalties:
+    // ford: +40 sec each;
+    // trail: +60 sec per OSM trail km;
+    // dirt: +30 sec per OSM dirt/ground/gravel km.
+    if(
+      (fordPenaltyPer>0 && fordKms.length) ||
+      (trailPenaltyPerKmSec>0 && trailSamples.length) ||
+      (dirtPenaltyPerKmSec>0 && trailSamples.length)
+    ){
+      let cumExtra=0;
+      f.groups.forEach(g=>{
+        const fordCount=fordKms.filter(km=>km>=g.from-1e-9 && km<g.to+1e-9).length;
+        const fordExtra=fordCount*fordPenaltyPer;
+
+        const trailKm=trailPenaltyPerKmSec>0
+          ? surfaceDistanceInRange(trailSamples,g.from,g.to,'trail')
+          : 0;
+        const trailExtra=trailKm*trailPenaltyPerKmSec;
+
+        const dirtKm=dirtPenaltyPerKmSec>0
+          ? surfaceDistanceInRange(trailSamples,g.from,g.to,'dirt')
+          : 0;
+        const dirtExtra=dirtKm*dirtPenaltyPerKmSec;
+
+        const extra=fordExtra+trailExtra+dirtExtra;
+
+        g.trailKm=trailKm;
+        g.dirtKm=dirtKm;
+        g.fordCount=fordCount;
+
+        g.sec+=extra;
+        g.recommendedSec=(g.recommendedSec||0)+extra;
+        g.paceSec=g.sec/Math.max(0.001,g.distM/1000);
+
+        cumExtra+=extra;
+        g.cumSec+=cumExtra;
+
+        fordExtraTotal+=fordExtra;
+        trailExtraTotal+=trailExtra;
+        dirtExtraTotal+=dirtExtra;
+        totalTrailKm+=trailKm;
+        totalDirtKm+=dirtKm;
+      });
+
+      extraTotal=fordExtraTotal+trailExtraTotal+dirtExtraTotal;
+
+      f.fordCount=fordKms.length;
+      f.fordPenaltySec=fordExtraTotal;
+
+      f.trailKm=totalTrailKm;
+      f.trailPenaltySec=trailExtraTotal;
+
+      f.dirtKm=totalDirtKm;
+      f.dirtPenaltySec=dirtExtraTotal;
+
+      f.analysisPenaltySec=extraTotal;
+
+      f.totalSec+=extraTotal;
+      f.avgPaceSec=f.totalSec/state.dist;
+      f.lowSec=f.totalSec*0.90;
+      f.highSec=f.totalSec*1.10;
+      f.physiology=racePhysiologyFactors(f.totalSec);
+    }
     state.raceForecast=f;
     tbody.innerHTML='';
     f.groups.forEach(g=>{
@@ -1798,21 +2169,33 @@ function renderRaceForecast(){
     });
     $('raceForecastTime').textContent=fmtClockSec(f.totalSec);
     $('raceForecastPace').textContent=fmtPaceSecPerKm(f.avgPaceSec);
+    if($('raceCalibration') && f.flatAnchor){
+      $('raceCalibration').textContent=
+        `${state.raceReferences.flatRace.source}: ${f.flatAnchor.refKm.toFixed(1)} км · `
+        + `${fmtClockSec(f.flatAnchor.refSec)} · ${fmtPaceSecPerKm(f.flatAnchor.refPaceSec)} → `
+        + `${f.flatAnchor.targetKm.toFixed(1)} км: ${fmtPaceSecPerKm(f.flatAnchor.targetPaceSec)}`;
+    }
     $('raceForecastRange').textContent=`${fmtClockSec(f.lowSec)}–${fmtClockSec(f.highSec)}`;
     if($('raceDurationFactor')) $('raceDurationFactor').textContent=(f.physiology.durationFactor*100).toFixed(0)+'%';
     if($('raceHrFactor')) $('raceHrFactor').textContent=(f.physiology.hrFactor*100).toFixed(0)+'%';
     if($('raceAcidTime')) $('raceAcidTime').textContent=Number.isFinite(f.physiology.acidHours)?f.physiology.acidHours.toFixed(1)+' ч':'—';
-    if($('raceVo2Factor')) $('raceVo2Factor').textContent=f.physiology.vo2 ? `${f.physiology.vo2.toFixed(1)} → ${(f.physiology.vo2Factor*100).toFixed(1)}%` : 'не используется';
+    if($('raceVo2Factor')) $('raceVo2Factor').textContent=`${f.physiology.vo2.toFixed(1)} → ${(f.physiology.vo2Factor*100).toFixed(1)}%`;
     $('raceModelSource').textContent=allRaceReferencesReady()
       ? `${state.raceReferences.strength.source} + ${state.raceReferences.fastTrail.source} + ${state.raceReferences.flatRace.source}`
       : 'нужно 3 GPX';
     $('raceModelFormula').textContent=raceFormulaText();
-    $('raceForecastStatus').textContent=`✓ Общий прогноз по 3 GPX: ${state.dist.toFixed(1)} км. Темпы участков нормированы к среднему прогнозному темпу.`;
-    setActionState('raceForecastBtn','success');
+    $('raceForecastStatus').textContent=f.fordPenaltySec ? `✓ Прогноз с анализом GPX: ${state.dist.toFixed(1)} км · бродов ${f.fordCount} · +${f.fordPenaltySec} с (${f.fordCount} × 40 с).` : `✓ Общий прогноз по 3 GPX: ${state.dist.toFixed(1)} км. Темпы участков нормированы к среднему прогнозному темпу.`;
+    state.forecastMode=options.analysisMode?'analysis':'normal';
+    applyForecastModeColors();
+    updateFinalCalcAvailability();
   }catch(err){
     tbody.innerHTML='';
     $('raceForecastStatus').textContent='✕ '+(err.message||String(err));
-    setActionState('raceForecastBtn','error');
+    if(options.analysisMode) setActionState('raceForecastGpxBtn','error');
+    else setActionState('raceForecastBtn','error');
+    state.raceForecast=null;
+    state.forecastMode=null;
+    updateFinalCalcAvailability();
   }
 }
 
@@ -1832,6 +2215,79 @@ function raceRefTitle(role){
   return role==='strength'?'Силовая трейловая GPX':
          role==='fastTrail'?'Быстрая трейловая GPX':'Гоночная (плоская) GPX';
 }
+
+function forecastInputsReady(){
+  const count=['strength','fastTrail','flatRace'].filter(k=>state.raceReferences?.[k]).length;
+  const routeReady=Number(state.dist||0)>0 && state.track?.length>1;
+  const vo2=Number($('vo2max')?.value||0);
+  return routeReady && count===3 && vo2>=20 && vo2<=90;
+}
+
+function applyForecastModeColors(){
+  const normal=$('raceForecastBtn');
+  const analysis=$('raceForecastGpxBtn');
+  const ready=forecastInputsReady();
+
+  if(!normal || !analysis) return;
+
+  normal.disabled=!ready;
+  analysis.disabled=true;
+  if(typeof OFFLINE_BUILD_V014!=='undefined' && OFFLINE_BUILD_V014){
+    analysis.style.display='none';
+  }else{
+    analysis.disabled=!ready;
+  }
+
+  if(!ready){
+    setActionState('raceForecastBtn','idle');
+    setActionState('raceForecastGpxBtn','idle');
+    return;
+  }
+
+  if(state.forecastMode==='normal'){
+    setActionState('raceForecastBtn','success');
+    setActionState('raceForecastGpxBtn','ready');
+  }else if(state.forecastMode==='analysis'){
+    setActionState('raceForecastBtn','ready');
+    setActionState('raceForecastGpxBtn','success');
+  }else{
+    setActionState('raceForecastBtn','ready');
+    setActionState('raceForecastGpxBtn','ready');
+  }
+}
+
+function hasFinalCalculationData(){
+  return !!(state.raceForecast && Number(state.raceForecast.totalSec)>0);
+}
+
+function updateFinalCalcAvailability(){
+  const btn=$('calcBtn');
+  const status=$('calcAvailabilityStatus');
+  if(!btn) return;
+
+  const ready=hasFinalCalculationData();
+  btn.disabled=!ready;
+
+  if(!ready){
+    setActionState('calcBtn','idle');
+    if(status) status.textContent='Сначала рассчитайте прогноз во вкладке «Прогноз».';
+  }else{
+    setActionState('calcBtn','ready');
+    if(status){
+      status.textContent=state.forecastMode==='analysis'
+        ? 'Готово: используется прогноз с анализом GPX.'
+        : 'Готово: используется обычный прогноз по трассе.';
+    }
+  }
+}
+
+function invalidateRaceForecast(){
+  state.raceForecast=null;
+  state.forecastMode=null;
+  applyForecastModeColors();
+  updateFinalCalcAvailability();
+}
+
 function updateRaceReferenceState(){
   const count=['strength','fastTrail','flatRace'].filter(k=>state.raceReferences[k]).length;
   if($('referenceCount')) $('referenceCount').textContent=`${count} / 3`;
@@ -1839,15 +2295,15 @@ function updateRaceReferenceState(){
   if($('raceModelFormula')) $('raceModelFormula').textContent=raceFormulaText();
 
   const routeReady=state.dist>0 && state.track?.length>1;
-  const btn=$('raceForecastBtn');
-  if(btn){
-    btn.disabled=!(routeReady && count===3);
-    setActionState('raceForecastBtn',routeReady && count===3?'ready':'idle');
-  }
-  if($('raceForecastStatus')){
+  const vo2=Number($('vo2max')?.value||0);
+  const vo2Ready=vo2>=20 && vo2<=90;
+  const ready=routeReady && count===3 && vo2Ready;
+  applyForecastModeColors();
+if($('raceForecastStatus')){
     if(!routeReady) $('raceForecastStatus').textContent='Сначала загрузите GPX трассы во вкладке «Трасса».';
     else if(count<3) $('raceForecastStatus').textContent=`Трасса готова. Загрузите ещё ${3-count} эталонных GPX.`;
-    else $('raceForecastStatus').textContent='Все 3 тренировки и трасса загружены. Можно считать общий прогноз.';
+    else if(!vo2Ready) $('raceForecastStatus').textContent='Введите обязательный VO₂max (20–90 мл/кг/мин).';
+    else $('raceForecastStatus').textContent='Трасса, 3 тренировки и VO₂max готовы. Можно считать общий прогноз.';
   }
 }
 
@@ -1857,6 +2313,7 @@ function bindRaceReference(role){
   if(!fileEl||!nameEl||!btn||!status) return;
 
   fileEl.addEventListener('change',e=>{
+    invalidateRaceForecast();
     const f=e.currentTarget.files?.[0]||null;
     raceRefSelections[role]=f;
     state.raceReferences[role]=null;
@@ -1883,6 +2340,13 @@ function bindRaceReference(role){
       status.textContent='Анализирую '+raceRefTitle(role)+'…';
       const text=await readFileIOS(f);
       const parsed=parseTimedActivityGPX(text);
+
+      if(role==='flatRace' && parsed.dist < 10){
+        throw new Error(
+          `Гоночная (плоская) GPX должна быть не менее 10 км. В файле: ${parsed.dist.toFixed(2)} км.`
+        );
+      }
+
       parsed.source=f.name;
       state.raceReferences[role]=parsed;
 
@@ -1904,22 +2368,73 @@ bindRaceReference('strength');
 bindRaceReference('fastTrail');
 bindRaceReference('flatRace');
 
-$('raceForecastBtn')?.addEventListener('click',renderRaceForecast);
-$('raceEffortPct')?.addEventListener('change',()=>{if(state.dist>0) renderRaceForecast();});
-$('forecastStepKm')?.addEventListener('change',()=>{if(state.dist>0) renderRaceForecast();});
+$('clearOpenAiKeyBtn')?.addEventListener('click',()=>{
+  const el=$('openAiKey'); if(el) el.value='';
+  try{sessionStorage.removeItem('openAiApiKey');}catch(e){}
+});
+$('openAiKey')?.addEventListener('input',e=>{
+  try{sessionStorage.setItem('openAiApiKey',e.currentTarget.value||'');}catch(err){}
+});
+window.addEventListener('DOMContentLoaded',()=>{
+  try{const k=sessionStorage.getItem('openAiApiKey')||''; if($('openAiKey')) $('openAiKey').value=k;}catch(e){}
+});
+
+$('raceForecastGpxBtn')?.addEventListener('click',async()=>{
+  const btn=$('raceForecastGpxBtn');
+  try{
+    if(!state.track?.length) throw new Error('Сначала загрузите GPX трассы во вкладке «Трасса».');
+    setActionState('raceForecastGpxBtn','working'); btn.disabled=true;
+    if(!state.mapAnalysis){
+      if($('raceForecastStatus')) $('raceForecastStatus').textContent='⏳ Анализирую GPX/OSM и ищу броды…';
+      const result=await analyzeMapOSM();
+      renderMapAnalysis(result);
+    }
+    const fordKms=state.mapAnalysis?.fordKms||[];
+    const trailSamples=state.mapAnalysis?.samples||state.mapAnalysis?.result?.samples||[];
+    renderRaceForecast({
+      fordKms,
+      fordPenaltyPerSec:40,
+      trailSamples,
+      trailPenaltyPerKmSec:60,
+      dirtPenaltyPerKmSec:30,
+      analysisMode:true
+    });
+    state.forecastMode='analysis';
+    applyForecastModeColors();
+    updateFinalCalcAvailability();
+  }catch(err){
+    if($('raceForecastStatus')) $('raceForecastStatus').textContent='✕ '+(err.message||String(err));
+    setActionState('raceForecastGpxBtn','error');
+  }finally{
+    applyForecastModeColors();
+    updateFinalCalcAvailability();
+  }
+});
+
+$('vo2max')?.addEventListener('input',()=>{
+  if(state.raceForecast) invalidateRaceForecast();
+  updateRaceReferenceState();
+});
+$('raceForecastBtn')?.addEventListener('click',()=>{
+  renderRaceForecast({analysisMode:false});
+});
+$('raceEffortPct')?.addEventListener('change',()=>{invalidateRaceForecast(); updateRaceReferenceState();});
+$('forecastStepKm')?.addEventListener('change',()=>{invalidateRaceForecast(); updateRaceReferenceState();});
 
 window.addEventListener('DOMContentLoaded',()=>{
   if($('raceModelFormula')) $('raceModelFormula').textContent=raceFormulaText();
   updateRaceReferenceState();
+  applyForecastModeColors();
+  updateFinalCalcAvailability();
 });
 
 $('calcBtn').addEventListener('click',()=>{
-  if(!hasAnalysisData()){
+  if(!hasFinalCalculationData()){
     clearResultForecast();
-    renderHrStrategy();
-  document.querySelector('[data-tab="result"]').click();
+    updateFinalCalcAvailability();
     return;
   }
+  setActionState('calcBtn','working');
 
   const finish = state.raceForecast?.totalSec || finishPrediction();
   $('finishMetric').textContent=finish?hms(finish):'—';
@@ -1961,6 +2476,7 @@ $('calcBtn').addEventListener('click',()=>{
         `<tr><td>${i+1}</td><td>${r.athlete}</td><td>${r.pi||0}</td><td>${s.toFixed(1)}</td><td>${threat(d)}</td></tr>`);
     });
 
+  setActionState('calcBtn','success');
   document.querySelector('[data-tab="result"]').click();
 });
 
@@ -2320,25 +2836,38 @@ window.addEventListener('pageshow',()=>{
 });
 
 
-// ---------- OFFLINE BUILD ----------
-const OFFLINE_BUILD=true;
+// ---------- v0.14 OFFLINE ----------
+const OFFLINE_BUILD_V014 = true;
 
-function disableOnlineFeaturesOffline(){
-  const ocr=$('trainingOcrBtn');
-  if(ocr){
-    ocr.disabled=true;
-    ocr.textContent='OCR недоступен офлайн';
+function applyOfflineModeV014(){
+  // Network-only controls remain in DOM for compatibility, but are unavailable.
+  const mapBtn=$('mapAnalyzeBtn');
+  if(mapBtn){
+    mapBtn.disabled=true;
+    mapBtn.textContent='Анализ карты — нужен интернет';
   }
-  const map=$('mapAnalyzeBtn');
-  if(map){
-    map.disabled=true;
-    map.textContent='Анализ карты — нужен интернет';
+
+  const aiBtn=$('itraLookupBtn');
+  if(aiBtn){
+    aiBtn.disabled=true;
+    aiBtn.textContent='ITRA через AI — нужен интернет';
   }
-  const ai=$('itraLookupBtn');
-  if(ai){
-    ai.disabled=true;
-    ai.textContent='ITRA через AI — нужен интернет';
+
+  const analysisBtn=$('raceForecastGpxBtn');
+  if(analysisBtn){
+    analysisBtn.disabled=true;
+    analysisBtn.style.display='none';
   }
-  if($('serverStatus')) $('serverStatus').textContent='OFFLINE';
+
+  // Offline build always uses the normal local forecast.
+  if(state.forecastMode==='analysis'){
+    state.forecastMode=null;
+    state.raceForecast=null;
+  }
+  applyForecastModeColors();
+  updateFinalCalcAvailability();
 }
-window.addEventListener('DOMContentLoaded',disableOnlineFeaturesOffline);
+
+window.addEventListener('DOMContentLoaded',applyOfflineModeV014);
+window.addEventListener('pageshow',applyOfflineModeV014);
+

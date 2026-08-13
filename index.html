@@ -11,9 +11,32 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+
+<style>
+/* v0.08: визуальный разделитель между кнопками прогноза */
+#forecastAnalyzeGpxBtn, #forecastWithGpxAnalysis, .forecast-gpx-analysis-btn {
+  margin-top: 14px !important;
+}
+.forecast-action-separator {
+  height: 14px;
+  width: 100%;
+  flex-basis: 100%;
+}
+</style>
+
+<style>
+/* v0.09: реальный визуальный разделитель между кнопками прогноза */
+#raceForecastBtn {
+  margin-bottom: 18px !important;
+}
+#raceForecastGpxBtn {
+  margin-top: 0 !important;
+}
+</style>
 </head>
 <body>
-<div class="app-version">v0.97 OFFLINE</div>
+<div class="app-version">v0.14 OFFLINE</div>
   <header class="app-header">
     <div>
       <div class="eyebrow">Trail Race Analyzer</div>
@@ -25,7 +48,7 @@
   <main>
     <section class="card hero">
       <h2>Новая гонка</h2>
-      <p>Офлайн-режим: сначала загрузите GPX трассы гонки во вкладке «Трасса», затем три эталонные GPX во вкладке «Прогноз». Стартовый список и итоговые расчёты работают без интернета.</p>
+      <p>Офлайн-режим: загрузи GPX трассы, стартовый список и три GPX-эталона. Расчёт прогноза, темпа и итогов выполняется прямо на устройстве без интернета.</p>
       <div class="grid2">
         <label class="field">
           <span>Имя спортсмена</span>
@@ -43,7 +66,6 @@
 
     <nav class="tabs">
       <button class="tab active" data-tab="route">1. Трасса</button>
-      
       <button class="tab" data-tab="roster">2. Стартовый</button>
       <button class="tab" data-tab="forecast">3. Прогноз</button>
       <button class="tab" data-tab="result">4. Итог</button>
@@ -76,14 +98,15 @@
           <div class="muted">Время берётся из временных меток GPX: без пауз — только движение, с паузами — от первой до последней точки.</div>
         </div>
 
-        <div class="field">
+        <div class="field offline-hidden">
           <span>Анализ карты</span>
-          <button id="mapAnalyzeBtn" type="button" class="primary action-idle" disabled>Анализ карты — нужен интернет</button>
+          <button id="mapAnalyzeBtn" type="button" class="primary action-idle" disabled>Анализ карты</button>
+        <div id="mapTimingNote" class="muted">Среднее время анализа карты — 15 секунд. Если анализ длится больше 15 секунд — повторите снова.</div>
           <div id="mapAnalyzeStatus" class="muted">Сначала загрузите и обработайте GPX.</div>
           <progress id="mapAnalyzeProgress" value="0" max="100" style="width:100%;display:none"></progress>
         </div>
 
-        <div id="mapAnalysisResults" class="field" style="display:none">
+        <div id="mapAnalysisResults" class="field offline-hidden" style="display:none">
           <span>Покрытие маршрута по OSM</span>
           <div class="metrics">
             <div><span>Классифицировано</span><b id="coverageMetric">—</b></div>
@@ -156,50 +179,28 @@
 </div>
     </section>
 
-    <section id="training" class="tabpanel">
-      <div class="card">
-        <h2>Лучшая тренировка</h2>
-        <p class="muted">Самая сильная тренировка определяется по высокому среднему пульсу и лучшим показателям дистанции, набора и темпа.</p>
-        <div class="upload-box">
-          <b>Скриншот тренировки</b>
-          <input id="trainingScreenshot" type="file" accept="image/*"><div id="trainingSelectedFileName" class="status"></div>
-          <button class="action ready" id="trainingOcrBtn" disabled type="button">OCR недоступен офлайн</button>
-          <div class="status" id="trainingOcrStatus">Офлайн: данные тренировки введите вручную в поля ниже.</div><div id="ocrTimeoutNote" class="status">Серверный OCR отключён в офлайн-версии.</div><div id="ocrSlowWarning" class="status" style="display:none">⚠ Распознавание занимает необычно много времени. OCR продолжает работать.</div>
-          <div class="ocr-meta" id="ocrMeta">
-            <div><span>Распознано показателей</span><b id="ocrRecognitionPercent">0%</b></div>
-            <div><span>Время обработки</span><b id="ocrElapsedTime">0.0 с</b></div>
-          </div>
-          <label class="field">
-            <span>Распознанный текст</span>
-            <textarea id="trainingOcrText" rows="7" placeholder="Здесь появится текст со скриншота. Его можно исправить вручную."></textarea>
-          </label>
-
-          <div id="ocrParsedMetrics" class="ocr-parsed" style="display:none">
-            <div><span>Расстояние</span><b id="ocrDistance">—</b></div>
-            
-            <div><span>Время в движении</span><b id="ocrTime">—</b></div>
-            <div><span>Средний темп</span><b id="ocrPace">—</b></div>
-            <div><span>Средний пульс</span><b id="ocrHr">—</b></div>
-          </div>
-        </div>
-
-        <p class="muted">Добавь один скриншот Garmin/Strava. Приложение хранит их локально; ключевые цифры можно внести вручную </p>
-        
-
-        <div class="grid2">
-          <label class="field"><span>Расстояние, км</span><input id="refDist" autocomplete="off" type="number" step="0.01" placeholder="8.03"></label>
-          <label class="field"><span>Время в движении</span><input id="refMinutes" autocomplete="off" type="text" inputmode="numeric" placeholder="47:14"></label>
-          <label class="field"><span>Средний темп</span><input id="refPace" autocomplete="off" type="text" inputmode="numeric" placeholder="5:53"></label>
-          <label class="field"><span>Средний пульс</span><input id="refAvgHr" autocomplete="off" type="number" step="1" placeholder="155"></label>
-        </div>
-        <input id="refGain" type="hidden" value="0">
-        <input id="refMaxHr" type="hidden" value="0">
-        <input id="lthr" type="hidden" value="0">
-      </div>
-    </section>
+    <div id="legacyTrainingFields" hidden>
+      <input id="refDist" value="">
+      <input id="refMinutes" value="">
+      <input id="refPace" value="">
+      <input id="refAvgHr" value="">
+      <input id="refGain" value="0">
+      <input id="refMaxHr" value="0">
+      <input id="lthr" value="0">
+    </div>
 
     <section id="roster" class="tabpanel">
       <div class="card">
+        <h2>Стартовый список</h2>
+        <label class="field offline-hidden">
+          <span>ChatGPT / OpenAI API key</span>
+          <input id="openAiKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-…">
+        </label>
+        <div class="key-actions offline-hidden">
+          <button id="clearOpenAiKeyBtn" type="button" class="secondary">Очистить ключ</button>
+        </div>
+        <p class="muted offline-hidden">Ключ не используется в офлайн-версии.</p>
+        <div>
         <h2>Стартовый список</h2>
         <div class="upload">
           <strong>Стартовый список XLSX / CSV</strong>
@@ -210,26 +211,11 @@
           <progress id="rosterProgress" value="0" max="100" style="width:100%;display:none"></progress>
         </div>
         <div class="grid2">
-          <div class="openrouter-settings">
-          <div class="openrouter-status-row">
-            <b>OpenRouter</b>
-            <span id="openRouterStatus" class="or-status or-checking">проверка…</span>
-          </div>
-          <label class="field">
-            <span>OpenRouter API key (необязательно)</span>
-            <input id="openRouterKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"
-                   placeholder="sk-or-v1-…">
-          </label>
-          <div class="key-actions">
-            <button id="saveOpenRouterKeyBtn" type="button" class="secondary">Сохранить ключ на этом iPhone</button>
-            <button id="clearOpenRouterKeyBtn" type="button" class="secondary">Удалить</button>
-          </div>
-          <div class="muted">Если поле пустое, используется OPENROUTER_API_KEY из Render. Введённый здесь ключ хранится только в localStorage этого браузера.</div>
-        </div>
+          
 
-        <div class="itra-online-box">
-          <button id="itraLookupBtn" type="button" class="secondary action-idle" disabled>ITRA через AI — нужен интернет</button>
-          <div id="itraLookupStatus" class="muted">Офлайн: ITRA PI можно заполнить вручную; анализ стартового списка работает локально.</div>
+        <div class="itra-online-box offline-hidden">
+          <button id="itraLookupBtn" type="button" class="secondary action-ready">Загрузить ITRA через AI</button>
+          <div id="itraLookupStatus" class="muted">После загрузки стартового списка нажмите кнопку для поиска ITRA PI участников.</div>
         </div>
         <label class="field">
             <span>Зачёт</span>
@@ -250,6 +236,7 @@
             <thead><tr><th>Спортсмен</th><th>PI</th><th>Техника</th><th>Выносливость</th><th>Форма</th></tr></thead>
             <tbody></tbody>
           </table>
+        </div>
         </div>
       </div>
     </section>
@@ -283,15 +270,17 @@
           </div>
 
           <div class="upload">
-            <strong>3. Гоночная (плоская) GPX</strong>
-            <div class="muted">Например, быстрая плоская десятка. Даёт базовый темп и скорость без большого влияния рельефа.</div>
+            <strong>3. Гоночная (плоская) GPX — минимум 10 км</strong>
+            <div class="muted">Минимальная длина файла — 10 км. Например, быстрая плоская десятка. Даёт базовый темп и скорость без большого влияния рельефа. Плоская гоночная GPX становится главным скоростным эталоном: её реальное время масштабируется на дистанцию гонки, а затем применяются рельеф, покрытие, броды и физиологические ограничения.</div>
             <input id="flatRaceActivityFile" type="file" accept=".gpx,application/gpx+xml,application/xml,text/xml,*/*">
             <span id="flatRaceActivityName"><span class="file-check">○</span> Файл не выбран</span>
-            <button id="flatRaceActivityLoadBtn" type="button" class="primary action-idle" disabled>Загрузить Гоночную (плоскую) GPX</button>
+            <div class="forecast-action-separator" aria-hidden="true"></div>
+<button id="flatRaceActivityLoadBtn" type="button" class="primary action-idle" disabled>Загрузить Гоночную (плоскую) GPX</button>
             <span id="flatRaceActivityStatus">Не загружена.</span>
           </div>
         </div>
 
+        <div id="calcAvailabilityStatus" class="muted">Сначала рассчитайте прогноз во вкладке «Прогноз».</div>
         <div class="metrics big">
           <div><span>Эталонов загружено</span><b id="referenceCount">0 / 3</b></div>
           <div><span>Общая модель</span><b id="combinedModelState">ожидает 3 GPX</b></div>
@@ -308,19 +297,22 @@
             <input id="forecastStepKm" type="number" min="1" max="10" step="1" value="5">
           </label>
           <label class="field">
-            <span>VO₂max, мл/кг/мин (необязательно)</span>
-            <input id="vo2max" type="number" min="20" max="90" step="0.1" placeholder="например 55">
+            <span>VO₂max, мл/кг/мин — обязательно</span>
+            <input id="vo2max" type="number" min="20" max="90" step="0.1" placeholder="например 55" required>
           </label>
         </div>
 
         <button id="raceForecastBtn" class="primary action-ready" type="button">Рассчитать прогноз по трассе</button>
+<div class="muted">Прогноз рассчитывается локально. Плоская гоночная GPX ≥10 км — главный скоростной эталон.</div>
+        <button id="raceForecastGpxBtn" class="offline-hidden primary action-idle" type="button" disabled>Рассчитать прогноз по трассе с анализом GPX</button>
+        <div id="raceForecastGpxNote" class="muted">При прогнозе с анализом GPX учитывается покрытие: каждый обнаруженный брод добавляет +40 секунд; каждый километр OSM-тропы — +1:00 мин/км; каждый километр грунта — +0:30 мин/км к расчётному времени.</div>
         <div id="raceForecastStatus" class="muted">Сначала загрузите GPX трассы во вкладке «Трасса».</div>
 
         <div class="metrics big">
           <div><span>Прогноз движения</span><b id="raceForecastTime">—</b></div>
           <div><span>Средний темп</span><b id="raceForecastPace">—</b></div>
           <div><span>Диапазон ±10%</span><b id="raceForecastRange">—</b></div>
-          <div><span>Калибровка</span><b id="raceModelSource">activity preset</b></div>
+          <div><span>Калибровка</span><b id="raceModelSource">нужно 3 GPX + VO₂max</b></div>
         </div>
 
         <div class="metrics big">
@@ -341,7 +333,7 @@
 
         <h3>Время прохождения участков</h3>
         <div id="recommendedPaceNote" class="muted">
-          Темп в таблице — рекомендуемый, а не максимальный. Он привязан к среднему прогнозному темпу гонки и меняется умеренно по рельефу, чтобы не «сгореть» в первой половине.
+          Темп в таблице — рекомендуемый, а не максимальный. Он привязан к среднему прогнозному темпу всей гонки и меняется умеренно по рельефу.
         </div>
         <div class="table-wrap">
           <table id="raceForecastTable">
@@ -366,7 +358,7 @@
       <div class="card">
         <div class="row between">
           <h2>Итог</h2>
-          <button id="calcBtn" class="primary">Рассчитать</button>
+          <button id="calcBtn" class="primary action-idle" disabled>Рассчитать</button>
         </div>
         <div class="metrics big">
           <div><span>Прогноз финиша</span><b id="finishMetric">—</b></div>
@@ -388,7 +380,7 @@
 
         
         <h3>Пульсовая стратегия</h3>
-        <p class="muted" id="hrStrategySummary">Стратегия появится после анализа трассы и лучшей тренировки.</p>
+        <p class="muted" id="hrStrategySummary">Стратегия появится после анализа трассы и расчёта прогноза.</p>
         <div class="table-wrap">
           <table id="hrStrategyTable">
             <thead>

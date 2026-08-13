@@ -318,3 +318,67 @@ button.action-error:disabled {
 
 .forecast-ref-grid{display:grid;gap:14px;margin:14px 0}
 .forecast-ref-grid .upload{margin:0}
+
+/* v0.06: GPX forecast button uses exactly the same state colors as the regular forecast button */
+#raceForecastGpxBtn.action-idle,
+#raceForecastGpxBtn.action-idle:disabled{
+  background:#475569 !important;color:#cbd5e1 !important;opacity:.78 !important;
+}
+#raceForecastGpxBtn.action-ready,
+#raceForecastGpxBtn.action-ready:disabled{
+  background:#38bdf8 !important;color:#07111f !important;opacity:1 !important;
+}
+#raceForecastGpxBtn.action-working,
+#raceForecastGpxBtn.action-working:disabled{
+  background:#64748b !important;color:#f8fafc !important;opacity:1 !important;
+}
+#raceForecastGpxBtn.action-success,
+#raceForecastGpxBtn.action-success:disabled{
+  background:#22c55e !important;color:#052e16 !important;opacity:1 !important;
+}
+#raceForecastGpxBtn.action-error,
+#raceForecastGpxBtn.action-error:disabled{
+  background:#ef4444 !important;color:#fff !important;opacity:1 !important;
+}
+
+/* v0.13: forecast mode is a true two-button selector */
+#raceForecastBtn.action-ready,
+#raceForecastGpxBtn.action-ready {
+  background:#38bdf8 !important;
+  color:#07111f !important;
+  opacity:1 !important;
+}
+#raceForecastBtn.action-success,
+#raceForecastGpxBtn.action-success {
+  background:#22c55e !important;
+  color:#052e16 !important;
+  opacity:1 !important;
+}
+
+/* Final calculation is unavailable until a forecast has actually been calculated */
+#calcBtn.action-idle,
+#calcBtn.action-idle:disabled {
+  background:#475569 !important;
+  color:#cbd5e1 !important;
+  opacity:.65 !important;
+}
+#calcBtn.action-ready {
+  background:#38bdf8 !important;
+  color:#07111f !important;
+  opacity:1 !important;
+}
+#calcBtn.action-working {
+  background:#64748b !important;
+  color:#f8fafc !important;
+  opacity:1 !important;
+}
+#calcBtn.action-success {
+  background:#22c55e !important;
+  color:#052e16 !important;
+  opacity:1 !important;
+}
+
+/* v0.14 OFFLINE */
+.offline-hidden {
+  display:none !important;
+}

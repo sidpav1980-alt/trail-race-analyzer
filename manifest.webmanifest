@@ -1,6 +1,6 @@
 {
   "name": "Trail Race Analyzer Offline",
-  "short_name": "TrailAnalyzer",
+  "short_name": "Trail Analyzer",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0b1220",
@@ -16,5 +16,6 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ]
+  ],
+  "description": "Офлайн-анализ GPX и прогноз гонки"
 }
