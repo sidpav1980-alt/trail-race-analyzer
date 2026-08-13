@@ -1703,9 +1703,52 @@ function calculateRaceForecast(){
   }
   if(current) groups.push(current);
 
+  // Recommended pacing:
+  // Use the physiology-adjusted TOTAL forecast as the anchor.
+  // Terrain only redistributes effort moderately around the race-average pace.
+  // Then normalize all group times so their weighted average exactly equals the
+  // predicted total moving time.
+  const avgRacePaceSec=totalSec/state.dist;
+
   groups.forEach(g=>{
     g.grade=g.distM?g.weightedGrade/g.distM:0;
-    g.paceSec=g.distM?g.sec/(g.distM/1000):0;
+
+    // Moderate terrain factor:
+    // uphill slows recommended pace, downhill speeds it up only slightly.
+    // This deliberately avoids "4:13 early / 10:24 late" death-march pacing.
+    const gradePct=g.grade*100;
+    let terrainFactor=1;
+    if(gradePct>0){
+      terrainFactor += Math.min(0.22, gradePct*0.035);
+    }else{
+      terrainFactor -= Math.min(0.10, Math.abs(gradePct)*0.018);
+    }
+
+    // Small negative-split bias: first half slightly easier, final third only
+    // slightly faster if terrain allows. This is pacing guidance, not max pace.
+    const mid=((g.from+g.to)/2)/state.dist;
+    let pacingFactor=1;
+    if(mid<0.33) pacingFactor=1.035;
+    else if(mid<0.66) pacingFactor=1.000;
+    else pacingFactor=0.985;
+
+    g.recommendedPaceSec=avgRacePaceSec*terrainFactor*pacingFactor;
+    g.recommendedSec=g.recommendedPaceSec*(g.distM/1000);
+  });
+
+  // Normalize recommended section times to the physiology-adjusted total.
+  const recommendedRaw=groups.reduce((s,g)=>s+g.recommendedSec,0);
+  const norm=recommendedRaw>0?totalSec/recommendedRaw:1;
+  let recommendedCum=0;
+  groups.forEach(g=>{
+    g.recommendedSec*=norm;
+    g.recommendedPaceSec*=norm;
+    recommendedCum+=g.recommendedSec;
+    g.recommendedCumSec=recommendedCum;
+    // Keep legacy fields pointing to recommended values for the renderer.
+    g.paceSec=g.recommendedPaceSec;
+    g.sec=g.recommendedSec;
+    g.cumSec=g.recommendedCumSec;
   });
 
   return {
@@ -1764,7 +1807,7 @@ function renderRaceForecast(){
       ? `${state.raceReferences.strength.source} + ${state.raceReferences.fastTrail.source} + ${state.raceReferences.flatRace.source}`
       : 'нужно 3 GPX';
     $('raceModelFormula').textContent=raceFormulaText();
-    $('raceForecastStatus').textContent=`✓ Общий прогноз по 3 GPX: ${state.dist.toFixed(1)} км.`;
+    $('raceForecastStatus').textContent=`✓ Общий прогноз по 3 GPX: ${state.dist.toFixed(1)} км. Темпы участков нормированы к среднему прогнозному темпу.`;
     setActionState('raceForecastBtn','success');
   }catch(err){
     tbody.innerHTML='';
