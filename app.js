@@ -287,7 +287,7 @@ $('installBtn').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try{
-      const reg=await navigator.serviceWorker.register('./sw.js?v=069', {updateViaCache:'none'});
+      const reg=await navigator.serviceWorker.register('./sw.js?v=070', {updateViaCache:'none'});
       await reg.update();
       let refreshing=false;
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -1206,7 +1206,7 @@ async function analyzeMapOSM(){
   const timer=setTimeout(()=>{
     analysisTimedOut=true;
     controller.abort();
-  },20000);
+  },19800);
 
   let resp;
   try{
@@ -1807,28 +1807,8 @@ function threat(delta){
 }
 
 $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
-  const hardTimeoutMs=20000;
-  let mapHardTimedOut=false;
-  const mapHardTimeoutId=setTimeout(()=>{
-    mapHardTimedOut=true;
-    try{
-      mapAnalysisRunId++;
-      if(mapAnalysisAbortController){
-        mapAnalysisAbortController.abort();
-        mapAnalysisAbortController=null;
-      }
-    }catch(e){}
-    stopMapAnalysisTimer();
-    const p=$('mapAnalyzeProgress');
-    if(p){p.style.display='none';p.value=0;}
-    const b=$('mapAnalyzeBtn');
-    if(b){b.disabled=false;setActionState('mapAnalyzeBtn','ready');}
-    const s=$('mapAnalyzeStatus');
-    if(s) s.textContent='⚠️ Анализ остановлен: превышено 20 секунд. Можно повторить анализ или рассчитать прогноз без анализа карты.';
-  },hardTimeoutMs);
-
   if(navigator.onLine===false){
-    $('mapAnalyzeStatus').textContent='Офлайн: анализ карты требует интернет. Используйте обычный прогноз или ранее сохранённый анализ.';
+    $('mapAnalyzeStatus').textContent='Офлайн: анализ карты требует интернет.';
     return;
   }
 
@@ -1838,39 +1818,80 @@ $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
     setActionState('mapAnalyzeBtn','error');
     return;
   }
+
   btn.disabled=true;
   setActionState('mapAnalyzeBtn','working');
-  p.style.display='block'; p.value=15;
-  $('mapAnalyzeStatus').textContent='⏳ Запрашиваю OSM/Overpass…';
+  p.style.display='block';
+  p.value=15;
+  $('mapAnalyzeStatus').textContent='⏳ Анализ карты… лимит 20 секунд.';
+  startMapAnalysisTimer();
+
+  let timeoutId=null;
+  let timedOut=false;
+
+  const timeoutPromise=new Promise((_,reject)=>{
+    timeoutId=setTimeout(()=>{
+      timedOut=true;
+
+      // invalidates the result of the running analyzeMapOSM()
+      mapAnalysisRunId++;
+      try{
+        if(mapAnalysisAbortController) mapAnalysisAbortController.abort();
+      }catch(e){}
+      mapAnalysisAbortController=null;
+
+      const e=new Error('MAP_HARD_TIMEOUT_20');
+      e.name='TimeoutError';
+      reject(e);
+    },20000);
+  });
+
   try{
-    const myRunId=mapAnalysisRunId+1;
-    const result=await analyzeMapOSM();
-    if(myRunId!==mapAnalysisRunId) return;
+    const result=await Promise.race([
+      analyzeMapOSM(),
+      timeoutPromise
+    ]);
+
+    if(timedOut) return;
+
+    clearTimeout(timeoutId);
     p.value=85;
     renderMapAnalysis(result);
     p.value=100;
-    $('mapAnalyzeStatus').textContent='✓ Анализ карты готов и сохранён локально.';
     stopMapAnalysisTimer();
+    $('mapAnalyzeStatus').textContent='✓ Анализ карты завершён.';
     setActionState('mapAnalyzeBtn','success');
-    setTimeout(()=>p.style.display='none',1200);
+    setTimeout(()=>{p.style.display='none'},900);
   }catch(err){
+    clearTimeout(timeoutId);
+    stopMapAnalysisTimer();
     p.style.display='none';
+    p.value=0;
+
+    if(timedOut || err?.name==='TimeoutError' || err?.message==='MAP_HARD_TIMEOUT_20'){
+      $('mapAnalyzeStatus').textContent='⚠️ Анализ остановлен: превышен лимит 20 секунд. Нажмите «Повторить анализ карты» или используйте прогноз без анализа.';
+      btn.disabled=false;
+      btn.textContent='Повторить анализ карты';
+      setActionState('mapAnalyzeBtn','ready');
+      restoreMapInfoNote();
+      return;
+    }
+
     if(err?.name==='AbortError'){
       $('mapAnalyzeStatus').textContent='Анализ карты остановлен.';
-      setActionState('mapAnalyzeBtn','idle');
-    }else if(err?.name==='TimeoutError'){
-      $('mapAnalyzeStatus').textContent='Анализ карты остановлен: превышено 20 секунд.';
       setActionState('mapAnalyzeBtn','idle');
     }else{
       $('mapAnalyzeStatus').textContent='✕ Ошибка анализа карты: '+(err.message||String(err));
       setActionState('mapAnalyzeBtn','error');
     }
   }finally{
-    mapAnalysisAbortController=null;
-    syncMapAnalyzeButton(); restoreMapInfoNote();
+    clearTimeout(timeoutId);
+    if(!timedOut){
+      mapAnalysisAbortController=null;
+      syncMapAnalyzeButton();
+      restoreMapInfoNote();
+    }
   }
-
-  clearTimeout(mapHardTimeoutId);
 });
 
 
@@ -4498,13 +4519,12 @@ function updateResults(){
   const pace=dist()>0&&b>0?b/dist():0;
   const pm=Math.floor(pace/60),ps=Math.round(pace%60);
   const av=E('simAvgPace');if(av)av.textContent=pace?`${pm}:${String(ps).padStart(2,'0')} /км`:'—';
-  drawSimProfile();
 }
 function tick(){
   const b=baseSec();if(!b||!dist()){stop('Сначала загрузите GPX и рассчитайте прогноз гонки.');return}
   const speed=+E('simSpeed').value||1;const realDuration=Math.max(28000,Math.min(75000,28000+dist()*450));progress=Math.min(1,progress+(120/realDuration)*speed);E('simProgress').style.width=(progress*100)+'%';E('simDistance').textContent=`${(progress*dist()).toFixed(1)} / ${dist().toFixed(1)} км`;updateResults();draw();
   const idx=schedule.findIndex((x,i)=>!fired.has(i)&&progress>=x.at);if(idx>=0){fire(idx);return}
-  if(progress>=1){clearInterval(timer);timer=null;E('simStart').textContent='▶ Запустить снова';E('simStatus').textContent=`🏁 Финиш: ${fmt(baseSec()+penalty)} (${delta(penalty)} к прогнозу)`;updateResults();draw();drawSimProfile();renderSimFordMap()}
+  if(progress>=1){clearInterval(timer);timer=null;E('simStart').textContent='▶ Запустить снова';E('simStatus').textContent=`🏁 Финиш: ${fmt(baseSec()+penalty)} (${delta(penalty)} к прогнозу)`;updateResults();draw();renderSimFordMap()}
 }
 function run(){clearInterval(timer);timer=setInterval(tick,120);E('simStart').textContent='⏸ Пауза';E('simStatus').textContent='Симуляция идёт по профилю загруженного трека.'}
 function stop(msg){clearInterval(timer);clearTimeout(pauseTimer);clearInterval(countTimer);timer=null;if(msg)E('simStatus').textContent=msg;E('simStart').textContent='▶ Симуляция гонки'}
@@ -4603,6 +4623,6 @@ window.addEventListener('unhandledrejection',ev=>{
   }
 });
 
-setInterval(()=>{if(document.querySelector('[data-tab="simulation"]')?.classList.contains('active')){drawSimProfile();}},250);
+setInterval(()=>{if(document.querySelector('[data-tab="simulation"]')?.classList.contains('active')){}},250);
 
-document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.tab==='simulation')setTimeout(()=>{drawSimProfile();renderSimFordMap();},150)}));
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.tab==='simulation')setTimeout(()=>{renderSimFordMap();},150)}));
