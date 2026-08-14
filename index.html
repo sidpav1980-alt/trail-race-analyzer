@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Trail Analyzer">
-  <title>Trail Race Analyzer</title>
+  <title>Прогноз и анализ трейловых гонок</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css">
@@ -43,13 +43,64 @@
 .app-offline-state.online{color:#22c55e}
 .app-offline-state.offline{color:#f59e0b}
 </style>
+
+<style>
+.sim-stage{
+  position:relative;
+  margin-top:14px;
+  border:1px solid #334155;
+  border-radius:16px;
+  overflow:hidden;
+  background:linear-gradient(180deg,rgba(56,189,248,.08),rgba(15,23,42,.02));
+}
+#simCanvas{display:block;width:100%;height:260px}
+.sim-bubble{
+  position:absolute;
+  left:50%;
+  top:14px;
+  transform:translateX(-50%);
+  max-width:min(92%,560px);
+  padding:10px 14px;
+  border-radius:14px;
+  background:#0f172a;
+  color:#f8fafc;
+  border:1px solid #475569;
+  box-shadow:0 8px 24px rgba(0,0,0,.25);
+  font-weight:700;
+  text-align:center;
+  z-index:3;
+}
+.sim-controls{align-items:end;gap:10px;flex-wrap:wrap;margin-top:12px}
+.sim-speed-field{min-width:170px;max-width:220px;margin:0}
+.sim-event-log{display:grid;gap:8px}
+.sim-event-item{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:10px;
+  align-items:center;
+  padding:10px 12px;
+  border:1px solid #334155;
+  border-radius:12px;
+}
+.sim-event-item .emoji{font-size:24px}
+.sim-event-item .delta{font-weight:800;white-space:nowrap}
+.sim-event-pool{margin-top:16px}
+.sim-pool-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-top:10px}
+.sim-pool-item{padding:8px 10px;border:1px solid #334155;border-radius:10px}
+@media(max-width:640px){
+  #simCanvas{height:220px}
+  .sim-event-item{grid-template-columns:auto 1fr}
+  .sim-event-item .delta{grid-column:2}
+}
+</style>
+
 </head>
 <body>
-<div class="app-version">v0.54 OFFLINE FULL</div>
+<div class="app-version">v0.56 OFFLINE SIM</div>
 <div id="offlineState" class="app-offline-state">OFFLINE READY</div>
   <header class="app-header">
     <div>
-      <div class="eyebrow">Trail Race Analyzer</div>
+      <div class="eyebrow">Прогноз и анализ трейловых гонок</div>
       <h1>Гонка → ПЛАН → ФИНИШ</h1>
     </div>
     <button id="installBtn" class="ghost" hidden>Установить</button>
@@ -63,9 +114,10 @@
 
     <nav class="tabs">
       <button class="tab active" data-tab="route">1. Трек гонки</button>
-      <button class="tab" data-tab="forecast">2. Прогноз</button>
+      <button class="tab" data-tab="forecast">2. Прогноз гонки</button>
       <button class="tab" data-tab="roster">3. Стартовый список и баллы ITRA</button>
-      <button class="tab" data-tab="result">4. Итог</button>
+      <button class="tab" data-tab="result">4. Прогноз места в TOP-100</button>
+      <button class="tab" data-tab="simulation">5. Симуляция гонки</button>
     </nav>
 
     <section id="route" class="tabpanel active">
@@ -312,7 +364,7 @@
         <div class="key-actions">
           <button id="clearOpenAiKeyBtn" type="button" class="secondary">Очистить ключ</button>
         </div>
-        <p class="muted">Ключ не сохраняется в localStorage и действует только до закрытия вкладки. Для постоянного и более безопасного варианта задайте OPENAI_API_KEY на сервере Render.</p>
+        <p class="muted">Ключ не сохраняется в localStorage и действует только до закрытия вкладки. Для постоянного и более безопасного варианта задайте OPENAI_API_KEY на сервере.</p>
         <div>
         <h2>Стартовый список</h2>
         <div class="upload">
@@ -406,6 +458,57 @@
         <div id="saveStatus" class="muted"></div>
       </div>
     </section>
+  
+    <section id="simulation" class="tabpanel">
+      <div class="card">
+        <div class="row between">
+          <div>
+            <h2>Симуляция гонки</h2>
+            <p class="muted">Весёлая офлайн-симуляция поверх рассчитанного прогноза. Случайные события меняют виртуальное время, но не изменяют основной прогноз.</p>
+          </div>
+          <button id="simStartBtn" class="primary action-idle" type="button">▶ Симуляция гонки</button>
+        </div>
+
+        <div class="metrics">
+          <div><span>Километр</span><b id="simKm">—</b></div>
+          <div><span>Время гонки</span><b id="simRaceTime">—</b></div>
+          <div><span>События</span><b id="simEventCount">0</b></div>
+          <div><span>Изменение времени</span><b id="simPenalty">0:00</b></div>
+        </div>
+
+        <div class="sim-stage">
+          <canvas id="simCanvas" height="260" aria-label="Анимация прохождения гонки"></canvas>
+          <div id="simBubble" class="sim-bubble" hidden></div>
+        </div>
+
+        <div class="row sim-controls">
+          <button id="simPauseBtn" class="secondary" type="button" disabled>Пауза</button>
+          <button id="simResetBtn" class="secondary" type="button">Сбросить</button>
+          <label class="field sim-speed-field">
+            <span>Скорость анимации</span>
+            <select id="simSpeed">
+              <option value="0.6">Спокойно</option>
+              <option value="1" selected>Нормально</option>
+              <option value="1.7">Быстро</option>
+              <option value="2.7">Очень быстро</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="simStatus" class="muted">Сначала рассчитайте прогноз гонки, затем запускайте симуляцию.</div>
+
+        <h3>Что произошло на гонке</h3>
+        <div id="simEventLog" class="sim-event-log">
+          <div class="muted">Событий пока нет.</div>
+        </div>
+
+        <details class="sim-event-pool">
+          <summary>20 возможных случайных событий</summary>
+          <div id="simEventPoolList" class="sim-pool-grid"></div>
+        </details>
+      </div>
+    </section>
+
   </main>
 
   <footer>
@@ -413,6 +516,6 @@
   </footer>
 
   <script src="app.js"></script>
-<footer class="app-footer">Sidorenko Pavel (c) 2026</footer>
+<footer class="app-footer">Сидоренко Павел (c) 2026</footer>
 </body>
 </html>

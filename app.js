@@ -1084,7 +1084,7 @@ async function analyzeMapOSM(){
   const pts=sampleTrackPoints(220);
   const query=buildOverpassQuery(pts);
 
-  $('mapAnalyzeStatus').textContent='⏳ Отправляю запрос через Render proxy…';
+  $('mapAnalyzeStatus').textContent='⏳ Отправляю запрос через серверный proxy…';
 
   let analysisTimedOut=false;
   const timer=setTimeout(()=>{
@@ -1669,7 +1669,7 @@ async function refreshOpenRouterStatus(){
       el.textContent='ключ на iPhone ✓';
       el.className='or-status or-ok';
     }else if(h.itra_enabled){
-      el.textContent='Render подключён ✓';
+      el.textContent='сервер подключён ✓';
       el.className='or-status or-ok';
     }else{
       el.textContent='ключ не настроен ✕';
@@ -3894,3 +3894,332 @@ if(document.readyState==='loading'){
 window.addEventListener('pageshow',()=>{
   clearBestTrainingOnPageLoad();
 });
+
+
+// =========================
+// v0.56 OFFLINE RACE SIMULATION
+// =========================
+const RACE_SIM_EVENTS = [
+  {id:'phone', emoji:'📱😱', text:'Вы потеряли телефон и вернулись искать его', deltaSec:300},
+  {id:'food', emoji:'🍪🤢', text:'Зажрались на ПП и зависли у стола', deltaSec:420},
+  {id:'cat', emoji:'🐈😍', text:'Засмотрелись на котика', deltaSec:300},
+  {id:'photo', emoji:'📸🏔️', text:'Остановились пофоткать красоту', deltaSec:600},
+  {id:'laces', emoji:'👟🙃', text:'Развязались шнурки — пришлось перевязывать', deltaSec:90},
+  {id:'wrongturn', emoji:'🧭😵', text:'Чуть ушли не туда и вернулись на трек', deltaSec:240},
+  {id:'ford', emoji:'🌊🥶', text:'Залипли перед ледяным бродом, собираясь с духом', deltaSec:120},
+  {id:'mud', emoji:'🫠🟤', text:'Засосало в грязь — выбирались с достоинством', deltaSec:150},
+  {id:'gel', emoji:'🧃😬', text:'Гель открылся в кармане. Спасали экипировку', deltaSec:105},
+  {id:'stone', emoji:'🪨🦶', text:'Камень напомнил, что он тоже участник гонки', deltaSec:75},
+  {id:'selfie', emoji:'🤳😎', text:'Сделали эпичное селфи для доказательств', deltaSec:180},
+  {id:'chat', emoji:'🗣️😂', text:'Разговорились с другим бегуном и забыли ускориться', deltaSec:210},
+  {id:'banana', emoji:'🍌⚡', text:'Банан на ПП неожиданно вернул жизнь', deltaSec:-60},
+  {id:'downhill', emoji:'🦅💨', text:'Идеально попали в ритм на спуске', deltaSec:-90},
+  {id:'support', emoji:'📣🔥', text:'Болельщики включили турборежим', deltaSec:-45},
+  {id:'water', emoji:'💧✅', text:'Быстро пополнили воду без очереди', deltaSec:-30},
+  {id:'queue', emoji:'🚰🚶‍♂️', text:'Очередь на ПП оказалась длиннее подъёма', deltaSec:240},
+  {id:'jacket', emoji:'🧥🤦', text:'Сняли куртку, надели куртку, снова сняли куртку', deltaSec:120},
+  {id:'views', emoji:'🌄😶‍🌫️', text:'Остановились просто посмотреть на горы', deltaSec:270},
+  {id:'hero', emoji:'🏃🔥', text:'Поймали второе дыхание и отыграли время', deltaSec:-120}
+];
+
+const raceSim = {
+  running:false,
+  paused:false,
+  raf:0,
+  startTs:0,
+  pauseStarted:0,
+  pausedMs:0,
+  progress:0,
+  penaltySec:0,
+  triggered:[],
+  schedule:[],
+  baseSec:0,
+  dist:0,
+  durationMs:36000,
+  bubbleTimer:0
+};
+
+function simFormatClock(sec){
+  sec=Math.max(0,Math.round(sec||0));
+  const h=Math.floor(sec/3600);
+  const m=Math.floor((sec%3600)/60);
+  const s=sec%60;
+  return h>0
+    ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+    : `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function simFormatDelta(sec){
+  const sign=sec>0?'+':sec<0?'−':'';
+  return sign+simFormatClock(Math.abs(sec));
+}
+
+function getSimulationBase(){
+  const f=state?.raceForecast;
+  const totalSec=Number(f?.totalSec||0);
+  const dist=Number(state?.dist||0);
+  if(!(totalSec>0) || !(dist>0)) return null;
+  return {totalSec,dist};
+}
+
+function buildSimulationSchedule(){
+  const count=Math.max(4,Math.min(8,Math.round(raceSim.dist/7)));
+  const shuffled=RACE_SIM_EVENTS.slice().sort(()=>Math.random()-.5).slice(0,count);
+  const positions=[];
+  for(let i=0;i<count;i++){
+    const base=(i+1)/(count+1);
+    const jitter=(Math.random()-.5)*(0.09);
+    positions.push(Math.max(.06,Math.min(.94,base+jitter)));
+  }
+  positions.sort((a,b)=>a-b);
+  raceSim.schedule=shuffled.map((ev,i)=>({...ev,at:positions[i],done:false}));
+}
+
+function populateSimEventPool(){
+  const box=$('simEventPoolList');
+  if(!box) return;
+  box.innerHTML=RACE_SIM_EVENTS.map(ev=>
+    `<div class="sim-pool-item">${ev.emoji} ${ev.text} <b>${simFormatDelta(ev.deltaSec)}</b></div>`
+  ).join('');
+}
+
+function simulationTrackYAtKm(km, canvas){
+  const pts=(state.track||[]).filter(p=>Number.isFinite(p.km)&&Number.isFinite(p.ele));
+  if(pts.length<2) return canvas.height*.64;
+  let best=pts[0];
+  for(let i=1;i<pts.length;i++){
+    if(Math.abs(pts[i].km-km)<Math.abs(best.km-km)) best=pts[i];
+  }
+  const elevations=pts.map(p=>p.ele);
+  const minE=Math.min(...elevations), maxE=Math.max(...elevations);
+  const range=Math.max(1,maxE-minE);
+  const top=38, bottom=canvas.height-36;
+  return bottom-((best.ele-minE)/range)*(bottom-top);
+}
+
+function drawSimulation(){
+  const canvas=$('simCanvas');
+  if(!canvas) return;
+  const rect=canvas.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  const cssW=Math.max(300,rect.width||700);
+  const cssH=rect.height||260;
+  if(canvas.width!==Math.round(cssW*dpr) || canvas.height!==Math.round(cssH*dpr)){
+    canvas.width=Math.round(cssW*dpr);
+    canvas.height=Math.round(cssH*dpr);
+  }
+  const ctx=canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,cssW,cssH);
+
+  const pts=(state.track||[]).filter(p=>Number.isFinite(p.km)&&Number.isFinite(p.ele));
+  const pad={l:18,r:18,t:34,b:30};
+  const baseY=cssH-pad.b;
+
+  // sky/ground
+  ctx.fillStyle='rgba(148,163,184,.06)';
+  ctx.fillRect(0,baseY,cssW,cssH-baseY);
+
+  if(pts.length>=2 && raceSim.dist>0){
+    const minE=Math.min(...pts.map(p=>p.ele));
+    const maxE=Math.max(...pts.map(p=>p.ele));
+    const er=Math.max(1,maxE-minE);
+    ctx.beginPath();
+    pts.forEach((p,i)=>{
+      const x=pad.l+(p.km/raceSim.dist)*(cssW-pad.l-pad.r);
+      const y=baseY-((p.ele-minE)/er)*(cssH-pad.t-pad.b-30);
+      if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle='rgba(148,163,184,.85)';
+    ctx.lineWidth=3;
+    ctx.stroke();
+
+    ctx.lineTo(cssW-pad.r,baseY);
+    ctx.lineTo(pad.l,baseY);
+    ctx.closePath();
+    ctx.fillStyle='rgba(100,116,139,.14)';
+    ctx.fill();
+  }else{
+    ctx.beginPath();
+    ctx.moveTo(pad.l,baseY-20);
+    ctx.lineTo(cssW*.28,baseY-95);
+    ctx.lineTo(cssW*.48,baseY-45);
+    ctx.lineTo(cssW*.70,baseY-130);
+    ctx.lineTo(cssW-pad.r,baseY-30);
+    ctx.strokeStyle='rgba(148,163,184,.85)';
+    ctx.lineWidth=3;
+    ctx.stroke();
+  }
+
+  // event markers
+  raceSim.schedule.forEach(ev=>{
+    const x=pad.l+ev.at*(cssW-pad.l-pad.r);
+    ctx.beginPath();
+    ctx.arc(x,baseY+10,ev.done?5:4,0,Math.PI*2);
+    ctx.fillStyle=ev.done?'rgba(34,197,94,.9)':'rgba(148,163,184,.55)';
+    ctx.fill();
+  });
+
+  // runner
+  const km=raceSim.dist*raceSim.progress;
+  const x=pad.l+raceSim.progress*(cssW-pad.l-pad.r);
+  let y=baseY-26;
+  if(pts.length>=2){
+    const elevations=pts.map(p=>p.ele);
+    const minE=Math.min(...elevations), maxE=Math.max(...elevations);
+    const er=Math.max(1,maxE-minE);
+    let best=pts.reduce((a,b)=>Math.abs(b.km-km)<Math.abs(a.km-km)?b:a,pts[0]);
+    y=baseY-((best.ele-minE)/er)*(cssH-pad.t-pad.b-30)-18;
+  }
+  ctx.font='28px system-ui, Apple Color Emoji, Segoe UI Emoji';
+  ctx.textAlign='center';
+  ctx.fillText('🏃',x,y);
+
+  // distance line
+  ctx.font='12px system-ui';
+  ctx.fillStyle='rgba(148,163,184,.95)';
+  ctx.textAlign='left';
+  ctx.fillText(`${km.toFixed(1)} / ${raceSim.dist.toFixed(1)} км`,pad.l,18);
+}
+
+function showSimulationEvent(ev){
+  raceSim.penaltySec+=ev.deltaSec;
+  raceSim.triggered.push(ev);
+
+  const bubble=$('simBubble');
+  if(bubble){
+    bubble.hidden=false;
+    bubble.textContent=`${ev.emoji} ${ev.text} · ${simFormatDelta(ev.deltaSec)}`;
+    clearTimeout(raceSim.bubbleTimer);
+    raceSim.bubbleTimer=setTimeout(()=>{bubble.hidden=true},2600);
+  }
+
+  const log=$('simEventLog');
+  if(log){
+    if(raceSim.triggered.length===1) log.innerHTML='';
+    const km=(raceSim.dist*ev.at).toFixed(1);
+    log.insertAdjacentHTML('afterbegin',
+      `<div class="sim-event-item">
+        <div class="emoji">${ev.emoji}</div>
+        <div><b>${km} км</b> · ${ev.text}</div>
+        <div class="delta">${simFormatDelta(ev.deltaSec)}</div>
+      </div>`);
+  }
+}
+
+function updateSimulationMetrics(){
+  const km=raceSim.dist*raceSim.progress;
+  const virtualBase=raceSim.baseSec*raceSim.progress;
+  const appliedPenalty=raceSim.schedule
+    .filter(ev=>ev.done)
+    .reduce((s,ev)=>s+ev.deltaSec,0);
+  const virtualTime=Math.max(0,virtualBase+appliedPenalty);
+
+  if($('simKm')) $('simKm').textContent=`${km.toFixed(1)} км`;
+  if($('simRaceTime')) $('simRaceTime').textContent=simFormatClock(virtualTime);
+  if($('simEventCount')) $('simEventCount').textContent=String(raceSim.triggered.length);
+  if($('simPenalty')) $('simPenalty').textContent=simFormatDelta(raceSim.penaltySec);
+}
+
+function stopSimulation(done=false){
+  raceSim.running=false;
+  raceSim.paused=false;
+  if(raceSim.raf) cancelAnimationFrame(raceSim.raf);
+  raceSim.raf=0;
+  const pause=$('simPauseBtn');
+  if(pause){pause.disabled=true;pause.textContent='Пауза';}
+  const start=$('simStartBtn');
+  if(start){start.disabled=false;start.textContent='▶ Симуляция гонки';}
+  if(done && $('simStatus')){
+    const finalSec=Math.max(0,raceSim.baseSec+raceSim.penaltySec);
+    $('simStatus').textContent=`🏁 Финиш! Базовый прогноз ${simFormatClock(raceSim.baseSec)}, события ${simFormatDelta(raceSim.penaltySec)}, виртуальный финиш ${simFormatClock(finalSec)}.`;
+  }
+}
+
+function simFrame(ts){
+  if(!raceSim.running) return;
+  if(raceSim.paused){
+    raceSim.raf=requestAnimationFrame(simFrame);
+    return;
+  }
+
+  const speed=Number($('simSpeed')?.value||1);
+  const elapsed=(ts-raceSim.startTs-raceSim.pausedMs)*speed;
+  raceSim.progress=Math.max(0,Math.min(1,elapsed/raceSim.durationMs));
+
+  raceSim.schedule.forEach(ev=>{
+    if(!ev.done && raceSim.progress>=ev.at){
+      ev.done=true;
+      showSimulationEvent(ev);
+    }
+  });
+
+  updateSimulationMetrics();
+  drawSimulation();
+
+  if(raceSim.progress>=1){
+    stopSimulation(true);
+    return;
+  }
+  raceSim.raf=requestAnimationFrame(simFrame);
+}
+
+function resetSimulation(){
+  if(raceSim.raf) cancelAnimationFrame(raceSim.raf);
+  Object.assign(raceSim,{
+    running:false,paused:false,raf:0,startTs:0,pauseStarted:0,pausedMs:0,
+    progress:0,penaltySec:0,triggered:[],schedule:[],baseSec:0,dist:0
+  });
+  if($('simKm')) $('simKm').textContent='—';
+  if($('simRaceTime')) $('simRaceTime').textContent='—';
+  if($('simEventCount')) $('simEventCount').textContent='0';
+  if($('simPenalty')) $('simPenalty').textContent='0:00';
+  if($('simEventLog')) $('simEventLog').innerHTML='<div class="muted">Событий пока нет.</div>';
+  if($('simBubble')) $('simBubble').hidden=true;
+  if($('simPauseBtn')){$('simPauseBtn').disabled=true;$('simPauseBtn').textContent='Пауза';}
+  if($('simStartBtn')){$('simStartBtn').disabled=false;$('simStartBtn').textContent='▶ Симуляция гонки';}
+  if($('simStatus')) $('simStatus').textContent='Сначала рассчитайте прогноз гонки, затем запускайте симуляцию.';
+  drawSimulation();
+}
+
+$('simStartBtn')?.addEventListener('click',()=>{
+  const base=getSimulationBase();
+  if(!base){
+    $('simStatus').textContent='Сначала откройте «2. Прогноз гонки» и рассчитайте прогноз.';
+    return;
+  }
+
+  resetSimulation();
+  raceSim.baseSec=base.totalSec;
+  raceSim.dist=base.dist;
+  // Aim for about 30–50 real seconds at normal speed.
+  raceSim.durationMs=Math.max(28000,Math.min(50000,28000+raceSim.dist*350));
+  buildSimulationSchedule();
+
+  raceSim.running=true;
+  raceSim.startTs=performance.now();
+  $('simPauseBtn').disabled=false;
+  $('simStartBtn').disabled=true;
+  $('simStartBtn').textContent='Симуляция идёт…';
+  $('simStatus').textContent=`Старт! Базовый прогноз: ${simFormatClock(raceSim.baseSec)}. Случайных событий в этой симуляции: ${raceSim.schedule.length}.`;
+  raceSim.raf=requestAnimationFrame(simFrame);
+});
+
+$('simPauseBtn')?.addEventListener('click',()=>{
+  if(!raceSim.running) return;
+  if(!raceSim.paused){
+    raceSim.paused=true;
+    raceSim.pauseStarted=performance.now();
+    $('simPauseBtn').textContent='Продолжить';
+  }else{
+    raceSim.paused=false;
+    raceSim.pausedMs+=performance.now()-raceSim.pauseStarted;
+    $('simPauseBtn').textContent='Пауза';
+  }
+});
+
+$('simResetBtn')?.addEventListener('click',resetSimulation);
+window.addEventListener('resize',()=>drawSimulation());
+
+populateSimEventPool();
+setTimeout(drawSimulation,50);
