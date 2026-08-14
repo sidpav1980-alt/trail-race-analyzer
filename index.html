@@ -43,61 +43,9 @@
 .app-offline-state.online{color:#22c55e}
 .app-offline-state.offline{color:#f59e0b}
 </style>
-
-<style>
-.sim-stage{
-  position:relative;
-  margin-top:14px;
-  border:1px solid #334155;
-  border-radius:16px;
-  overflow:hidden;
-  background:linear-gradient(180deg,rgba(56,189,248,.08),rgba(15,23,42,.02));
-}
-#simCanvas{display:block;width:100%;height:260px}
-.sim-bubble{
-  position:absolute;
-  left:50%;
-  top:14px;
-  transform:translateX(-50%);
-  max-width:min(92%,560px);
-  padding:10px 14px;
-  border-radius:14px;
-  background:#0f172a;
-  color:#f8fafc;
-  border:1px solid #475569;
-  box-shadow:0 8px 24px rgba(0,0,0,.25);
-  font-weight:700;
-  text-align:center;
-  z-index:3;
-}
-.sim-controls{align-items:end;gap:10px;flex-wrap:wrap;margin-top:12px}
-.sim-speed-field{min-width:170px;max-width:220px;margin:0}
-.sim-event-log{display:grid;gap:8px}
-.sim-event-item{
-  display:grid;
-  grid-template-columns:auto 1fr auto;
-  gap:10px;
-  align-items:center;
-  padding:10px 12px;
-  border:1px solid #334155;
-  border-radius:12px;
-}
-.sim-event-item .emoji{font-size:24px}
-.sim-event-item .delta{font-weight:800;white-space:nowrap}
-.sim-event-pool{margin-top:16px}
-.sim-pool-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-top:10px}
-.sim-pool-item{padding:8px 10px;border:1px solid #334155;border-radius:10px}
-@media(max-width:640px){
-  #simCanvas{height:220px}
-  .sim-event-item{grid-template-columns:auto 1fr}
-  .sim-event-item .delta{grid-column:2}
-}
-</style>
-
 </head>
 <body>
-<div class="app-version">v0.56 OFFLINE SIM</div>
-<div id="offlineState" class="app-offline-state">OFFLINE READY</div>
+<div class="app-version">v0.56</div>
   <header class="app-header">
     <div>
       <div class="eyebrow">Прогноз и анализ трейловых гонок</div>
@@ -458,57 +406,23 @@
         <div id="saveStatus" class="muted"></div>
       </div>
     </section>
-  
+
     <section id="simulation" class="tabpanel">
-      <div class="card">
-        <div class="row between">
-          <div>
-            <h2>Симуляция гонки</h2>
-            <p class="muted">Весёлая офлайн-симуляция поверх рассчитанного прогноза. Случайные события меняют виртуальное время, но не изменяют основной прогноз.</p>
-          </div>
-          <button id="simStartBtn" class="primary action-idle" type="button">▶ Симуляция гонки</button>
+      <div class="card sim-card">
+        <h2>Симуляция гонки</h2>
+        <p class="muted">Виртуальное прохождение загруженной трассы со случайными событиями. Событие останавливает анимацию на 5 секунд и добавляет потерянное или выигранное время.</p>
+        <div class="sim-metrics"><div><span>Дистанция</span><b id="simDistance">0.0 км</b></div><div><span>Время</span><b id="simTime">0:00:00</b></div><div><span>События</span><b id="simEventsCount">0</b></div><div><span>Поправка</span><b id="simPenalty">+0:00</b></div></div>
+        <div class="sim-profile"><div id="simMarker"></div><div class="mountain m1"></div><div class="mountain m2"></div><div class="trail-line"></div></div>
+        <div class="sim-scene" id="simScene">
+          <div class="runner" id="simRunner"><div class="surprise" id="simSurprise">😲</div><div class="head">🧢</div><div class="pack">🎒</div><div class="body">🏃</div><div class="poles">╱ ╲</div></div>
+          <div class="event-card" id="simEventCard"><b id="simEventTitle"></b><span id="simEventText"></span><strong id="simEventDelta"></strong></div>
+          <div id="emojiBurst" class="emoji-burst"></div>
         </div>
-
-        <div class="metrics">
-          <div><span>Километр</span><b id="simKm">—</b></div>
-          <div><span>Время гонки</span><b id="simRaceTime">—</b></div>
-          <div><span>События</span><b id="simEventCount">0</b></div>
-          <div><span>Изменение времени</span><b id="simPenalty">0:00</b></div>
-        </div>
-
-        <div class="sim-stage">
-          <canvas id="simCanvas" height="260" aria-label="Анимация прохождения гонки"></canvas>
-          <div id="simBubble" class="sim-bubble" hidden></div>
-        </div>
-
-        <div class="row sim-controls">
-          <button id="simPauseBtn" class="secondary" type="button" disabled>Пауза</button>
-          <button id="simResetBtn" class="secondary" type="button">Сбросить</button>
-          <label class="field sim-speed-field">
-            <span>Скорость анимации</span>
-            <select id="simSpeed">
-              <option value="0.6">Спокойно</option>
-              <option value="1" selected>Нормально</option>
-              <option value="1.7">Быстро</option>
-              <option value="2.7">Очень быстро</option>
-            </select>
-          </label>
-        </div>
-
-        <div id="simStatus" class="muted">Сначала рассчитайте прогноз гонки, затем запускайте симуляцию.</div>
-
-        <h3>Что произошло на гонке</h3>
-        <div id="simEventLog" class="sim-event-log">
-          <div class="muted">Событий пока нет.</div>
-        </div>
-
-        <details class="sim-event-pool">
-          <summary>20 возможных случайных событий</summary>
-          <div id="simEventPoolList" class="sim-pool-grid"></div>
-        </details>
+        <div class="sim-controls"><button id="simStart" class="primary">▶ Симуляция гонки</button><button id="simReset" class="secondary">↻ Сбросить</button><select id="simSpeed"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></div>
+        <div class="sim-progress"><i id="simProgress"></i></div><p id="simStatus" class="muted">Готово к старту.</p>
+        <h3>События гонки</h3><div id="simLog" class="sim-log"></div>
       </div>
     </section>
-
   </main>
 
   <footer>
