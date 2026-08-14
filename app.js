@@ -287,7 +287,7 @@ $('installBtn').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try{
-      const reg=await navigator.serviceWorker.register('./sw.js?v=089', {updateViaCache:'none'});
+      const reg=await navigator.serviceWorker.register('./sw.js?v=090', {updateViaCache:'none'});
       await reg.update();
       let refreshing=false;
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -372,7 +372,7 @@ function parseGPX(text){
   },120);
   document.getElementById('mishaStartSendoff')?.classList.remove('show');
   document.getElementById('mishaFinishWelcome')?.classList.remove('show');
-  // v0.89: a new GPX must never leave the previous route/map analysis on screen.
+  // v0.90: a new GPX must never leave the previous route/map analysis on screen.
   state.mapAnalysis=null;
   if(typeof fordLeafletMap!=='undefined' && fordLeafletMap){
     try{fordLeafletMap.remove()}catch(e){}
@@ -1223,55 +1223,67 @@ async function analyzeMapOSM(){
   if(!state.track || !state.track.length) throw new Error('Сначала обработайте GPX');
 
   const runId=++mapAnalysisRunId;
-  if(mapAnalysisAbortController){
-    try{ mapAnalysisAbortController.abort(); }catch(e){}
-  }
-  mapAnalysisAbortController=new AbortController();
-  const controller=mapAnalysisAbortController;
 
   const pts=sampleTrackPoints(220);
   const query=buildOverpassQuery(pts);
 
-  $('mapAnalyzeStatus').textContent='⏳ Отправляю запрос через серверный proxy…';
+  let resp=null;
+  let lastErr=null;
 
-  // v0.89: no second internal timer here.
-  // The map-analysis button owns the single hard 20 second timeout.
-  let analysisTimedOut=false;
+  // v0.90: retry short proxy/network failures instead of ending analysis after a few seconds.
+  for(let attempt=1; attempt<=3; attempt++){
+    if(runId!==mapAnalysisRunId){
+      const e=new Error('Анализ карты заменён новым запуском');
+      e.name='AbortError';
+      throw e;
+    }
 
-  const resp=await fetch('/api/osm',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({query}),
-    signal:controller.signal,
-    cache:'no-store'
-  });
+    $('mapAnalyzeStatus').textContent=`⏳ Анализ карты… запрос ${attempt}/3`;
 
-  if(runId!==mapAnalysisRunId || controller.signal.aborted){
-    const err=new Error(analysisTimedOut
-      ? 'Анализ карты остановлен: превышено 20 секунд'
-      : 'Анализ карты остановлен');
-    err.name=analysisTimedOut?'TimeoutError':'AbortError';
-    throw err;
+    try{
+      resp=await fetch('/api/osm',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({query}),
+        cache:'no-store'
+      });
+
+      if(resp.ok) break;
+
+      let detail='';
+      try{
+        const er=await resp.clone().json();
+        detail=er.error||'';
+      }catch(e){}
+      lastErr=new Error('Proxy HTTP '+resp.status+(detail?' · '+detail:''));
+
+      // Retry server/proxy failures; do not retry ordinary 4xx.
+      if(resp.status<500 && resp.status!==429) throw lastErr;
+    }catch(e){
+      lastErr=e;
+    }
+
+    if(attempt<3){
+      $('mapAnalyzeStatus').textContent=`⏳ Сервер не ответил с ${attempt}-й попытки. Повторяю…`;
+      await new Promise(r=>setTimeout(r,1200));
+    }
   }
 
-  if(!resp.ok){
-    let detail='';
-    try{
-      const e=await resp.json();
-      detail=e.error||'';
-    }catch(e){}
-    throw new Error('Proxy HTTP '+resp.status+(detail?' · '+detail:''));
+  if(!resp || !resp.ok) throw (lastErr||new Error('Не удалось получить данные OSM после 3 попыток'));
+
+  if(runId!==mapAnalysisRunId){
+    const e=new Error('Анализ карты заменён новым запуском');
+    e.name='AbortError';
+    throw e;
   }
 
   const data=await resp.json();
-  if(runId!==mapAnalysisRunId || controller.signal.aborted){
-    const err=new Error(analysisTimedOut
-      ? 'Анализ карты остановлен: превышено 20 секунд'
-      : 'Анализ карты остановлен');
-    err.name=analysisTimedOut?'TimeoutError':'AbortError';
+  if(runId!==mapAnalysisRunId){
+    const err=new Error('Анализ карты заменён новым запуском');
+    err.name='AbortError';
     throw err;
   }
-  mapAnalysisAbortController=null;
+mapAnalysisAbortController=null;
     normalizeFordData(data);
     {
       let rawFordKm=[];
@@ -1860,7 +1872,7 @@ $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
   let slowTimer=null;
   let timedOut=false;
 
-  // v0.89:
+  // v0.90:
   // At 20 s we only warn the user; we no longer destroy the OSM request.
   // Render and mobile networks can legitimately need a little longer.
   slowTimer=setTimeout(()=>{
@@ -1872,15 +1884,10 @@ $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
   const timeoutPromise=new Promise((_,reject)=>{
     timeoutId=setTimeout(()=>{
       timedOut=true;
-      try{
-        if(mapAnalysisAbortController) mapAnalysisAbortController.abort();
-      }catch(e){}
-      mapAnalysisAbortController=null;
-
-      const e=new Error('MAP_HARD_TIMEOUT_45');
+      const e=new Error('MAP_HARD_TIMEOUT_60');
       e.name='TimeoutError';
       reject(e);
-    },45000);
+    },60000);
   });
 
   try{
@@ -1906,8 +1913,8 @@ $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
     p.style.display='none';
     p.value=0;
 
-    if(timedOut || err?.name==='TimeoutError' || err?.message==='MAP_HARD_TIMEOUT_45'){
-      $('mapAnalyzeStatus').textContent='⚠️ Анализ не успел завершиться за 45 секунд. Нажмите «Повторить анализ карты»; GPX и схема трека сохранены.';
+    if(timedOut || err?.name==='TimeoutError' || err?.message==='MAP_HARD_TIMEOUT_60'){
+      $('mapAnalyzeStatus').textContent='⚠️ Анализ не успел завершиться за 60 секунд. Нажмите «Повторить анализ карты»; GPX и схема трека сохранены.';
       btn.disabled=false;
       btn.textContent='Повторить анализ карты';
       setActionState('mapAnalyzeBtn','ready');
@@ -3293,6 +3300,14 @@ function renderRaceForecast(options={}){
       return `${Math.round(center-spread)}–${Math.round(center+spread)}`;
     };
     state.raceForecast=f;
+    try{
+      localStorage.setItem('trailLastRaceForecast',JSON.stringify({
+        totalSec:Number(f.totalSec||0),
+        avgPaceSec:Number(f.avgPaceSec||0),
+        dist:Number(state.dist||0),
+        savedAt:Date.now()
+      }));
+    }catch(e){}
     tbody.innerHTML='';
     f.groups.forEach(g=>{
       const from=g.from.toFixed(1).replace('.0','');
@@ -4144,7 +4159,7 @@ function setMovingTimeFieldFromOCR(value){
     if(m) seconds=Number(m[1])*60+Number(m[2]);
   }
 
-  // v0.89 lower field originally inherited a numeric "minutes" input.
+  // v0.90 lower field originally inherited a numeric "minutes" input.
   if(el.type==='number'){
     if(seconds!=null) el.value=(seconds/60).toFixed(2).replace(/\.00$/,'');
     else{
@@ -4317,7 +4332,31 @@ function showMishaFinishDirect(){
 
 function dist(){return Number(state?.dist||0)}
 function gain(){return Number(state?.gain||0)}
-function baseSec(){return Number(state?.raceForecast?.totalSec||0)}
+function parseClockToSec(v){
+  const s=String(v||'').trim();
+  if(!s || s==='—') return 0;
+  const a=s.split(':').map(Number);
+  if(a.some(x=>!Number.isFinite(x))) return 0;
+  if(a.length===3) return a[0]*3600+a[1]*60+a[2];
+  if(a.length===2) return a[0]*60+a[1];
+  return 0;
+}
+function baseSec(){
+  const inState=Number(state?.raceForecast?.totalSec||0);
+  if(inState>0) return inState;
+
+  const ui=parseClockToSec(document.getElementById('raceForecastTime')?.textContent);
+  if(ui>0) return ui;
+
+  try{
+    const saved=JSON.parse(localStorage.getItem('trailLastRaceForecast')||'null');
+    if(saved && Number(saved.totalSec)>0){
+      const sameRoute=!saved.dist || !state?.dist || Math.abs(Number(saved.dist)-Number(state.dist))<0.25;
+      if(sameRoute) return Number(saved.totalSec);
+    }
+  }catch(e){}
+  return 0;
+}
 function fmt(sec){sec=Math.max(0,Math.round(sec||0));const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
 function delta(s){const sign=s>=0?'+':'−',a=Math.abs(Math.round(s));return `${sign}${Math.floor(a/60)}:${String(a%60).padStart(2,'0')}`}
 function shuffled(a){return a.slice().sort(()=>Math.random()-.5)}
@@ -4383,7 +4422,7 @@ function initStartConditions(){
   simulationDNF=false;
   lastAidIndex=-1;
 
-  // v0.89: only one start state can appear, and only in 30% of simulations total.
+  // v0.90: only one start state can appear, and only in 30% of simulations total.
   if(Math.random()<0.30){
     const pick=Math.floor(Math.random()*3);
     if(pick===0){
@@ -4543,7 +4582,7 @@ function syncSimulationPicture(){
   const ph=E('simEmptyPicture');
   if(!ph) return;
   // Hide placeholder only when the real animated scene has enough data.
-  const ready=dist()>0 && Array.isArray(state?.track) && state.track.length>1;
+  const ready=dist()>0 && baseSec()>0 && Array.isArray(state?.track) && state.track.length>1;
   ph.classList.toggle('hide',ready);
 }
 
@@ -4816,7 +4855,15 @@ E('simResetTop')?.addEventListener('click',()=>{
 });
 E('simSpeed').addEventListener('change',draw);window.addEventListener('resize',draw);
 // Keep simulation synced when user switches to tab 5 or recalculates forecast.
-document.querySelector('[data-tab="simulation"]')?.addEventListener('click',()=>setTimeout(reset,0));
+document.querySelector('[data-tab="simulation"]')?.addEventListener('click',()=>{
+  setTimeout(()=>{
+    reset();
+    if(baseSec()>0 && dist()>0){
+      E('simStart').disabled=false;
+      E('simStatus').textContent='Готово: прогноз найден. Можно запускать симуляцию.';
+    }
+  },0);
+});
 reset();
 })();;
 
@@ -5028,7 +5075,7 @@ document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{
 
 
 
-// v0.89 route map redraw
+// v0.90 route map redraw
 
 document.querySelectorAll('.tab').forEach(btn=>{
   btn.addEventListener('click',()=>{
