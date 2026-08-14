@@ -4645,25 +4645,17 @@ function simMapAnalysis(){return virtualSimTrack ? virtualSimTrack.mapAnalysis :
 function clearVirtualSimulationTrack(){
   virtualSimTrack=null;
   const s=E('simVirtual20Status');
-  if(s) s.textContent='20 км: 3 км вверх · 4 км вниз · дальше ровно · +500 м · 2 брода.';
+  if(s) s.textContent='Можно запустить без загрузки GPX: 20 км · +500 м · 2 брода.';
 }
 function activateVirtualSimulationTrack(){
-  // Простой виртуальный профиль:
-  // 0–3 км — постоянный подъём +500 м;
-  // 3–7 км — постоянный спуск -500 м;
-  // 7–20 км — ровно до финиша.
+  // 20 km rolling virtual trail, exactly 500 m cumulative ascent.
   const raw=[];
   const n=201;
   for(let i=0;i<n;i++){
     const km=20*i/(n-1);
-    let ele=100;
-    if(km<=3){
-      ele=100+(500/3)*km;
-    }else if(km<=7){
-      ele=600-(500/4)*(km-3);
-    }else{
-      ele=100;
-    }
+    // 5 repeating climbs/descents; each climb = 100 m -> total ascent 500 m.
+    const phase=(km%4)/4;
+    const ele=phase<0.5 ? 100+200*phase : 200-200*(phase-0.5);
     raw.push({km,ele,lat:55.75+km*0.00005,lon:37.60+km*0.00005});
   }
   virtualSimTrack={
@@ -4679,7 +4671,7 @@ function activateVirtualSimulationTrack(){
     }
   };
   const s=E('simVirtual20Status');
-  if(s) s.textContent='✓ Виртуальный трек: 3 км вверх · 4 км вниз · дальше ровно · +500 м · броды 6.0 и 14.0 км.';
+  if(s) s.textContent='✓ Виртуальный трек активен: 20 км · +500 м · броды 6.0 и 14.0 км · базовое время 2:00:00.';
   reset();
 }
 function fmt(sec){sec=Math.max(0,Math.round(sec||0));const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
@@ -5178,8 +5170,6 @@ function fire(idx){
   penalty+=timeAdjustmentSec;
   randomEventAdjustmentSec+=timeAdjustmentSec;
   addParticles(e[0]);
-  // v0.0232: при демотивации считаем все отрицательные события за гонку.
-  // Нейтральные и положительные события не сбрасывают накопленный счётчик.
   if(timeAdjustmentSec>0) negativeStreak++;
   if(demotivationActive&&negativeStreak>=3){
     const km=(at*dist()).toFixed(1),row=document.createElement('div');row.className='current';
