@@ -287,7 +287,7 @@ $('installBtn').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try{
-      const reg=await navigator.serviceWorker.register('./sw.js?v=222', {updateViaCache:'none'});
+      const reg=await navigator.serviceWorker.register('./sw.js?v=223', {updateViaCache:'none'});
       await reg.update();
       let refreshing=false;
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -962,7 +962,7 @@ function buildOverpassQuery(points){
   const pts=(points||[]).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
   if(!pts.length) return '[out:json][timeout:90];();out;';
 
-  // v0.0222: do NOT ask Overpass for one huge route bbox. On long/curvy tracks
+  // v0.0224: do NOT ask Overpass for one huge route bbox. On long/curvy tracks
   // that query was too heavy and all endpoints could time out, producing 0%.
   // Build several small boxes along the GPX corridor instead.
   const boxes=[];
@@ -1290,7 +1290,7 @@ function groupFordKmPoints(kms, maxGapKm=0.35){
       continue;
     }
 
-    // v0.0222: only nearby parts of the SAME water crossing are merged.
+    // v0.0224: only nearby parts of the SAME water crossing are merged.
     // 150 m is enough for braided channels / GPS jitter, while separate
     // crossings 200+ m apart remain separate.
     if(km-current.end<=maxGapKm){
@@ -1467,7 +1467,7 @@ async function analyzeMapOSM(){
   // analysis with the GPX itself. Surface/ford values remain unknown rather
   // than stopping the whole analysis.
   if(!data){
-    // v0.0222: if OSM is temporarily down, reuse ONLY a cache matching this GPX.
+    // v0.0224: if OSM is temporarily down, reuse ONLY a cache matching this GPX.
     try{
       const c=JSON.parse(localStorage.getItem('trailOSMElementsCache')||'null');
       const first=state.track?.[0], last=state.track?.[state.track.length-1];
@@ -1625,7 +1625,7 @@ function renderMapAnalysis(result){
   const {samples,summary,elements=[]}=result;
   const crossings=analyzeWaterCrossings(samples,elements);
 
-  // v0.0222: analyzeWaterCrossings already groups by OSM water object first,
+  // v0.0224: analyzeWaterCrossings already groups by OSM water object first,
   // then deduplicates only near-identical physical crossings.
   const bridgeKms=(crossings.bridges||[]).slice();
   const confirmedFordKms=(crossings.confirmed||[]).slice();
@@ -4563,7 +4563,7 @@ let randomEventAdjustmentSec=0;
 const activeEventCount=()=>{
   const hours=Math.max(0.1,baseSec()/3600);
 
-  // v0.0222 — event count by forecast duration:
+  // v0.0224 — event count by forecast duration:
   // ~1 h  -> exactly 3
   // ~2 h  -> 4–6
   // ~3 h  -> 5–7
@@ -4820,46 +4820,17 @@ function makeSchedule(){
     selected[idx]=misha;
   }
 
-  // v0.0222: GUARANTEE one equipment-dependent event in the actual schedule,
-  // not merely in the candidate array.
-  const equipmentNames=['Поранился','Дождь','Жара','Ночь'];
-  const equipmentPool=events.filter(e=>equipmentNames.includes(e[1]));
-  let forcedEquipmentEvent=null;
-  if(equipmentPool.length){
-    forcedEquipmentEvent=equipmentPool[Math.floor(Math.random()*equipmentPool.length)];
-  }
-
-  let balanced=shuffled(selected);
-  if(forcedEquipmentEvent){
-    const existingIdx=balanced.findIndex(e=>equipmentNames.includes(e[1]));
-    if(existingIdx>=0){
-      forcedEquipmentEvent=balanced[existingIdx];
-    }else if(balanced.length){
-      balanced[Math.floor(Math.random()*balanced.length)]=forcedEquipmentEvent;
-    }else{
-      balanced=[forcedEquipmentEvent];
-    }
-  }
-
   const total=Math.max(1,baseSec());
-  const count=balanced.length;
+  const count=Math.max(1,selected.length);
 
-  // Random timing across the race. The old fixed 30-minute minimum gap could
-  // produce fewer scheduled events on short races. Use an adaptive gap instead,
-  // and always fall back to filling every slot.
-  const minGapSec=Math.min(
-    900,
-    Math.max(90, total/Math.max(1,count)*0.28)
-  );
+  // Random event moments. No even distribution requirement.
+  const minGapSec=Math.min(900,Math.max(90,total/count*0.28));
   const times=[];
   let attempts=0;
   while(times.length<count && attempts++<5000){
     const t=total*(.05+Math.random()*.90);
     if(times.every(x=>Math.abs(x-t)>=minGapSec)) times.push(t);
   }
-
-  // Guaranteed fallback: never allow the schedule to contain fewer events
-  // than the selected pool, even on very short races.
   while(times.length<count){
     let t=total*(.05+Math.random()*.90);
     let guard=0;
@@ -4868,16 +4839,86 @@ function makeSchedule(){
     }
     times.push(t);
   }
-
   times.sort((a,b)=>a-b);
-  balanced=shuffled(balanced);
-  schedule=times.map((t,i)=>({at:t/total,e:balanced[i]}));
 
-  // Final hard assertion/repair: one of the *scheduled* events is equipment-related.
-  if(forcedEquipmentEvent && !schedule.some(x=>equipmentNames.includes(x.e?.[1]))){
-    const idx=Math.floor(Math.random()*schedule.length);
-    schedule[idx].e=forcedEquipmentEvent;
+  let balanced=shuffled(selected);
+
+  // v0.0224: each equipment-dependent event may occur at most once per race.
+  // We still guarantee at least one equipment event, but do not repeat the same
+  // injury/rain/heat/night event several times.
+  const equipmentNames=['Поранился','Дождь','Жара','Ночь'];
+  const seenEquipment=new Set();
+  balanced=balanced.map(ev=>{
+    if(!equipmentNames.includes(ev?.[1])) return ev;
+    if(!seenEquipment.has(ev[1])){
+      seenEquipment.add(ev[1]);
+      return ev;
+    }
+    const replacementPool=shuffled(events.filter(x=>
+      x!==misha &&
+      !equipmentNames.includes(x?.[1]) &&
+      !balanced.includes(x)
+    ));
+    return replacementPool[0] || shuffled(events.filter(x=>x!==misha && !equipmentNames.includes(x?.[1])))[0] || ev;
+  });
+
+  // v0.0224: Night/Heat depend on the same virtual time that controls the sky.
+  // If a selected Night/Heat event has no compatible time slot, replace it
+  // with another ordinary event instead of showing it against the wrong sky.
+  const used=new Set();
+  const scheduleDraft=[];
+  for(const ev of balanced){
+    let compatible=times
+      .map((t,i)=>({t,i,p:t/total}))
+      .filter(x=>!used.has(x.i) && eventAllowedAtProgress(ev,x.p));
+
+    if(!compatible.length){
+      const fallbackPool=shuffled(events.filter(x=>
+        x!==misha &&
+        x[1]!=='Ночь' &&
+        x[1]!=='Жара'
+      ));
+      const replacement=fallbackPool.find(x=>
+        times.some((t,i)=>!used.has(i) && eventAllowedAtProgress(x,t/total))
+      );
+      if(replacement) ev.splice(0,ev.length,...replacement);
+      compatible=times.map((t,i)=>({t,i,p:t/total})).filter(x=>!used.has(x.i));
+    }
+
+    const slot=compatible[Math.floor(Math.random()*compatible.length)];
+    used.add(slot.i);
+    scheduleDraft.push({at:slot.p,e:ev});
   }
+
+  // Guarantee at least one equipment-related event that is valid for its time.
+  if(!scheduleDraft.some(x=>equipmentNames.includes(x.e?.[1]))){
+    const candidates=[];
+    for(const eventName of equipmentNames){
+      const ev=events.find(x=>x[1]===eventName);
+      if(!ev) continue;
+      for(let i=0;i<times.length;i++){
+        const p=times[i]/total;
+        if(eventAllowedAtProgress(ev,p)) candidates.push({ev,p});
+      }
+    }
+    // Injury/Rain are always valid, so this should always have options.
+    if(candidates.length){
+      const chosen=candidates[Math.floor(Math.random()*candidates.length)];
+      const idx=Math.floor(Math.random()*scheduleDraft.length);
+      scheduleDraft[idx]={at:scheduleDraft[idx].at,e:chosen.ev};
+    }
+  }
+
+  // Final repair for Night/Heat if a later replacement/guarantee ever conflicts.
+  for(let i=0;i<scheduleDraft.length;i++){
+    const item=scheduleDraft[i];
+    if(!eventAllowedAtProgress(item.e,item.at)){
+      const validEquipmentFallback=events.find(x=>x[1]==='Дождь') || events.find(x=>x[1]==='Поранился');
+      item.e=validEquipmentFallback || item.e;
+    }
+  }
+
+  schedule=scheduleDraft.sort((a,b)=>a.at-b.at);
 }
 function firstTrackDate(){
   const p=(state?.track||[]).find(x=>x?.time);
@@ -4913,13 +4954,45 @@ function skyInfo(){
   const twilight=(h>=5&&h<6)||(h>18.5&&h<=19.5);
   return {d,h,day,twilight,sunT};
 }
+function skyInfoAtProgress(p){
+  const sec=Math.max(0,baseSec()*Math.max(0,Math.min(1,p)));
+  const d=new Date(simStartDate.getTime()+sec*1000);
+  const h=d.getHours()+d.getMinutes()/60;
+  const sunrise=6,sunset=18.5;
+  const day=(h>=sunrise&&h<=sunset);
+  const twilight=(h>=5&&h<6)||(h>18.5&&h<=19.5);
+  return {d,h,day,twilight};
+}
+function eventAllowedAtProgress(e,p){
+  if(!e) return false;
+  const info=skyInfoAtProgress(p);
+  if(e[1]==='Ночь'){
+    // Only when the visual simulator is in night mode.
+    return !info.day && !info.twilight;
+  }
+  if(e[1]==='Жара'){
+    // Heat only during daytime, and preferably away from sunrise/sunset.
+    return info.day && info.h>=9 && info.h<=17.5;
+  }
+  return true;
+}
+
 function addParticles(icon){
   const n=3+Math.floor(Math.random()*5);
   for(let i=0;i<n;i++)particles.push({icon,life:1,x:0,y:0,vx:(Math.random()-.5)*2.5,vy:-1.2-Math.random()*2.1,rot:(Math.random()-.5)*.25,size:20+Math.random()*11});
 }
 function fire(idx){
-  const {at,e}=schedule[idx];
+  let {at,e}=schedule[idx];
   fired.add(idx);
+
+  // Safety check: visual sky and time-dependent events must agree.
+  if(!eventAllowedAtProgress(e,at)){
+    const fallback=events.find(x=>x[1]==='Дождь') || events.find(x=>x[1]==='Поранился');
+    if(fallback){
+      e=fallback;
+      schedule[idx].e=e;
+    }
+  }
   let timeAdjustmentSec=Number(e[3])||0;
   if(e[1]==='Поранился'){
     if(equipmentState.medkit){
@@ -4990,7 +5063,7 @@ function fire(idx){
   // Event sign convention:
   // positive event -> negative adjustment -> time is SUBTRACTED;
   // negative event -> positive adjustment -> time is ADDED.
-  // v0.0222: случайное событие меняет ТОЛЬКО время текущей симуляции.
+  // v0.0224: случайное событие меняет ТОЛЬКО время текущей симуляции.
   // Исходный прогноз raceForecast не изменяется.
   penalty+=timeAdjustmentSec;
   randomEventAdjustmentSec+=timeAdjustmentSec;
@@ -5314,7 +5387,7 @@ setInterval(()=>{
 },500);
 setInterval(()=>{if(document.querySelector('[data-tab="simulation"]')?.classList.contains('active')) draw();},120);
 E('simStart').addEventListener('click',()=>{
-  // v0.0222: completed race = a NEW race.
+  // v0.0224: completed race = a NEW race.
   // Reset first, so the old equipment check can never carry over.
   if(progress>=1) reset();
 
@@ -5341,7 +5414,7 @@ E('simStart').addEventListener('click',()=>{
     return;
   }
 
-  // v0.0222: start animation is always a real 3-second start gate.
+  // v0.0224: start animation is always a real 3-second start gate.
   // Simulation speed (including 4×) cannot skip or outrun Misha.
   if(startingFresh){
     showMishaStartDirect();
