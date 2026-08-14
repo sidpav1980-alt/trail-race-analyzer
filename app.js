@@ -287,7 +287,7 @@ $('installBtn').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try{
-      const reg=await navigator.serviceWorker.register('./sw.js?v=216', {updateViaCache:'none'});
+      const reg=await navigator.serviceWorker.register('./sw.js?v=219', {updateViaCache:'none'});
       await reg.update();
       let refreshing=false;
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -962,7 +962,7 @@ function buildOverpassQuery(points){
   const pts=(points||[]).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
   if(!pts.length) return '[out:json][timeout:90];();out;';
 
-  // v0.0218: do NOT ask Overpass for one huge route bbox. On long/curvy tracks
+  // v0.0219: do NOT ask Overpass for one huge route bbox. On long/curvy tracks
   // that query was too heavy and all endpoints could time out, producing 0%.
   // Build several small boxes along the GPX corridor instead.
   const boxes=[];
@@ -1290,7 +1290,7 @@ function groupFordKmPoints(kms, maxGapKm=0.35){
       continue;
     }
 
-    // v0.0218: only nearby parts of the SAME water crossing are merged.
+    // v0.0219: only nearby parts of the SAME water crossing are merged.
     // 150 m is enough for braided channels / GPS jitter, while separate
     // crossings 200+ m apart remain separate.
     if(km-current.end<=maxGapKm){
@@ -1467,7 +1467,7 @@ async function analyzeMapOSM(){
   // analysis with the GPX itself. Surface/ford values remain unknown rather
   // than stopping the whole analysis.
   if(!data){
-    // v0.0218: if OSM is temporarily down, reuse ONLY a cache matching this GPX.
+    // v0.0219: if OSM is temporarily down, reuse ONLY a cache matching this GPX.
     try{
       const c=JSON.parse(localStorage.getItem('trailOSMElementsCache')||'null');
       const first=state.track?.[0], last=state.track?.[state.track.length-1];
@@ -1625,7 +1625,7 @@ function renderMapAnalysis(result){
   const {samples,summary,elements=[]}=result;
   const crossings=analyzeWaterCrossings(samples,elements);
 
-  // v0.0218: analyzeWaterCrossings already groups by OSM water object first,
+  // v0.0219: analyzeWaterCrossings already groups by OSM water object first,
   // then deduplicates only near-identical physical crossings.
   const bridgeKms=(crossings.bridges||[]).slice();
   const confirmedFordKms=(crossings.confirmed||[]).slice();
@@ -4391,6 +4391,9 @@ window.addEventListener('pageshow',()=>{
 // v0.59 profile-driven race simulation
 (()=>{
 const events=[
+  ['🩹','Нашли аптечку','По дороге нашли аптечку — теперь она есть до конца гонки.',0],
+  ['🔦','Нашли фонарик','По дороге нашли фонарик — теперь он есть до конца гонки.',0],
+  ['🌙','Ночь','Стемнело, без фонарика темп заметно падает.',300],
   ['🩸','Поранился','Нужно обработать травму.',300],
   ['🐻','Встреча с Мишей с топором','Миша подбодрил — ноги неожиданно побежали быстрее.',-300],
   ['😅','Слишком быстро на старте','Пришлось сбросить темп и восстановить дыхание.',120],
@@ -4560,7 +4563,7 @@ let randomEventAdjustmentSec=0;
 const activeEventCount=()=>{
   const hours=Math.max(0.1,baseSec()/3600);
 
-  // v0.0218 — event count by forecast duration:
+  // v0.0219 — event count by forecast duration:
   // ~1 h  -> exactly 3
   // ~2 h  -> 4–6
   // ~3 h  -> 5–7
@@ -4787,7 +4790,7 @@ function makeSchedule(){
   const positives=shuffled(events.filter(e=>e!==misha && e[3]<0));
   const neutral=shuffled(events.filter(e=>e!==misha && e[3]===0));
 
-  // v0.0218: balance the selected event pool as close to 50/50 as possible.
+  // v0.0219: balance the selected event pool as close to 50/50 as possible.
   // For an odd number of events, the extra event is assigned randomly.
   let negNeed=Math.floor(n/2);
   let posNeed=Math.floor(n/2);
@@ -4833,8 +4836,8 @@ function makeSchedule(){
   const balanced=shuffled(selected);
 
   // Every race must contain at least one equipment-dependent event.
-  // It is still random which one: injury, rain or heat.
-  const equipmentNames=['Поранился','Дождь','Жара'];
+  // It is still random which one: injury, rain, heat or night.
+  const equipmentNames=['Поранился','Дождь','Жара','Ночь'];
   if(balanced.length && !balanced.some(e=>equipmentNames.includes(e[1]))){
     const equipmentPool=events.filter(e=>equipmentNames.includes(e[1]));
     if(equipmentPool.length){
@@ -4907,6 +4910,45 @@ function fire(idx){
   if(e[1]==='Дождь'){
     if(equipmentState.membrane){
       timeAdjustmentSec=0;
+      e[2]='Мембранка есть — дождь не дал штрафа по времени.';
+    }else{
+      timeAdjustmentSec=300;
+      e[2]='Мембранки нет — дождь добавил 5 минут.';
+    }
+  }
+  if(e[1]==='Жара'){
+    if(equipmentState.water){
+      timeAdjustmentSec=0;
+      e[2]='Вода есть — жару прошли без штрафа.';
+    }else{
+      timeAdjustmentSec=300;
+      e[2]='Воды нет — жара добавила 5 минут.';
+    }
+  }
+  if(e[1]==='Ночь'){
+    if(equipmentState.flashlight){
+      timeAdjustmentSec=0;
+      e[2]='Фонарик есть — ночь не замедлила гонку.';
+    }else{
+      timeAdjustmentSec=300;
+      e[2]='Фонарика нет — в темноте потеряно 5 минут.';
+    }
+  }
+  if(e[1]==='Нашли аптечку'){
+    equipmentState.medkit=true;
+    timeAdjustmentSec=0;
+    e[2]='Аптечка найдена — теперь она есть до конца этой гонки.';
+    renderEquipmentState();
+  }
+  if(e[1]==='Нашли фонарик'){
+    equipmentState.flashlight=true;
+    timeAdjustmentSec=0;
+    e[2]='Фонарик найден — теперь он есть до конца этой гонки.';
+    renderEquipmentState();
+  }
+  if(e[1]==='Дождь'){
+    if(equipmentState.membrane){
+      timeAdjustmentSec=0;
       e[2]='Мембранка есть — дождь не добавил времени.';
     }else{
       timeAdjustmentSec=300;
@@ -4925,7 +4967,7 @@ function fire(idx){
   // Event sign convention:
   // positive event -> negative adjustment -> time is SUBTRACTED;
   // negative event -> positive adjustment -> time is ADDED.
-  // v0.0218: случайное событие меняет ТОЛЬКО время текущей симуляции.
+  // v0.0219: случайное событие меняет ТОЛЬКО время текущей симуляции.
   // Исходный прогноз raceForecast не изменяется.
   penalty+=timeAdjustmentSec;
   randomEventAdjustmentSec+=timeAdjustmentSec;
@@ -5273,7 +5315,7 @@ E('simStart').addEventListener('click',()=>{
     return;
   }
 
-  // v0.0218: start animation is always a real 3-second start gate.
+  // v0.0219: start animation is always a real 3-second start gate.
   // Simulation speed (including 4×) cannot skip or outrun Misha.
   if(startingFresh){
     showMishaStartDirect();
