@@ -4645,17 +4645,25 @@ function simMapAnalysis(){return virtualSimTrack ? virtualSimTrack.mapAnalysis :
 function clearVirtualSimulationTrack(){
   virtualSimTrack=null;
   const s=E('simVirtual20Status');
-  if(s) s.textContent='Можно запустить без загрузки GPX: 20 км · +500 м · 2 брода.';
+  if(s) s.textContent='20 км: 3 км вверх · 4 км вниз · дальше ровно · +500 м · 1 брод.';
 }
 function activateVirtualSimulationTrack(){
-  // 20 km rolling virtual trail, exactly 500 m cumulative ascent.
+  // Simple virtual profile:
+  // 0–3 km: steady climb +500 m
+  // 3–7 km: steady descent back down
+  // 7–20 km: flat to finish
   const raw=[];
   const n=201;
   for(let i=0;i<n;i++){
     const km=20*i/(n-1);
-    // 5 repeating climbs/descents; each climb = 100 m -> total ascent 500 m.
-    const phase=(km%4)/4;
-    const ele=phase<0.5 ? 100+200*phase : 200-200*(phase-0.5);
+    let ele=100;
+    if(km<=3){
+      ele=100+(500/3)*km;
+    }else if(km<=7){
+      ele=600-(500/4)*(km-3);
+    }else{
+      ele=100;
+    }
     raw.push({km,ele,lat:55.75+km*0.00005,lon:37.60+km*0.00005});
   }
   virtualSimTrack={
@@ -4664,14 +4672,14 @@ function activateVirtualSimulationTrack(){
     totalSec:2*3600,
     track:raw,
     mapAnalysis:{
-      fordKms:[6.0,14.0],
-      confirmedFordKms:[6.0,14.0],
+      fordKms:[6.0],
+      confirmedFordKms:[6.0],
       likelyFordKms:[],
       bridgeKms:[]
     }
   };
   const s=E('simVirtual20Status');
-  if(s) s.textContent='✓ Виртуальный трек активен: 20 км · +500 м · броды 6.0 и 14.0 км · базовое время 2:00:00.';
+  if(s) s.textContent='✓ Виртуальный трек: 3 км вверх · 4 км вниз · дальше ровно · +500 м · брод 6.0 км.';
   reset();
 }
 function fmt(sec){sec=Math.max(0,Math.round(sec||0));const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
@@ -4798,7 +4806,7 @@ function checkAidStation(km){
 }
 function endSimulationDNF(){
   simulationDNF=true;clearInterval(timer);timer=null;clearTimeout(pauseTimer);clearInterval(countTimer);
-  E('simStart').textContent='↻';E('simStatus').textContent='DNF — три отрицательных события за гонку.';
+  E('simStart').textContent='↻';E('simStatus').textContent='DNF — три отрицательных события подряд.';
   E('simDnfBanner')?.classList.add('show');updateResults();draw();
 }
 
@@ -5170,10 +5178,10 @@ function fire(idx){
   penalty+=timeAdjustmentSec;
   randomEventAdjustmentSec+=timeAdjustmentSec;
   addParticles(e[0]);
-  if(timeAdjustmentSec>0) negativeStreak++;
+  if(timeAdjustmentSec>0)negativeStreak++;else negativeStreak=0;
   if(demotivationActive&&negativeStreak>=3){
     const km=(at*dist()).toFixed(1),row=document.createElement('div');row.className='current';
-    row.innerHTML=`<span>${km} км</span><span>😞 Три отрицательных события за гонку</span><b class="plus">DNF</b>`;
+    row.innerHTML=`<span>${km} км</span><span>😞 Три отрицательных события подряд</span><b class="plus">DNF</b>`;
     E('simLog').prepend(row);endSimulationDNF();return;
   }
   if(e[1]==='Встреча с Мишей с топором'){
