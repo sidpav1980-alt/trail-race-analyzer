@@ -962,7 +962,7 @@ function buildOverpassQuery(points){
   const pts=(points||[]).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
   if(!pts.length) return '[out:json][timeout:90];();out;';
 
-  // v0.0212: do NOT ask Overpass for one huge route bbox. On long/curvy tracks
+  // v0.0214: do NOT ask Overpass for one huge route bbox. On long/curvy tracks
   // that query was too heavy and all endpoints could time out, producing 0%.
   // Build several small boxes along the GPX corridor instead.
   const boxes=[];
@@ -1290,7 +1290,7 @@ function groupFordKmPoints(kms, maxGapKm=0.35){
       continue;
     }
 
-    // v0.0212: only nearby parts of the SAME water crossing are merged.
+    // v0.0214: only nearby parts of the SAME water crossing are merged.
     // 150 m is enough for braided channels / GPS jitter, while separate
     // crossings 200+ m apart remain separate.
     if(km-current.end<=maxGapKm){
@@ -1467,7 +1467,7 @@ async function analyzeMapOSM(){
   // analysis with the GPX itself. Surface/ford values remain unknown rather
   // than stopping the whole analysis.
   if(!data){
-    // v0.0212: if OSM is temporarily down, reuse ONLY a cache matching this GPX.
+    // v0.0214: if OSM is temporarily down, reuse ONLY a cache matching this GPX.
     try{
       const c=JSON.parse(localStorage.getItem('trailOSMElementsCache')||'null');
       const first=state.track?.[0], last=state.track?.[state.track.length-1];
@@ -1625,7 +1625,7 @@ function renderMapAnalysis(result){
   const {samples,summary,elements=[]}=result;
   const crossings=analyzeWaterCrossings(samples,elements);
 
-  // v0.0212: analyzeWaterCrossings already groups by OSM water object first,
+  // v0.0214: analyzeWaterCrossings already groups by OSM water object first,
   // then deduplicates only near-identical physical crossings.
   const bridgeKms=(crossings.bridges||[]).slice();
   const confirmedFordKms=(crossings.confirmed||[]).slice();
@@ -4550,7 +4550,7 @@ let randomEventAdjustmentSec=0;
 const activeEventCount=()=>{
   const hours=Math.max(0.1,baseSec()/3600);
 
-  // v0.0212 — event count by forecast duration:
+  // v0.0214 — event count by forecast duration:
   // ~1 h  -> exactly 3
   // ~2 h  -> 4–6
   // ~3 h  -> 5–7
@@ -4716,19 +4716,56 @@ function endSimulationDNF(){
 
 
 function makeSchedule(){
-  const n=Math.max(1,Number(activeEventCount())||3);
-  schedule=[];
-  // События распределяются равномерно по времени гонки:
-  // каждое получает свой равный временной сектор.
-  // Небольшой разброс ±15% сектора оставляет ощущение случайности,
-  // но не позволяет событиям скапливаться в одной части гонки.
-  for(let i=0;i<n;i++){
-    const center=(i+0.5)/n;
-    const jitter=(Math.random()*0.30-0.15)/n;
-    const p=Math.max(0.04,Math.min(0.96,center+jitter));
-    schedule.push(p);
+  const n=activeEventCount();
+  const misha=events.find(e=>e[1]==='Встреча с Мишей с топором');
+
+  // Keep event balance close to 50/50.
+  const negatives=shuffled(events.filter(e=>e!==misha && e[3]>0));
+  const positives=shuffled(events.filter(e=>e!==misha && e[3]<0));
+  const neutral=shuffled(events.filter(e=>e!==misha && e[3]===0));
+
+  let negNeed=Math.floor(n/2);
+  let posNeed=Math.floor(n/2);
+  if(n%2){
+    if(Math.random()<.5) negNeed++; else posNeed++;
   }
-  schedule.sort((a,b)=>a-b);
+  if(luckActive && n%2){
+    posNeed=Math.ceil(n/2);
+    negNeed=Math.floor(n/2);
+  }
+
+  const selected=[];
+  selected.push(...negatives.slice(0,negNeed));
+  selected.push(...positives.slice(0,posNeed));
+
+  if(selected.length<n){
+    const rest=shuffled([
+      ...negatives.slice(negNeed),
+      ...positives.slice(posNeed),
+      ...neutral
+    ]).filter(e=>!selected.includes(e));
+    selected.push(...rest.slice(0,n-selected.length));
+  }
+
+  // Rare Misha may replace one positive event; it remains a positive event itself.
+  if(misha && selected.length && Math.random()<.08){
+    const positiveIndexes=selected.map((e,i)=>e[3]<0?i:-1).filter(i=>i>=0);
+    const idx=positiveIndexes.length
+      ? positiveIndexes[Math.floor(Math.random()*positiveIndexes.length)]
+      : Math.floor(Math.random()*selected.length);
+    selected[idx]=misha;
+  }
+
+  const balanced=shuffled(selected);
+
+  // v0.0215: events occur at genuinely random moments during the race.
+  // Keep a small margin from start/finish, but do not split the race into equal sectors.
+  schedule=[];
+  for(let i=0;i<balanced.length;i++){
+    const at=0.04 + Math.random()*0.92;
+    schedule.push({at,e:balanced[i]});
+  }
+  schedule.sort((a,b)=>a.at-b.at);
 }
 function firstTrackDate(){
   const p=(state?.track||[]).find(x=>x?.time);
@@ -5059,7 +5096,8 @@ function tick(){
   // Ford is a route event, not a random event: stop for exactly 3 seconds.
   if(maybePauseForFord(progress*dist())) return;
 
-  const idx=schedule.findIndex((x,i)=>!fired.has(i)&&progress>=x.at);if(idx>=0){fire(idx);return}
+  const idx=schedule.findIndex((x,i)=>x&&x.e&&!fired.has(i)&&progress>=Number(x.at));
+  if(idx>=0){fire(idx);return}
   if(progress>=1){
     clearInterval(timer);timer=null;
     E('simStart').textContent='↻';
@@ -5073,7 +5111,7 @@ function tick(){
 }
 function run(){clearInterval(timer);timer=setInterval(tick,120);E('simStart').textContent='⏸';E('simStatus').textContent='Симуляция идёт по профилю загруженного трека.'}
 function stop(msg){clearInterval(timer);clearTimeout(pauseTimer);clearInterval(countTimer);timer=null;if(msg)E('simStatus').textContent=msg;E('simStart').textContent='▶'}
-function reset(){clearTimeout(window.__simStartGateTimer);stop();hideFirstPlaceOverlay();progress=0;penalty=0;randomEventAdjustmentSec=0;fired.clear();particles=[];lastFordPauseKm=null;fordPauseActive=false;fatigueStartVirtualSec=0;fatiguePenaltyAppliedSec=0;simStartDate=firstTrackDate();E('simDnfBanner')?.classList.remove('show');chooseAidStations();initStartConditions();makeSchedule();E('simProgress').style.width='0';E('simDistance').textContent=dist()?`0.0 / ${dist().toFixed(1)} км`:'—';E('simGain').textContent=gain()?`${Math.round(gain())} м`:'—';E('simEventsCount').textContent=`0 / ${schedule.length}`;E('simPenalty').textContent='+0:00';E('simLog').innerHTML='<div><span>—</span><span>События появятся случайно по ходу гонки</span><b>31 событие в пуле</b></div>';E('simEventCard')?.classList.remove('show'); E('simEventChip')?.classList.remove('show');E('simPauseBadge').classList.remove('show');E('simStart').textContent='▶';E('simStart').setAttribute('aria-label','Старт');E('simStart').title='Старт';E('simStart').disabled=!(baseSec()&&dist());updateResults();E('simStatus').textContent=baseSec()&&dist()?'Готово: профиль и время взяты из текущего прогноза.':'Сначала рассчитайте «Прогноз гонки» в разделе 2.';draw()}
+function reset(){clearTimeout(window.__simStartGateTimer);stop();cleanupWildlife();hideFirstPlaceOverlay();progress=0;penalty=0;randomEventAdjustmentSec=0;fired.clear();particles=[];lastFordPauseKm=null;fordPauseActive=false;fatigueStartVirtualSec=0;fatiguePenaltyAppliedSec=0;simStartDate=firstTrackDate();E('simDnfBanner')?.classList.remove('show');chooseAidStations();initStartConditions();makeSchedule();E('simProgress').style.width='0';E('simDistance').textContent=dist()?`0.0 / ${dist().toFixed(1)} км`:'—';E('simGain').textContent=gain()?`${Math.round(gain())} м`:'—';E('simEventsCount').textContent=`0 / ${schedule.length}`;E('simPenalty').textContent='+0:00';E('simLog').innerHTML='<div><span>—</span><span>События появятся случайно по ходу гонки</span><b>31 событие в пуле</b></div>';E('simEventCard')?.classList.remove('show'); E('simEventChip')?.classList.remove('show');E('simPauseBadge').classList.remove('show');E('simStart').textContent='▶';E('simStart').setAttribute('aria-label','Старт');E('simStart').title='Старт';E('simStart').disabled=!(baseSec()&&dist());updateResults();E('simStatus').textContent=baseSec()&&dist()?'Готово: профиль и время взяты из текущего прогноза.':'Сначала рассчитайте «Прогноз гонки» в разделе 2.';draw()}
 
 setInterval(()=>{
   const b=E('simStart');
@@ -5101,9 +5139,14 @@ E('simStart').addEventListener('click',()=>{
     return;
   }
 
-  // v0.0212: start animation is always a real 3-second start gate.
+  // v0.0214: start animation is always a real 3-second start gate.
   // Simulation speed (including 4×) cannot skip or outrun Misha.
   if(startingFresh){
+    maybeArmWildlife();
+    if(wildlifeTap.armedForRun){
+      const wildlifeDelay=5000+Math.random()*12000;
+      setTimeout(()=>{if(timer&&wildlifeTap.armedForRun)spawnWildlife();},wildlifeDelay);
+    }
     showMishaStartDirect();
     E('simStart').disabled=true;
     E('simStatus').textContent='🐻 Миша с топором провожает тебя со старта…';
@@ -5340,3 +5383,49 @@ document.querySelectorAll('.tab').forEach(btn=>{
     }
   });
 });
+
+// v0.0214 — rare wildlife tap bonus
+const wildlifeTap = {
+  active: false, timer: null, el: null, armedForRun: false,
+  animals: [
+    {emoji:'🐦', name:'птица', cls:'wildlife-fly'},
+    {emoji:'🐈', name:'кошка', cls:'wildlife-run'},
+    {emoji:'🦊', name:'лиса', cls:'wildlife-run'},
+    {emoji:'🦉', name:'сова', cls:'wildlife-fly'}
+  ]
+};
+function cleanupWildlife(){
+  if(wildlifeTap.timer) clearTimeout(wildlifeTap.timer);
+  wildlifeTap.timer=null; wildlifeTap.active=false;
+  if(wildlifeTap.el){ wildlifeTap.el.remove(); wildlifeTap.el=null; }
+}
+function maybeArmWildlife(){
+  cleanupWildlife();
+  wildlifeTap.armedForRun = Math.random() < 0.30; // примерно раз в несколько гонок
+}
+function spawnWildlife(){
+  if(!wildlifeTap.armedForRun || wildlifeTap.active) return;
+  const scene=document.querySelector('.sim-scene') || document.querySelector('#simScene') || document.querySelector('canvas')?.parentElement;
+  if(!scene) return;
+  wildlifeTap.armedForRun=false; // максимум один зверь за гонку
+  const a=wildlifeTap.animals[Math.floor(Math.random()*wildlifeTap.animals.length)];
+  const el=document.createElement('button');
+  el.type='button'; el.className='wildlife-tap '+a.cls; el.textContent=a.emoji;
+  el.setAttribute('aria-label','Поймать: '+a.name);
+  el.title='Тапни! Бонус −3 минуты';
+  el.onclick=(ev)=>{
+    ev.preventDefault(); ev.stopPropagation();
+    if(!wildlifeTap.active) return;
+    wildlifeTap.active=false;
+    // Existing simulation uses simTimeDelta: negative values improve finish time.
+    penalty-=180;
+    randomEventAdjustmentSec-=180;
+    updateResults();
+    el.textContent='✨ −3 мин';
+    el.classList.add('caught');
+    setTimeout(()=>cleanupWildlife(),550);
+  };
+  scene.appendChild(el); wildlifeTap.el=el; wildlifeTap.active=true;
+  wildlifeTap.timer=setTimeout(cleanupWildlife,2200);
+}
+
