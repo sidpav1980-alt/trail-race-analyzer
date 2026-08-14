@@ -287,7 +287,7 @@ $('installBtn').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try{
-      const reg=await navigator.serviceWorker.register('./sw.js?v=208', {updateViaCache:'none'});
+      const reg=await navigator.serviceWorker.register('./sw.js?v=209', {updateViaCache:'none'});
       await reg.update();
       let refreshing=false;
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -962,7 +962,7 @@ function buildOverpassQuery(points){
   const pts=(points||[]).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
   if(!pts.length) return '[out:json][timeout:90];();out;';
 
-  // v0.0208: do NOT ask Overpass for one huge route bbox. On long/curvy tracks
+  // v0.0209: do NOT ask Overpass for one huge route bbox. On long/curvy tracks
   // that query was too heavy and all endpoints could time out, producing 0%.
   // Build several small boxes along the GPX corridor instead.
   const boxes=[];
@@ -1289,7 +1289,7 @@ function groupFordKmPoints(kms, maxGapKm=0.35){
       continue;
     }
 
-    // v0.0208: only nearby parts of the SAME water crossing are merged.
+    // v0.0209: only nearby parts of the SAME water crossing are merged.
     // 150 m is enough for braided channels / GPS jitter, while separate
     // crossings 200+ m apart remain separate.
     if(km-current.end<=maxGapKm){
@@ -1466,7 +1466,7 @@ async function analyzeMapOSM(){
   // analysis with the GPX itself. Surface/ford values remain unknown rather
   // than stopping the whole analysis.
   if(!data){
-    // v0.0208: if OSM is temporarily down, reuse ONLY a cache matching this GPX.
+    // v0.0209: if OSM is temporarily down, reuse ONLY a cache matching this GPX.
     try{
       const c=JSON.parse(localStorage.getItem('trailOSMElementsCache')||'null');
       const first=state.track?.[0], last=state.track?.[state.track.length-1];
@@ -1624,7 +1624,7 @@ function renderMapAnalysis(result){
   const {samples,summary,elements=[]}=result;
   const crossings=analyzeWaterCrossings(samples,elements);
 
-  // v0.0208: analyzeWaterCrossings already groups by OSM water object first,
+  // v0.0209: analyzeWaterCrossings already groups by OSM water object first,
   // then deduplicates only near-identical physical crossings.
   const bridgeKms=(crossings.bridges||[]).slice();
   const confirmedFordKms=(crossings.confirmed||[]).slice();
@@ -4507,19 +4507,19 @@ function showMishaFinishDirect(){
 }
 
 function hideFirstPlaceOverlay(){
-  const el=document.getElementById('simFirstPlaceOverlay');
+  const el=document.getElementById('simFirstPlaceBadge');
   if(el) el.classList.remove('show');
   clearTimeout(window.__firstPlaceTimer);
   clearTimeout(window.__firstPlaceDelayTimer);
 }
 function showFirstPlaceOverlay(){
-  const el=document.getElementById('simFirstPlaceOverlay');
+  const el=document.getElementById('simFirstPlaceBadge');
   if(!el) return;
   const finish=Math.max(0,baseSec()+penalty);
   const gain=Math.max(0,baseSec()-finish);
   const text=document.getElementById('simFirstPlaceText');
   if(text){
-    text.textContent=`Ты финишировал на ${fmt(gain)} быстрее исходного прогноза благодаря случайным событиям`;
+    text.textContent=`быстрее на ${fmt(gain)}`;
   }
   el.classList.add('show');
   clearTimeout(window.__firstPlaceTimer);
@@ -4549,7 +4549,7 @@ let randomEventAdjustmentSec=0;
 const activeEventCount=()=>{
   const hours=Math.max(0.1,baseSec()/3600);
 
-  // v0.0208 — event count by forecast duration:
+  // v0.0209 — event count by forecast duration:
   // ~1 h  -> exactly 3
   // ~2 h  -> 4–6
   // ~3 h  -> 5–7
@@ -4723,7 +4723,7 @@ function makeSchedule(){
   const positives=shuffled(events.filter(e=>e!==misha && e[3]<0));
   const neutral=shuffled(events.filter(e=>e!==misha && e[3]===0));
 
-  // v0.0208: balance the selected event pool as close to 50/50 as possible.
+  // v0.0209: balance the selected event pool as close to 50/50 as possible.
   // For an odd number of events, the extra event is assigned randomly.
   let negNeed=Math.floor(n/2);
   let posNeed=Math.floor(n/2);
@@ -5149,7 +5149,7 @@ E('simStart').addEventListener('click',()=>{
     return;
   }
 
-  // v0.0208: start animation is always a real 3-second start gate.
+  // v0.0209: start animation is always a real 3-second start gate.
   // Simulation speed (including 4×) cannot skip or outrun Misha.
   if(startingFresh){
     showMishaStartDirect();
