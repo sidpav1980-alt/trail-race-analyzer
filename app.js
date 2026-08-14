@@ -287,7 +287,7 @@ $('installBtn').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try{
-      const reg=await navigator.serviceWorker.register('./sw.js?v=067', {updateViaCache:'none'});
+      const reg=await navigator.serviceWorker.register('./sw.js?v=069', {updateViaCache:'none'});
       await reg.update();
       let refreshing=false;
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -4164,6 +4164,65 @@ const events=[
   ['🧠','Идеально разложились','Не форсировали начало и отыграли на второй половине.',-120]
 ];
 
+
+let simFordLeafletMap=null;
+function renderSimFordMap(){
+  const el=document.getElementById('simFordMap');
+  if(!el) return;
+  const pts=(state.track||[]).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
+  const ma=state?.mapAnalysis||{};
+  const conf=(ma.confirmedFordKms||[]).map(Number).filter(Number.isFinite);
+  const likely=(ma.likelyFordKms||ma.fordKms||[]).map(Number).filter(Number.isFinite);
+  const bridges=(ma.bridgeKms||[]).map(Number).filter(Number.isFinite);
+  const s=document.getElementById('simFordSummary');
+  if(s) s.innerHTML=`Броды на трассе: <b>${new Set([...conf,...likely].map(x=>x.toFixed(2))).size}</b><br>Подтверждённые OSM: ${conf.length}<br>Вероятные: ${likely.length}<br>По мосту: ${bridges.length}`;
+
+  if(typeof L==='undefined'||pts.length<2){el.innerHTML='<div class="muted" style="padding:16px">Карта появится после анализа карты и при наличии интернета.</div>';return}
+  if(simFordLeafletMap){try{simFordLeafletMap.remove()}catch(e){}}
+  simFordLeafletMap=L.map(el,{zoomControl:true,attributionControl:false});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(simFordLeafletMap);
+  const route=L.polyline(pts.map(p=>[p.lat,p.lon]),{color:'#ef4444',weight:4}).addTo(simFordLeafletMap);
+  simFordLeafletMap.fitBounds(route.getBounds(),{padding:[10,10]});
+
+  const nearest=km=>{
+    let b=null,d=1e9;
+    for(const p of (state.track||[])){
+      if(!Number.isFinite(p.km)||!Number.isFinite(p.lat)||!Number.isFinite(p.lon))continue;
+      const q=Math.abs(p.km-km);if(q<d){d=q;b=p}
+    }
+    return b;
+  };
+  const add=(km,emoji,border,label)=>{
+    const p=nearest(km);if(!p)return;
+    const icon=L.divIcon({className:'',html:`<div style="width:26px;height:26px;border-radius:50%;background:#0f172a;border:2px solid ${border};display:flex;align-items:center;justify-content:center;font-size:14px">${emoji}</div>`,iconSize:[26,26],iconAnchor:[13,13]});
+    L.marker([p.lat,p.lon],{icon}).bindPopup(`<b>${label}</b><br>${km.toFixed(1)} км`).addTo(simFordLeafletMap);
+  };
+  likely.forEach(k=>add(k,'🌊','#38bdf8','Вероятный брод'));
+  conf.forEach(k=>add(k,'✓','#22c55e','Подтверждённый брод OSM'));
+  bridges.forEach(k=>add(k,'🌉','#8b5cf6','Мост'));
+  setTimeout(()=>simFordLeafletMap.invalidateSize(),100);
+}
+
+function drawSimProfile(){
+  const c=document.getElementById('simProfileCanvas');if(!c)return;
+  const pts=(state.track||[]).filter(p=>Number.isFinite(p.km)&&Number.isFinite(p.ele));
+  const r=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1,W=Math.max(320,r.width),H=r.height||260;
+  c.width=W*dpr;c.height=H*dpr;const x=c.getContext('2d');x.scale(dpr,dpr);x.clearRect(0,0,W,H);
+  const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0d1a2b');g.addColorStop(1,'#07111f');x.fillStyle=g;x.fillRect(0,0,W,H);
+  if(!pts.length)return;
+  const L=45,R=15,T=18,B=28,minE=Math.min(...pts.map(p=>p.ele)),maxE=Math.max(...pts.map(p=>p.ele)),range=Math.max(1,maxE-minE);
+  const maxKm=Math.max(.1,Number(state.dist)||pts.at(-1).km||1),xx=km=>L+(km/maxKm)*(W-L-R),yy=e=>H-B-((e-minE)/range)*(H-T-B);
+  x.beginPath();pts.forEach((p,i)=>i?x.lineTo(xx(p.km),yy(p.ele)):x.moveTo(xx(p.km),yy(p.ele)));x.lineTo(W-R,H-B);x.lineTo(L,H-B);x.closePath();x.fillStyle='rgba(22,163,74,.28)';x.fill();
+  x.beginPath();pts.forEach((p,i)=>i?x.lineTo(xx(p.km),yy(p.ele)):x.moveTo(xx(p.km),yy(p.ele)));x.strokeStyle='#4ade80';x.lineWidth=2.5;x.stroke();
+
+  const km=maxKm*progress, px=xx(km);
+  x.strokeStyle='#fff';x.lineWidth=2;x.beginPath();x.moveTo(px,T);x.lineTo(px,H-B);x.stroke();
+  const el=interpElevation(km),py=yy(el);x.fillStyle='#fff';x.beginPath();x.arc(px,py,5,0,Math.PI*2);x.fill();
+  x.font='17px system-ui, Apple Color Emoji';x.fillText('🏃',px-6,Math.max(17,py-10));
+  x.fillStyle='#cbd5e1';x.font='11px system-ui';x.textAlign='left';x.fillText(`${Math.round(maxE)} м`,4,18);x.fillText(`${Math.round(minE)} м`,4,H-B);
+  x.textAlign='center';for(let i=0;i<=5;i++){const k=maxKm*i/5;x.fillText(`${k.toFixed(i===0?0:1)} км`,xx(k),H-8)}
+}
+
 const E=id=>document.getElementById(id);
 if(!E('simStart')) return;
 let timer=null,pauseTimer=null,countTimer=null,progress=0,penalty=0,fired=new Set(),schedule=[],particles=[],simStartDate=null;
@@ -4428,13 +4487,24 @@ function draw(){
   particles=particles.filter(p=>p.life>0);
 }
 function updateResults(){
-  const b=baseSec(),cur=Math.max(0,b*progress+penalty),finish=Math.max(0,b+penalty);E('simBaseTime').textContent=b?fmt(b):'—';E('simTime').textContent=b?fmt(cur):'—';E('simResultBase').textContent=b?fmt(b):'—';E('simResultDelta').textContent=delta(penalty);E('simResultFinish').textContent=b?fmt(finish):'—';E('simResultProgress').textContent=Math.round(progress*100)+'%';
+  const b=baseSec(),cur=Math.max(0,b*progress+penalty),finish=Math.max(0,b+penalty);
+  E('simBaseTime').textContent=b?fmt(b):'—';
+  E('simTime').textContent=b?fmt(cur):'—';
+  E('simResultBase').textContent=b?fmt(b):'—';
+  E('simResultDelta').textContent=delta(penalty);
+  E('simResultFinish').textContent=b?fmt(finish):'—';
+  const mirror=E('simResultFinishMirror');if(mirror)mirror.textContent=b?fmt(finish):'—';
+  E('simResultProgress').textContent=Math.round(progress*100)+'%';
+  const pace=dist()>0&&b>0?b/dist():0;
+  const pm=Math.floor(pace/60),ps=Math.round(pace%60);
+  const av=E('simAvgPace');if(av)av.textContent=pace?`${pm}:${String(ps).padStart(2,'0')} /км`:'—';
+  drawSimProfile();
 }
 function tick(){
   const b=baseSec();if(!b||!dist()){stop('Сначала загрузите GPX и рассчитайте прогноз гонки.');return}
   const speed=+E('simSpeed').value||1;const realDuration=Math.max(28000,Math.min(75000,28000+dist()*450));progress=Math.min(1,progress+(120/realDuration)*speed);E('simProgress').style.width=(progress*100)+'%';E('simDistance').textContent=`${(progress*dist()).toFixed(1)} / ${dist().toFixed(1)} км`;updateResults();draw();
   const idx=schedule.findIndex((x,i)=>!fired.has(i)&&progress>=x.at);if(idx>=0){fire(idx);return}
-  if(progress>=1){clearInterval(timer);timer=null;E('simStart').textContent='▶ Запустить снова';E('simStatus').textContent=`🏁 Финиш: ${fmt(baseSec()+penalty)} (${delta(penalty)} к прогнозу)`;updateResults();draw()}
+  if(progress>=1){clearInterval(timer);timer=null;E('simStart').textContent='▶ Запустить снова';E('simStatus').textContent=`🏁 Финиш: ${fmt(baseSec()+penalty)} (${delta(penalty)} к прогнозу)`;updateResults();draw();drawSimProfile();renderSimFordMap()}
 }
 function run(){clearInterval(timer);timer=setInterval(tick,120);E('simStart').textContent='⏸ Пауза';E('simStatus').textContent='Симуляция идёт по профилю загруженного трека.'}
 function stop(msg){clearInterval(timer);clearTimeout(pauseTimer);clearInterval(countTimer);timer=null;if(msg)E('simStatus').textContent=msg;E('simStart').textContent='▶ Симуляция гонки'}
@@ -4458,3 +4528,81 @@ document.querySelectorAll('.tab').forEach(btn=>{
     }
   });
 });
+
+
+function mapAnalysisTimeoutMessage(){
+  return '⚠️ Анализ остановлен: превышен лимит 20 секунд. Полученные данные сохранены. Часть информации о покрытии и бродах могла не успеть загрузиться. Попробуйте анализ ещё раз.';
+}
+function drawFordScheme(){
+  const c=document.getElementById('fordSchemeCanvas');
+  if(!c) return;
+  const dpr=Math.min(2,window.devicePixelRatio||1), W=Math.max(280,c.clientWidth||320), H=360;
+  c.width=W*dpr;c.height=H*dpr;
+  const x=c.getContext('2d');x.scale(dpr,dpr);
+  x.clearRect(0,0,W,H);
+  x.fillStyle='#081321';x.fillRect(0,0,W,H);
+
+  const pts=(state?.trackPoints||state?.points||state?.gpxPoints||[]).filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon)));
+  const ma=state?.mapAnalysis||{};
+  const confirmed=(ma.confirmedFordKms||[]).map(Number).filter(Number.isFinite);
+  const likely=(ma.likelyFordKms||ma.fordKms||[]).map(Number).filter(Number.isFinite);
+  const bridges=(ma.bridgeKms||ma.waterBridgeKms||[]).map(Number).filter(Number.isFinite);
+  const total=Number(state?.distanceKm||state?.distance||0)||Math.max(1,...confirmed,...likely,...bridges);
+
+  // If geographic points are available, draw actual GPX geometry. Otherwise draw a clean schematic.
+  let route=[];
+  if(pts.length>2){
+    const minLat=Math.min(...pts.map(p=>+p.lat)),maxLat=Math.max(...pts.map(p=>+p.lat));
+    const minLon=Math.min(...pts.map(p=>+p.lon)),maxLon=Math.max(...pts.map(p=>+p.lon));
+    const pad=28, dx=Math.max(.000001,maxLon-minLon),dy=Math.max(.000001,maxLat-minLat);
+    route=pts.map(p=>({
+      x:pad+((+p.lon-minLon)/dx)*(W-pad*2),
+      y:H-pad-((+p.lat-minLat)/dy)*(H-pad*2)
+    }));
+  }else{
+    const pad=34;
+    for(let i=0;i<120;i++){
+      const t=i/119;
+      route.push({x:pad+t*(W-pad*2)+Math.sin(t*15)*18,y:H-pad-t*(H-pad*2)});
+    }
+  }
+  x.strokeStyle='#ef4444';x.lineWidth=4;x.lineJoin='round';x.lineCap='round';
+  x.beginPath();route.forEach((p,i)=>i?x.lineTo(p.x,p.y):x.moveTo(p.x,p.y));x.stroke();
+
+  const pointAt=(km)=>{
+    const t=Math.max(0,Math.min(1,km/Math.max(.001,total)));
+    const idx=Math.min(route.length-1,Math.round(t*(route.length-1)));
+    return route[idx];
+  };
+  const mark=(km,label,fill)=>{
+    const p=pointAt(km);x.fillStyle=fill;x.beginPath();x.arc(p.x,p.y,8,0,Math.PI*2);x.fill();
+    x.strokeStyle='#fff';x.lineWidth=2;x.stroke();
+    x.font='bold 11px system-ui';x.textAlign=p.x>W*.67?'right':'left';x.fillStyle='#e5f4ff';
+    x.fillText(label+' '+km.toFixed(1)+' км',p.x+(p.x>W*.67?-12:12),p.y+4);
+  };
+  likely.forEach(k=>mark(k,'🌊','#0ea5e9'));
+  confirmed.forEach(k=>mark(k,'✓','#22c55e'));
+  bridges.forEach(k=>mark(k,'🌉','#8b5cf6'));
+
+  const a=route[0],b=route[route.length-1];
+  x.fillStyle='#22c55e';x.beginPath();x.arc(a.x,a.y,9,0,Math.PI*2);x.fill();
+  x.fillStyle='#fff';x.font='bold 12px system-ui';x.textAlign='left';x.fillText('Старт',a.x+12,a.y+4);
+  x.fillStyle='#f8fafc';x.fillText('🏁 Финиш',Math.max(8,b.x-72),Math.max(18,b.y-10));
+}
+window.addEventListener('resize',()=>setTimeout(drawFordScheme,100));
+
+setInterval(()=>{if(document.getElementById('fordSchemeCanvas')) drawFordScheme();},2500);
+
+window.addEventListener('unhandledrejection',ev=>{
+  if(String(ev.reason?.message||ev.reason).includes('TIMEOUT_20S')){
+    ev.preventDefault();
+    const status=document.getElementById('mapAnalysisStatus')||document.querySelector('[data-map-status]');
+    if(status){status.textContent=mapAnalysisTimeoutMessage();status.style.color='#fbbf24';}
+    const btn=document.getElementById('analyzeMapBtn')||[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Анализ карты'));
+    if(btn){btn.disabled=false;btn.textContent='Повторить анализ карты';}
+  }
+});
+
+setInterval(()=>{if(document.querySelector('[data-tab="simulation"]')?.classList.contains('active')){drawSimProfile();}},250);
+
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.tab==='simulation')setTimeout(()=>{drawSimProfile();renderSimFordMap();},150)}));
