@@ -287,7 +287,7 @@ $('installBtn').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try{
-      const reg=await navigator.serviceWorker.register('./sw.js?v=209', {updateViaCache:'none'});
+      const reg=await navigator.serviceWorker.register('./sw.js?v=211', {updateViaCache:'none'});
       await reg.update();
       let refreshing=false;
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -962,7 +962,7 @@ function buildOverpassQuery(points){
   const pts=(points||[]).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
   if(!pts.length) return '[out:json][timeout:90];();out;';
 
-  // v0.0210: do NOT ask Overpass for one huge route bbox. On long/curvy tracks
+  // v0.0212: do NOT ask Overpass for one huge route bbox. On long/curvy tracks
   // that query was too heavy and all endpoints could time out, producing 0%.
   // Build several small boxes along the GPX corridor instead.
   const boxes=[];
@@ -1290,7 +1290,7 @@ function groupFordKmPoints(kms, maxGapKm=0.35){
       continue;
     }
 
-    // v0.0210: only nearby parts of the SAME water crossing are merged.
+    // v0.0212: only nearby parts of the SAME water crossing are merged.
     // 150 m is enough for braided channels / GPS jitter, while separate
     // crossings 200+ m apart remain separate.
     if(km-current.end<=maxGapKm){
@@ -1467,7 +1467,7 @@ async function analyzeMapOSM(){
   // analysis with the GPX itself. Surface/ford values remain unknown rather
   // than stopping the whole analysis.
   if(!data){
-    // v0.0210: if OSM is temporarily down, reuse ONLY a cache matching this GPX.
+    // v0.0212: if OSM is temporarily down, reuse ONLY a cache matching this GPX.
     try{
       const c=JSON.parse(localStorage.getItem('trailOSMElementsCache')||'null');
       const first=state.track?.[0], last=state.track?.[state.track.length-1];
@@ -1625,7 +1625,7 @@ function renderMapAnalysis(result){
   const {samples,summary,elements=[]}=result;
   const crossings=analyzeWaterCrossings(samples,elements);
 
-  // v0.0210: analyzeWaterCrossings already groups by OSM water object first,
+  // v0.0212: analyzeWaterCrossings already groups by OSM water object first,
   // then deduplicates only near-identical physical crossings.
   const bridgeKms=(crossings.bridges||[]).slice();
   const confirmedFordKms=(crossings.confirmed||[]).slice();
@@ -4407,9 +4407,9 @@ const events=[
   ['🧥','Куртка туда-сюда','Сняли, убрали, достали и снова надели.',120],
   ['🚰','Очередь за водой','На пункте питания внезапно аншлаг.',180],
   ['🦟','Атака насекомых','Пришлось отбиваться на ходу.',75],
-  ['💧','Брод пройден идеально','Не тормозили и быстро вернулись в ритм.',-60],
-  ['🥤','Кола сработала','Появилась энергия и несколько быстрых минут.',-90],
-  ['🍌','Банан спас гонку','Топливо поступило точно вовремя.',-60],
+  ['💧','Брод пройден идеально','Не тормозили и быстро вернулись в ритм.',-120],
+  ['🥤','Кола сработала','Появилась энергия и несколько быстрых минут.',-150],
+  ['🍌','Банан спас гонку','Топливо поступило точно вовремя.',-120],
   ['🎵','Любимый трек','Поймали ритм и незаметно ускорились.',-75],
   ['🔥','Второе дыхание','Ноги неожиданно вспомнили, зачем они здесь.',-120],
   ['⚡','Идеальный спуск','Отпустили ноги и отыграли время.',-150],
@@ -4550,7 +4550,7 @@ let randomEventAdjustmentSec=0;
 const activeEventCount=()=>{
   const hours=Math.max(0.1,baseSec()/3600);
 
-  // v0.0210 — event count by forecast duration:
+  // v0.0212 — event count by forecast duration:
   // ~1 h  -> exactly 3
   // ~2 h  -> 4–6
   // ~3 h  -> 5–7
@@ -4716,68 +4716,19 @@ function endSimulationDNF(){
 
 
 function makeSchedule(){
-  const n=activeEventCount();
-  const misha=events.find(e=>e[1]==='Встреча с Мишей с топором');
-
-  // Negative event = adds time. Positive event = saves time.
-  const negatives=shuffled(events.filter(e=>e!==misha && e[3]>0));
-  const positives=shuffled(events.filter(e=>e!==misha && e[3]<0));
-  const neutral=shuffled(events.filter(e=>e!==misha && e[3]===0));
-
-  // v0.0210: balance the selected event pool as close to 50/50 as possible.
-  // For an odd number of events, the extra event is assigned randomly.
-  let negNeed=Math.floor(n/2);
-  let posNeed=Math.floor(n/2);
-  if(n%2){
-    if(Math.random()<.5) negNeed++; else posNeed++;
+  const n=Math.max(1,Number(activeEventCount())||3);
+  schedule=[];
+  // События распределяются равномерно по времени гонки:
+  // каждое получает свой равный временной сектор.
+  // Небольшой разброс ±15% сектора оставляет ощущение случайности,
+  // но не позволяет событиям скапливаться в одной части гонки.
+  for(let i=0;i<n;i++){
+    const center=(i+0.5)/n;
+    const jitter=(Math.random()*0.30-0.15)/n;
+    const p=Math.max(0.04,Math.min(0.96,center+jitter));
+    schedule.push(p);
   }
-
-  // Luck remains meaningful, but no longer allows a run to become overwhelmingly negative.
-  // With luck, the odd extra slot prefers a positive event.
-  if(luckActive && n%2){
-    posNeed=Math.ceil(n/2);
-    negNeed=Math.floor(n/2);
-  }
-
-  const selected=[];
-  selected.push(...negatives.slice(0,negNeed));
-  selected.push(...positives.slice(0,posNeed));
-
-  // If one category is too small, fill from the other categories.
-  let remaining=n-selected.length;
-  if(remaining>0){
-    const rest=shuffled([
-      ...negatives.slice(negNeed),
-      ...positives.slice(posNeed),
-      ...neutral
-    ]).filter(e=>!selected.includes(e));
-    selected.push(...rest.slice(0,remaining));
-  }
-
-  // Misha remains rare. If he appears, replace a positive slot so the
-  // positive/negative balance is not shifted toward more negative events.
-  if(misha && selected.length && Math.random()<.08){
-    const positiveIndexes=selected
-      .map((e,i)=>e[3]<0?i:-1)
-      .filter(i=>i>=0);
-    const idx=positiveIndexes.length
-      ? positiveIndexes[Math.floor(Math.random()*positiveIndexes.length)]
-      : Math.floor(Math.random()*selected.length);
-    selected[idx]=misha;
-  }
-
-  // Shuffle event identities after balancing.
-  const balanced=shuffled(selected);
-
-  const total=Math.max(1,baseSec()),minGapSec=1800,times=[];
-  let attempts=0;
-  while(times.length<balanced.length&&attempts++<2000){
-    const t=total*(.06+Math.random()*.88);
-    if(times.every(x=>Math.abs(x-t)>=minGapSec))times.push(t);
-  }
-
-  times.sort((a,b)=>a-b);
-  schedule=times.map((t,i)=>({at:t/total,e:balanced[i]}));
+  schedule.sort((a,b)=>a-b);
 }
 function firstTrackDate(){
   const p=(state?.track||[]).find(x=>x?.time);
@@ -5150,7 +5101,7 @@ E('simStart').addEventListener('click',()=>{
     return;
   }
 
-  // v0.0210: start animation is always a real 3-second start gate.
+  // v0.0212: start animation is always a real 3-second start gate.
   // Simulation speed (including 4×) cannot skip or outrun Misha.
   if(startingFresh){
     showMishaStartDirect();
