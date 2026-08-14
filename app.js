@@ -287,7 +287,7 @@ $('installBtn').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try{
-      const reg=await navigator.serviceWorker.register('./sw.js?v=100', {updateViaCache:'none'});
+      const reg=await navigator.serviceWorker.register('./sw.js?v=101', {updateViaCache:'none'});
       await reg.update();
       let refreshing=false;
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -413,9 +413,7 @@ let mapAnalysisRunId=0;
 
 function abortMapAnalysisForNewGpx(){
   mapAnalysisRunId++;
-  if(mapAnalysisAbortController){
-    try{ mapAnalysisAbortController.abort(); }catch(e){}
-    }
+  // v1.01: analysis no longer uses AbortController. Do not reference the removed variable here.
   stopMapAnalysisTimer();
   const p=$('mapAnalyzeProgress');
   if(p){ p.value=0; p.style.display='none'; }
@@ -432,7 +430,7 @@ function abortMapAnalysisForNewGpx(){
 $('basePace').addEventListener('change',()=>{ if(state.track&&state.track.length) drawTrackProfiles(); });
 window.addEventListener('resize',()=>{ if(state.track&&state.track.length) drawTrackProfiles(); });
 
-$('gpxFile').addEventListener('change', e=>{
+function handleGpxFileSelected(e){
   abortMapAnalysisForNewGpx();
   invalidateRaceForecast();
   state.hasElevation=false;
@@ -443,7 +441,7 @@ $('gpxFile').addEventListener('change', e=>{
   if($('raceForecastRange')) $('raceForecastRange').textContent='—';
 
   clearResultForecast();
-  selectedGPXFile=e.currentTarget.files&&e.currentTarget.files[0] ? e.currentTarget.files[0] : null;
+  selectedGPXFile=(e?.target?.files&&e.target.files[0]) || (e?.currentTarget?.files&&e.currentTarget.files[0]) || null;
   state.mapAnalysis=null;
   state.mapAnalysisReadyForCurrentGpx=false;
   resetMapAnalysisForNewGPX();
@@ -462,7 +460,18 @@ $('gpxFile').addEventListener('change', e=>{
   $('gpxLoadBtn').textContent='⏳ Загрузка GPX…';
   setActionState('gpxLoadBtn','working');
   setTimeout(()=>$('gpxLoadBtn').click(),0);
-});
+}
+
+let __lastGpxSelectionSig='';
+function dispatchGpxSelection(e){
+  const f=e?.target?.files?.[0] || e?.currentTarget?.files?.[0] || null;
+  const sig=f ? `${f.name}|${f.size}|${f.lastModified}` : '';
+  if(sig && sig===__lastGpxSelectionSig) return;
+  __lastGpxSelectionSig=sig;
+  handleGpxFileSelected(e);
+}
+$('gpxFile').addEventListener('change',dispatchGpxSelection);
+$('gpxFile').addEventListener('input',dispatchGpxSelection);
 
 $('gpxLoadBtn').addEventListener('click',async ()=>{
   abortMapAnalysisForNewGpx();
@@ -488,6 +497,7 @@ $('gpxLoadBtn').addEventListener('click',async ()=>{
       : '⚠ GPX обработан: '+state.dist.toFixed(1)+' км. В файле нет данных высоты — профиль высоты, набор и сброс не рассчитываются.';
     syncMapAnalyzeButton(); restoreMapInfoNote();
     btn.textContent='✓ GPX загружен';
+    $('gpxName').innerHTML='<span id="gpxCheck" class="file-check selected">✓</span> Загружен: '+selectedGPXFile.name;
     setActionState('gpxLoadBtn','success');
     setTimeout(()=>{prog.style.display='none';},1200);
   }catch(err){
@@ -1218,7 +1228,7 @@ const pts=sampleTrackPoints(220);
 
   $('mapAnalyzeStatus').textContent='⏳ Отправляю запрос через серверный proxy…';
 
-  // v1.00: no hard timeout — analysis runs until the server responds.
+  // v1.01: no hard timeout — analysis runs until the server responds.
   let resp=null;
   let data=null;
   let attempt=0;
@@ -4417,7 +4427,7 @@ function makeSchedule(){
   const positives=shuffled(events.filter(e=>e!==misha && e[3]<0));
   const neutral=shuffled(events.filter(e=>e!==misha && e[3]===0));
 
-  // v1.00: balance the selected event pool as close to 50/50 as possible.
+  // v1.01: balance the selected event pool as close to 50/50 as possible.
   // For an odd number of events, the extra event is assigned randomly.
   let negNeed=Math.floor(n/2);
   let posNeed=Math.floor(n/2);
@@ -4813,7 +4823,7 @@ E('simStart').addEventListener('click',()=>{
     return;
   }
 
-  // v1.00: start animation is always a real 3-second start gate.
+  // v1.01: start animation is always a real 3-second start gate.
   // Simulation speed (including 4×) cannot skip or outrun Misha.
   if(startingFresh){
     showMishaStartDirect();
