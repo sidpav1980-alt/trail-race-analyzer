@@ -54,7 +54,7 @@ function normalizeFordData(data){
   const groups=[];
   let cur=null;
   for(const km of raw){
-    if(!cur || km-cur.start>0.500001){
+    if(!cur || km-cur.start>0.400001){
       if(cur) groups.push(cur);
       cur={start:km,end:km};
     }else{
@@ -962,7 +962,7 @@ function buildOverpassQuery(points){
   const pts=(points||[]).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
   if(!pts.length) return '[out:json][timeout:90];();out;';
 
-  // v0.0227: do NOT ask Overpass for one huge route bbox. On long/curvy tracks
+  // v0.0228: do NOT ask Overpass for one huge route bbox. On long/curvy tracks
   // that query was too heavy and all endpoints could time out, producing 0%.
   // Build several small boxes along the GPX corridor instead.
   const boxes=[];
@@ -1290,7 +1290,7 @@ function groupFordKmPoints(kms, maxGapKm=0.35){
       continue;
     }
 
-    // v0.0227: only nearby parts of the SAME water crossing are merged.
+    // v0.0228: only nearby parts of the SAME water crossing are merged.
     // 150 m is enough for braided channels / GPS jitter, while separate
     // crossings 200+ m apart remain separate.
     if(km-current.end<=maxGapKm){
@@ -1467,7 +1467,7 @@ async function analyzeMapOSM(){
   // analysis with the GPX itself. Surface/ford values remain unknown rather
   // than stopping the whole analysis.
   if(!data){
-    // v0.0227: if OSM is temporarily down, reuse ONLY a cache matching this GPX.
+    // v0.0228: if OSM is temporarily down, reuse ONLY a cache matching this GPX.
     try{
       const c=JSON.parse(localStorage.getItem('trailOSMElementsCache')||'null');
       const first=state.track?.[0], last=state.track?.[state.track.length-1];
@@ -1625,7 +1625,7 @@ function renderMapAnalysis(result){
   const {samples,summary,elements=[]}=result;
   const crossings=analyzeWaterCrossings(samples,elements);
 
-  // v0.0227: analyzeWaterCrossings already groups by OSM water object first,
+  // v0.0228: analyzeWaterCrossings already groups by OSM water object first,
   // then deduplicates only near-identical physical crossings.
   const bridgeKms=(crossings.bridges||[]).slice();
   const confirmedFordKms=(crossings.confirmed||[]).slice();
@@ -4563,7 +4563,7 @@ let randomEventAdjustmentSec=0;
 const activeEventCount=()=>{
   const hours=Math.max(0.1,baseSec()/3600);
 
-  // v0.0227 — event count by forecast duration:
+  // v0.0228 — event count by forecast duration:
   // ~1 h  -> exactly 3
   // ~2 h  -> 4–6
   // ~3 h  -> 5–7
@@ -4843,7 +4843,7 @@ function makeSchedule(){
 
   let balanced=shuffled(selected);
 
-  // v0.0227: each equipment-dependent event may occur at most once per race.
+  // v0.0228: each equipment-dependent event may occur at most once per race.
   // We still guarantee at least one equipment event, but do not repeat the same
   // injury/rain/heat/night event several times.
   const equipmentNames=['Поранился','Дождь','Жара','Ночь'];
@@ -4862,7 +4862,7 @@ function makeSchedule(){
     return replacementPool[0] || shuffled(events.filter(x=>x!==misha && !equipmentNames.includes(x?.[1])))[0] || ev;
   });
 
-  // v0.0227: Night/Heat depend on the same virtual time that controls the sky.
+  // v0.0228: Night/Heat depend on the same virtual time that controls the sky.
   // If a selected Night/Heat event has no compatible time slot, replace it
   // with another ordinary event instead of showing it against the wrong sky.
   const used=new Set();
@@ -5030,7 +5030,7 @@ function fire(idx){
       e[2]='Фонарика нет — в темноте потеряно 5 минут.';
     }
   }
-  // v0.0227: equipment events always show the actual equipment result in the popup.
+  // v0.0228: equipment events always show the actual equipment result in the popup.
   // A zero adjustment is intentional when the required item is present.
   if(e[1]==='Нашли аптечку'){
     equipmentState.medkit=true;
@@ -5063,7 +5063,7 @@ function fire(idx){
     }
   }
 
-  // v0.0227: explicit equipment result message for ALL equipment-dependent events.
+  // v0.0228: explicit equipment result message for ALL equipment-dependent events.
   let equipmentOutcomeText='';
   if(e[1]==='Поранился'){
     equipmentOutcomeText = equipmentState.medkit
@@ -5090,7 +5090,7 @@ function fire(idx){
   // Event sign convention:
   // positive event -> negative adjustment -> time is SUBTRACTED;
   // negative event -> positive adjustment -> time is ADDED.
-  // v0.0227: случайное событие меняет ТОЛЬКО время текущей симуляции.
+  // v0.0228: случайное событие меняет ТОЛЬКО время текущей симуляции.
   // Исходный прогноз raceForecast не изменяется.
   penalty+=timeAdjustmentSec;
   randomEventAdjustmentSec+=timeAdjustmentSec;
@@ -5417,7 +5417,7 @@ setInterval(()=>{
 },500);
 setInterval(()=>{if(document.querySelector('[data-tab="simulation"]')?.classList.contains('active')) draw();},120);
 E('simStart').addEventListener('click',()=>{
-  // v0.0227: completed race = a NEW race.
+  // v0.0228: completed race = a NEW race.
   // Reset first, so the old equipment check can never carry over.
   if(progress>=1) reset();
 
@@ -5444,7 +5444,7 @@ E('simStart').addEventListener('click',()=>{
     return;
   }
 
-  // v0.0227: start animation is always a real 3-second start gate.
+  // v0.0228: start animation is always a real 3-second start gate.
   // Simulation speed (including 4×) cannot skip or outrun Misha.
   if(startingFresh){
     showMishaStartDirect();
