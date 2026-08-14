@@ -287,7 +287,7 @@ $('installBtn').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try{
-      const reg=await navigator.serviceWorker.register('./sw.js?v=095', {updateViaCache:'none'});
+      const reg=await navigator.serviceWorker.register('./sw.js?v=096', {updateViaCache:'none'});
       await reg.update();
       let refreshing=false;
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -374,7 +374,7 @@ function parseGPX(text){
   },120);
   document.getElementById('mishaStartSendoff')?.classList.remove('show');
   document.getElementById('mishaFinishWelcome')?.classList.remove('show');
-  // v0.95: a new GPX must never leave the previous route/map analysis on screen.
+  // v0.96: a new GPX must never leave the previous route/map analysis on screen.
   state.mapAnalysis=null;
   if(typeof fordLeafletMap!=='undefined' && fordLeafletMap){
     try{fordLeafletMap.remove()}catch(e){}
@@ -1228,7 +1228,7 @@ async function analyzeMapOSM(){
 
   $('mapAnalyzeStatus').textContent='⏳ Отправляю запрос через серверный proxy…';
 
-  // v0.95: no second internal timer here.
+  // v0.96: no second internal timer here.
   // The map-analysis button owns the single hard 20 second timeout.
   let analysisTimedOut=false;
 
@@ -1402,7 +1402,9 @@ function renderMapAnalysis(result){
     likelyFordKms:[...likelyFordKms]
   };
   state.mapAnalysisReadyForCurrentGpx=true;
-  renderFordMap(fordKms,confirmedFordKms,likelyFordKms,bridgeKms);
+  if(window.innerWidth>800){
+    renderFordMap(fordKms,confirmedFordKms,likelyFordKms,bridgeKms);
+  }
 
   // New route analysis becomes the source of automatic segment boundaries.
   // Reset any previously entered manual table step back to AUTO.
@@ -1416,6 +1418,8 @@ function renderMapAnalysis(result){
   applyForecastModeColors();
 
   $('mapAnalysisResults').style.display='block';
+  ensureAnalysisTrackScheme();
+  setTimeout(()=>{try{drawFordScheme()}catch(e){console.error(e)}},60);
   $('coverageMetric').textContent=summary.coverage.toFixed(0)+'%';
   $('wetlandMetric').textContent=summary.wetland.toFixed(1)+'%';
   $('waterCrossMetric').textContent=summary.water.toFixed(1)+'%';
@@ -4120,7 +4124,7 @@ function setMovingTimeFieldFromOCR(value){
     if(m) seconds=Number(m[1])*60+Number(m[2]);
   }
 
-  // v0.95 lower field originally inherited a numeric "minutes" input.
+  // v0.96 lower field originally inherited a numeric "minutes" input.
   if(el.type==='number'){
     if(seconds!=null) el.value=(seconds/60).toFixed(2).replace(/\.00$/,'');
     else{
@@ -4315,10 +4319,12 @@ function chooseAidStations(){
 
   for(let i=0;i<count;i++){
     let km=count===1 ? d*.5 : firstMin+i*baseGap;
+
     if(i>0 && i<count-1){
       const room=Math.max(0,baseGap-minGap);
       km += (Math.random()-.5)*Math.min(4,room*.7);
     }
+
     if(i>0) km=Math.max(km,aidStations[i-1]+minGap);
     km=Math.min(km,lastMax-(count-1-i)*minGap);
     aidStations.push(Math.max(1,km));
@@ -4354,7 +4360,7 @@ function initStartConditions(){
   simulationDNF=false;
   lastAidIndex=-1;
 
-  // v0.95: only one start state can appear, and only in 30% of simulations total.
+  // v0.96: only one start state can appear, and only in 30% of simulations total.
   if(Math.random()<0.30){
     const pick=Math.floor(Math.random()*3);
     if(pick===0){
@@ -4767,11 +4773,7 @@ E('simStart').addEventListener('click',()=>{
     E('simStart').setAttribute('aria-label','Пауза');
     E('simStart').title='Пауза';
   }
-});E('simReset').addEventListener('click',reset);
-E('simResetTop')?.addEventListener('click',()=>{
-  reset();
-  E('simStatus').textContent='Симуляция сброшена к старту.';
-});E('simSpeed').addEventListener('change',draw);window.addEventListener('resize',draw);
+});E('simReset').addEventListener('click',reset);E('simSpeed').addEventListener('change',draw);window.addEventListener('resize',draw);
 // Keep simulation synced when user switches to tab 5 or recalculates forecast.
 document.querySelector('[data-tab="simulation"]')?.addEventListener('click',()=>setTimeout(reset,0));
 reset();
@@ -4792,8 +4794,40 @@ document.querySelectorAll('.tab').forEach(btn=>{
 function mapAnalysisTimeoutMessage(){
   return '⚠️ Анализ остановлен: превышен лимит 20 секунд. Полученные данные сохранены. Часть информации о покрытии и бродах могла не успеть загрузиться. Попробуйте анализ ещё раз.';
 }
+
+function ensureAnalysisTrackScheme(){
+  const results=document.getElementById('mapAnalysisResults');
+  if(!results) return null;
+  let layout=results.querySelector('.ford-map-layout');
+  if(!layout) return null;
+  let panel=layout.querySelector('.ford-map-panel');
+  if(!panel){
+    panel=document.createElement('div');
+    panel.className='ford-map-panel';
+    layout.appendChild(panel);
+  }
+  let title=panel.querySelector('.ford-map-title');
+  if(!title){
+    title=document.createElement('div');
+    title.className='ford-map-title';
+    title.textContent='Схема трека и броды';
+    panel.prepend(title);
+  }
+  let canvas=panel.querySelector('#fordSchemeCanvas');
+  if(!canvas){
+    canvas=document.createElement('canvas');
+    canvas.id='fordSchemeCanvas';
+    canvas.className='ford-scheme-canvas';
+    panel.appendChild(canvas);
+  }
+  canvas.style.display='block';
+  canvas.style.width='100%';
+  canvas.style.height='350px';
+  return canvas;
+}
+
 function drawFordScheme(){
-  const c=document.getElementById('fordSchemeCanvas');
+  const c=ensureAnalysisTrackScheme() || document.getElementById('fordSchemeCanvas');
   if(!c) return;
 
   const cssW=Math.max(220,c.clientWidth||320);
@@ -4950,7 +4984,7 @@ document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{
 
 
 
-// v0.95 route map redraw
+// v0.96 route map redraw
 
 document.querySelectorAll('.tab').forEach(btn=>{
   btn.addEventListener('click',()=>{
@@ -4964,15 +4998,4 @@ document.querySelectorAll('.tab').forEach(btn=>{
       },180);
     }
   });
-});
-
-
-// v0.95 — Chrome/PWA cache refresh from v0.91.
-window.addEventListener('load', async ()=>{
-  if('serviceWorker' in navigator){
-    try{
-      const reg=await navigator.serviceWorker.getRegistration();
-      if(reg) await reg.update();
-    }catch(e){}
-  }
 });
