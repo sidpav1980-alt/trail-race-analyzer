@@ -1,5 +1,14 @@
-const CACHE_NAME='trail-race-v094-map-analysis-v084';
-const ASSETS=['./index.html', './styles.css?v=094', './app.js?v=094', './manifest.webmanifest?v=091', './icon-192.png', './icon-512.png', '/index.html'];
+const CACHE_NAME='trail-race-v095-base84-cherrypick';
+const ASSETS=[
+  './',
+  './index.html',
+  './app.js?v=095',
+  './styles.css?v=095',
+  './manifest.webmanifest?v=095',
+  './icon-192.png',
+  './icon-512.png',
+  './misha_start.png'
+];
 
 self.addEventListener('install', event=>{
   self.skipWaiting();
@@ -19,10 +28,8 @@ self.addEventListener('activate', event=>{
 self.addEventListener('fetch', event=>{
   const req=event.request;
   if(req.method!=='GET') return;
-
   const url=new URL(req.url);
 
-  // HTML/navigation: network first, so Chrome sees a new deployed version immediately.
   if(req.mode==='navigate' || url.pathname.endsWith('/') || url.pathname.endsWith('/index.html')){
     event.respondWith((async()=>{
       try{
@@ -37,7 +44,6 @@ self.addEventListener('fetch', event=>{
     return;
   }
 
-  // Versioned JS/CSS: network first as well.
   if(url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.endsWith('.webmanifest')){
     event.respondWith((async()=>{
       try{
@@ -52,7 +58,6 @@ self.addEventListener('fetch', event=>{
     return;
   }
 
-  // Images/other static resources: cache first for offline.
   event.respondWith(
     caches.match(req).then(hit=>hit || fetch(req).then(resp=>{
       const copy=resp.clone();

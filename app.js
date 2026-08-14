@@ -287,7 +287,7 @@ $('installBtn').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try{
-      const reg=await navigator.serviceWorker.register('./sw.js?v=094', {updateViaCache:'none'});
+      const reg=await navigator.serviceWorker.register('./sw.js?v=095', {updateViaCache:'none'});
       await reg.update();
       let refreshing=false;
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -367,12 +367,14 @@ function parseGPX(text){
   }
 
   state.track=out;
+  document.getElementById('mishaStartSendoff')?.classList.remove('show');
+  document.getElementById('mishaFinishWelcome')?.classList.remove('show');
   setTimeout(()=>{
     try{drawFordScheme();renderFordMap();}catch(e){}
   },120);
   document.getElementById('mishaStartSendoff')?.classList.remove('show');
   document.getElementById('mishaFinishWelcome')?.classList.remove('show');
-  // v0.91: a new GPX must never leave the previous route/map analysis on screen.
+  // v0.95: a new GPX must never leave the previous route/map analysis on screen.
   state.mapAnalysis=null;
   if(typeof fordLeafletMap!=='undefined' && fordLeafletMap){
     try{fordLeafletMap.remove()}catch(e){}
@@ -398,14 +400,6 @@ state.dist=total/1000;state.gain=gain;state.loss=loss;
   drawTrackProfiles();
   updateTraversalTimes();
   updateRaceForecastAvailability();
-  setTimeout(()=>{
-    try{
-      const box=$('mapAnalysisResults');
-      if(box) box.style.display='block';
-      ensureAnalysisTrackScheme();
-      drawFordScheme();
-    }catch(e){}
-  },120);
   // Repaint route even before OSM analysis: the red GPX line must always be visible.
   setTimeout(()=>{
     try{ renderSimFordMap(); }catch(e){ console.warn('simulation map redraw',e); }
@@ -1223,67 +1217,55 @@ async function analyzeMapOSM(){
   if(!state.track || !state.track.length) throw new Error('Сначала обработайте GPX');
 
   const runId=++mapAnalysisRunId;
+  if(mapAnalysisAbortController){
+    try{ mapAnalysisAbortController.abort(); }catch(e){}
+  }
+  mapAnalysisAbortController=new AbortController();
+  const controller=mapAnalysisAbortController;
 
   const pts=sampleTrackPoints(220);
   const query=buildOverpassQuery(pts);
 
-  let resp=null;
-  let lastErr=null;
+  $('mapAnalyzeStatus').textContent='⏳ Отправляю запрос через серверный proxy…';
 
-  // v0.91: retry short proxy/network failures instead of ending analysis after a few seconds.
-  for(let attempt=1; attempt<=3; attempt++){
-    if(runId!==mapAnalysisRunId){
-      const e=new Error('Анализ карты заменён новым запуском');
-      e.name='AbortError';
-      throw e;
-    }
+  // v0.95: no second internal timer here.
+  // The map-analysis button owns the single hard 20 second timeout.
+  let analysisTimedOut=false;
 
-    $('mapAnalyzeStatus').textContent=`⏳ Анализ карты… запрос ${attempt}/3`;
+  const resp=await fetch('/api/osm',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({query}),
+    signal:controller.signal,
+    cache:'no-store'
+  });
 
-    try{
-      resp=await fetch('/api/osm',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({query}),
-        cache:'no-store'
-      });
-
-      if(resp.ok) break;
-
-      let detail='';
-      try{
-        const er=await resp.clone().json();
-        detail=er.error||'';
-      }catch(e){}
-      lastErr=new Error('Proxy HTTP '+resp.status+(detail?' · '+detail:''));
-
-      // Retry server/proxy failures; do not retry ordinary 4xx.
-      if(resp.status<500 && resp.status!==429) throw lastErr;
-    }catch(e){
-      lastErr=e;
-    }
-
-    if(attempt<3){
-      $('mapAnalyzeStatus').textContent=`⏳ Сервер не ответил с ${attempt}-й попытки. Повторяю…`;
-      await new Promise(r=>setTimeout(r,1200));
-    }
+  if(runId!==mapAnalysisRunId || controller.signal.aborted){
+    const err=new Error(analysisTimedOut
+      ? 'Анализ карты остановлен: превышено 20 секунд'
+      : 'Анализ карты остановлен');
+    err.name=analysisTimedOut?'TimeoutError':'AbortError';
+    throw err;
   }
 
-  if(!resp || !resp.ok) throw (lastErr||new Error('Не удалось получить данные OSM после 3 попыток'));
-
-  if(runId!==mapAnalysisRunId){
-    const e=new Error('Анализ карты заменён новым запуском');
-    e.name='AbortError';
-    throw e;
+  if(!resp.ok){
+    let detail='';
+    try{
+      const e=await resp.json();
+      detail=e.error||'';
+    }catch(e){}
+    throw new Error('Proxy HTTP '+resp.status+(detail?' · '+detail:''));
   }
 
   const data=await resp.json();
-  if(runId!==mapAnalysisRunId){
-    const err=new Error('Анализ карты заменён новым запуском');
-    err.name='AbortError';
+  if(runId!==mapAnalysisRunId || controller.signal.aborted){
+    const err=new Error(analysisTimedOut
+      ? 'Анализ карты остановлен: превышено 20 секунд'
+      : 'Анализ карты остановлен');
+    err.name=analysisTimedOut?'TimeoutError':'AbortError';
     throw err;
   }
-mapAnalysisAbortController=null;
+  mapAnalysisAbortController=null;
     normalizeFordData(data);
     {
       let rawFordKm=[];
@@ -1420,9 +1402,7 @@ function renderMapAnalysis(result){
     likelyFordKms:[...likelyFordKms]
   };
   state.mapAnalysisReadyForCurrentGpx=true;
-  if(window.innerWidth>800){
-    renderFordMap(fordKms,confirmedFordKms,likelyFordKms,bridgeKms);
-  }
+  renderFordMap(fordKms,confirmedFordKms,likelyFordKms,bridgeKms);
 
   // New route analysis becomes the source of automatic segment boundaries.
   // Reset any previously entered manual table step back to AUTO.
@@ -1435,9 +1415,7 @@ function renderMapAnalysis(result){
 
   applyForecastModeColors();
 
-  $('mapAnalysisResults').style.display='block'; forceDrawAnalysisScheme();
-  ensureAnalysisTrackScheme();
-  setTimeout(()=>{try{drawFordScheme()}catch(e){console.error(e)}},60);
+  $('mapAnalysisResults').style.display='block';
   $('coverageMetric').textContent=summary.coverage.toFixed(0)+'%';
   $('wetlandMetric').textContent=summary.wetland.toFixed(1)+'%';
   $('waterCrossMetric').textContent=summary.water.toFixed(1)+'%';
@@ -1467,7 +1445,7 @@ function renderMapAnalysis(result){
 
   $('mapAnalysisNote').textContent=`OSM-классификация маршрута. Неизвестно: ${(100-summary.coverage).toFixed(0)}%. Данные зависят от полноты разметки OpenStreetMap.`;
   drawSurfaceStrip(samples);
-  requestAnimationFrame(()=>drawFordScheme()); setTimeout(forceDrawAnalysisScheme,80);
+  requestAnimationFrame(()=>drawFordScheme());
 }
 
 function terrainMultiplier(){
@@ -1869,25 +1847,23 @@ $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
   startMapAnalysisTimer();
 
   let timeoutId=null;
-  let slowTimer=null;
   let timedOut=false;
-
-  // v0.91:
-  // At 20 s we only warn the user; we no longer destroy the OSM request.
-  // Render and mobile networks can legitimately need a little longer.
-  slowTimer=setTimeout(()=>{
-    if($('mapAnalyzeStatus')){
-      $('mapAnalyzeStatus').textContent='⏳ Анализ занимает больше 20 секунд — продолжаю, чтобы не потерять результат…';
-    }
-  },20000);
 
   const timeoutPromise=new Promise((_,reject)=>{
     timeoutId=setTimeout(()=>{
       timedOut=true;
-      const e=new Error('MAP_HARD_TIMEOUT_60');
+
+      // invalidates the result of the running analyzeMapOSM()
+      mapAnalysisRunId++;
+      try{
+        if(mapAnalysisAbortController) mapAnalysisAbortController.abort();
+      }catch(e){}
+      mapAnalysisAbortController=null;
+
+      const e=new Error('MAP_HARD_TIMEOUT_20');
       e.name='TimeoutError';
       reject(e);
-    },60000);
+    },20000);
   });
 
   try{
@@ -1908,21 +1884,15 @@ $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
     setTimeout(()=>{p.style.display='none'},900);
   }catch(err){
     clearTimeout(timeoutId);
-    clearTimeout(slowTimer);
     stopMapAnalysisTimer();
     p.style.display='none';
     p.value=0;
 
-    if(timedOut || err?.name==='TimeoutError' || err?.message==='MAP_HARD_TIMEOUT_60'){
-      $('mapAnalyzeStatus').textContent='⚠️ Анализ не успел завершиться за 60 секунд. Нажмите «Повторить анализ карты»; GPX и схема трека сохранены.';
+    if(timedOut || err?.name==='TimeoutError' || err?.message==='MAP_HARD_TIMEOUT_20'){
+      $('mapAnalyzeStatus').textContent='⚠️ Анализ остановлен: превышен лимит 20 секунд. Нажмите «Повторить анализ карты» или используйте прогноз без анализа.';
       btn.disabled=false;
       btn.textContent='Повторить анализ карты';
       setActionState('mapAnalyzeBtn','ready');
-      try{
-        const box=$('mapAnalysisResults');
-        if(box) box.style.display='block';
-        forceDrawAnalysisScheme();
-      }catch(e){}
       restoreMapInfoNote();
       return;
     }
@@ -1936,7 +1906,6 @@ $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
     }
   }finally{
     clearTimeout(timeoutId);
-    clearTimeout(slowTimer);
     if(!timedOut){
       mapAnalysisAbortController=null;
       syncMapAnalyzeButton();
@@ -3300,14 +3269,6 @@ function renderRaceForecast(options={}){
       return `${Math.round(center-spread)}–${Math.round(center+spread)}`;
     };
     state.raceForecast=f;
-    try{
-      localStorage.setItem('trailLastRaceForecast',JSON.stringify({
-        totalSec:Number(f.totalSec||0),
-        avgPaceSec:Number(f.avgPaceSec||0),
-        dist:Number(state.dist||0),
-        savedAt:Date.now()
-      }));
-    }catch(e){}
     tbody.innerHTML='';
     f.groups.forEach(g=>{
       const from=g.from.toFixed(1).replace('.0','');
@@ -4159,7 +4120,7 @@ function setMovingTimeFieldFromOCR(value){
     if(m) seconds=Number(m[1])*60+Number(m[2]);
   }
 
-  // v0.91 lower field originally inherited a numeric "minutes" input.
+  // v0.95 lower field originally inherited a numeric "minutes" input.
   if(el.type==='number'){
     if(seconds!=null) el.value=(seconds/60).toFixed(2).replace(/\.00$/,'');
     else{
@@ -4332,31 +4293,7 @@ function showMishaFinishDirect(){
 
 function dist(){return Number(state?.dist||0)}
 function gain(){return Number(state?.gain||0)}
-function parseClockToSec(v){
-  const s=String(v||'').trim();
-  if(!s || s==='—') return 0;
-  const a=s.split(':').map(Number);
-  if(a.some(x=>!Number.isFinite(x))) return 0;
-  if(a.length===3) return a[0]*3600+a[1]*60+a[2];
-  if(a.length===2) return a[0]*60+a[1];
-  return 0;
-}
-function baseSec(){
-  const inState=Number(state?.raceForecast?.totalSec||0);
-  if(inState>0) return inState;
-
-  const ui=parseClockToSec(document.getElementById('raceForecastTime')?.textContent);
-  if(ui>0) return ui;
-
-  try{
-    const saved=JSON.parse(localStorage.getItem('trailLastRaceForecast')||'null');
-    if(saved && Number(saved.totalSec)>0){
-      const sameRoute=!saved.dist || !state?.dist || Math.abs(Number(saved.dist)-Number(state.dist))<0.25;
-      if(sameRoute) return Number(saved.totalSec);
-    }
-  }catch(e){}
-  return 0;
-}
+function baseSec(){return Number(state?.raceForecast?.totalSec||0)}
 function fmt(sec){sec=Math.max(0,Math.round(sec||0));const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
 function delta(s){const sign=s>=0?'+':'−',a=Math.abs(Math.round(s));return `${sign}${Math.floor(a/60)}:${String(a%60).padStart(2,'0')}`}
 function shuffled(a){return a.slice().sort(()=>Math.random()-.5)}
@@ -4365,24 +4302,19 @@ function chooseAidStations(){
   const d=dist();
   if(!d){aidStations=[];return}
 
-  // Minimum count: 5 aid stations for 90 km.
-  // Scales roughly by distance, but never more than 5 for now.
   let minCount=Math.max(1,Math.ceil(d/18));
   if(d>=90) minCount=Math.max(5,minCount);
   const count=Math.min(5,minCount);
 
-  const minGap=10; // at least 10 km between aid stations
+  const minGap=10;
   const firstMin=Math.min(8,Math.max(3,d*.08));
   const lastMax=d-3;
-
-  // Deterministic-ish spread with small randomness, while preserving >=10 km gap.
   const usable=Math.max(0,lastMax-firstMin);
   const baseGap=count>1?usable/(count-1):0;
   aidStations=[];
 
   for(let i=0;i<count;i++){
     let km=count===1 ? d*.5 : firstMin+i*baseGap;
-    // Small jitter only if there is room beyond the 10 km minimum.
     if(i>0 && i<count-1){
       const room=Math.max(0,baseGap-minGap);
       km += (Math.random()-.5)*Math.min(4,room*.7);
@@ -4392,15 +4324,15 @@ function chooseAidStations(){
     aidStations.push(Math.max(1,km));
   }
 
-  // Safety pass.
   for(let i=1;i<aidStations.length;i++){
     if(aidStations[i]-aidStations[i-1]<minGap){
       aidStations[i]=aidStations[i-1]+minGap;
     }
   }
 
-  // If the course is too short to satisfy all spacing rules, reduce count.
-  aidStations=aidStations.filter((km,i,arr)=>km<d && (i===0 || km-arr[i-1]>=minGap-0.01));
+  aidStations=aidStations.filter((km,i,arr)=>
+    km<d && (i===0 || km-arr[i-1]>=minGap-0.01)
+  );
 }
 function renderSimConditions(){
   const f=E('simFatigueState'),l=E('simLuckState'),m=E('simMotivationState');
@@ -4422,7 +4354,7 @@ function initStartConditions(){
   simulationDNF=false;
   lastAidIndex=-1;
 
-  // v0.91: only one start state can appear, and only in 30% of simulations total.
+  // v0.95: only one start state can appear, and only in 30% of simulations total.
   if(Math.random()<0.30){
     const pick=Math.floor(Math.random()*3);
     if(pick===0){
@@ -4453,9 +4385,6 @@ function checkAidStation(km){
       if(fatigueActive){
         fatigueActive=false;
 
-        // Fatigue can cost at most 30 minutes.
-        // If the aid station is reached earlier than 30 min of simulated race time,
-        // refund the unused part, so the runner effectively accelerates after the PP.
         const elapsedRaceSec=Math.max(0,baseSec()*progress);
         const fatigueElapsedSec=Math.max(0,elapsedRaceSec-fatigueStartVirtualSec);
         const actualFatigueCost=Math.min(1800,fatigueElapsedSec);
@@ -4577,17 +4506,7 @@ function fire(idx){
   clearInterval(timer);timer=null;clearInterval(countTimer);countTimer=setInterval(()=>{left--;E('simPauseCountdown').textContent=Math.max(0,left);if(left<=0)clearInterval(countTimer)},1000);
   pauseTimer=setTimeout(()=>{E('simEventCard')?.classList.remove('show'); E('simEventChip')?.classList.remove('show');E('simPauseBadge').classList.remove('show');if(!simulationDNF){E('simStatus').textContent='Гонка продолжается';run()}},3000);
 }
-
-function syncSimulationPicture(){
-  const ph=E('simEmptyPicture');
-  if(!ph) return;
-  // Hide placeholder only when the real animated scene has enough data.
-  const ready=dist()>0 && baseSec()>0 && Array.isArray(state?.track) && state.track.length>1;
-  ph.classList.toggle('hide',ready);
-}
-
 function draw(){
-  syncSimulationPicture();
   const c=E('simCourseCanvas');if(!c)return;
   const r=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1,W=Math.max(320,r.width),H=Math.max(420,r.height||460);
   if(c.width!==Math.round(W*dpr)||c.height!==Math.round(H*dpr)){c.width=Math.round(W*dpr);c.height=Math.round(H*dpr)}
@@ -4708,10 +4627,8 @@ function draw(){
   }
 
   // Runner moves subtly across the lower scene, always facing right.
-  // v0.94: restore the small hiker from the earlier simulation UI.
-  // Keep him clearly visible even before/after the run and move him across the lower trail.
-  const rx=48+progress*Math.max(36,W-112);
-  const bob=Math.sin(progress*180)*2.0;
+  const rx=55+progress*Math.max(40,W-135);
+  const bob=Math.sin(progress*180)*2.5;
   const ry=groundY-24+bob;
   ctx.save();ctx.translate(rx,ry);
   ctx.lineCap='round';
@@ -4830,7 +4747,7 @@ function tick(){
 }
 function run(){clearInterval(timer);timer=setInterval(tick,120);E('simStart').textContent='⏸';E('simStatus').textContent='Симуляция идёт по профилю загруженного трека.'}
 function stop(msg){clearInterval(timer);clearTimeout(pauseTimer);clearInterval(countTimer);timer=null;if(msg)E('simStatus').textContent=msg;E('simStart').textContent='▶'}
-function reset(){stop();progress=0;penalty=0;fired.clear();particles=[];lastFordPauseKm=null;fordPauseActive=false;fatigueStartVirtualSec=0;fatiguePenaltyAppliedSec=0;simStartDate=firstTrackDate();E('simDnfBanner')?.classList.remove('show');chooseAidStations();initStartConditions();makeSchedule();E('simProgress').style.width='0';E('simDistance').textContent=dist()?`0.0 / ${dist().toFixed(1)} км`:'—';E('simGain').textContent=gain()?`${Math.round(gain())} м`:'—';E('simEventsCount').textContent=`0 / ${schedule.length}`;E('simPenalty').textContent='+0:00';E('simLog').innerHTML='<div><span>—</span><span>События появятся случайно по ходу гонки</span><b>31 событие в пуле</b></div>';E('simEventCard')?.classList.remove('show'); E('simEventChip')?.classList.remove('show');E('simPauseBadge').classList.remove('show');E('simStart').textContent='▶';E('simStart').setAttribute('aria-label','Запустить симуляцию');E('simStart').title='Запустить симуляцию';E('simStart').disabled=!(baseSec()&&dist());updateResults();E('simStatus').textContent=baseSec()&&dist()?'Готово: профиль и время взяты из текущего прогноза.':'Сначала рассчитайте «Прогноз гонки» в разделе 2.';draw()}
+function reset(){stop();progress=0;penalty=0;fired.clear();particles=[];lastFordPauseKm=null;fordPauseActive=false;fatigueStartVirtualSec=0;fatiguePenaltyAppliedSec=0;simStartDate=firstTrackDate();E('simDnfBanner')?.classList.remove('show');chooseAidStations();initStartConditions();makeSchedule();E('simProgress').style.width='0';E('simDistance').textContent=dist()?`0.0 / ${dist().toFixed(1)} км`:'—';E('simGain').textContent=gain()?`${Math.round(gain())} м`:'—';E('simEventsCount').textContent=`0 / ${schedule.length}`;E('simPenalty').textContent='+0:00';E('simLog').innerHTML='<div><span>—</span><span>События появятся случайно по ходу гонки</span><b>31 событие в пуле</b></div>';E('simEventCard')?.classList.remove('show'); E('simEventChip')?.classList.remove('show');E('simPauseBadge').classList.remove('show');E('simStart').textContent='▶';E('simStart').setAttribute('aria-label','Старт');E('simStart').title='Старт';E('simStart').disabled=!(baseSec()&&dist());updateResults();E('simStatus').textContent=baseSec()&&dist()?'Готово: профиль и время взяты из текущего прогноза.':'Сначала рассчитайте «Прогноз гонки» в разделе 2.';draw()}
 
 setInterval(()=>{const b=E('simStart');if(b&&!timer)b.disabled=!(baseSec()&&dist());},500);
 setInterval(()=>{if(document.querySelector('[data-tab="simulation"]')?.classList.contains('active')) draw();},120);
@@ -4854,18 +4771,9 @@ E('simStart').addEventListener('click',()=>{
 E('simResetTop')?.addEventListener('click',()=>{
   reset();
   E('simStatus').textContent='Симуляция сброшена к старту.';
-});
-E('simSpeed').addEventListener('change',draw);window.addEventListener('resize',draw);
+});E('simSpeed').addEventListener('change',draw);window.addEventListener('resize',draw);
 // Keep simulation synced when user switches to tab 5 or recalculates forecast.
-document.querySelector('[data-tab="simulation"]')?.addEventListener('click',()=>{
-  setTimeout(()=>{
-    reset();
-    if(baseSec()>0 && dist()>0){
-      E('simStart').disabled=false;
-      E('simStatus').textContent='Готово: прогноз найден. Можно запускать симуляцию.';
-    }
-  },0);
-});
+document.querySelector('[data-tab="simulation"]')?.addEventListener('click',()=>setTimeout(reset,0));
 reset();
 })();;
 
@@ -4884,53 +4792,8 @@ document.querySelectorAll('.tab').forEach(btn=>{
 function mapAnalysisTimeoutMessage(){
   return '⚠️ Анализ остановлен: превышен лимит 20 секунд. Полученные данные сохранены. Часть информации о покрытии и бродах могла не успеть загрузиться. Попробуйте анализ ещё раз.';
 }
-
-function forceDrawAnalysisScheme(){
-  const box=document.getElementById('mapAnalysisResults');
-  if(!box || box.style.display==='none') return;
-  try{
-    ensureAnalysisTrackScheme();
-    requestAnimationFrame(()=>{
-      try{drawFordScheme()}catch(e){console.error('drawFordScheme',e)}
-      setTimeout(()=>{try{drawFordScheme()}catch(e){}},180);
-      setTimeout(()=>{try{drawFordScheme()}catch(e){}},500);
-    });
-  }catch(e){console.error('forceDrawAnalysisScheme',e)}
-}
-
-function ensureAnalysisTrackScheme(){
-  const results=document.getElementById('mapAnalysisResults');
-  if(!results) return null;
-  let layout=results.querySelector('.ford-map-layout');
-  if(!layout) return null;
-  let panel=layout.querySelector('.ford-map-panel');
-  if(!panel){
-    panel=document.createElement('div');
-    panel.className='ford-map-panel';
-    layout.appendChild(panel);
-  }
-  let title=panel.querySelector('.ford-map-title');
-  if(!title){
-    title=document.createElement('div');
-    title.className='ford-map-title';
-    title.textContent='Схема трека и броды';
-    panel.prepend(title);
-  }
-  let canvas=panel.querySelector('#fordSchemeCanvas');
-  if(!canvas){
-    canvas=document.createElement('canvas');
-    canvas.id='fordSchemeCanvas';
-    canvas.className='ford-scheme-canvas';
-    panel.appendChild(canvas);
-  }
-  canvas.style.display='block';
-  canvas.style.width='100%';
-  canvas.style.height='350px';
-  return canvas;
-}
-
 function drawFordScheme(){
-  const c=ensureAnalysisTrackScheme() || document.getElementById('fordSchemeCanvas');
+  const c=document.getElementById('fordSchemeCanvas');
   if(!c) return;
 
   const cssW=Math.max(220,c.clientWidth||320);
@@ -5054,6 +4917,16 @@ window.addEventListener('resize',()=>setTimeout(drawFordScheme,100));
 
 setInterval(()=>{if(document.getElementById('fordSchemeCanvas')) drawFordScheme();},2500);
 
+window.addEventListener('unhandledrejection',ev=>{
+  if(String(ev.reason?.message||ev.reason).includes('TIMEOUT_20S')){
+    ev.preventDefault();
+    const status=document.getElementById('mapAnalysisStatus')||document.querySelector('[data-map-status]');
+    if(status){status.textContent=mapAnalysisTimeoutMessage();status.style.color='#fbbf24';}
+    const btn=document.getElementById('analyzeMapBtn')||[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Анализ карты'));
+    if(btn){btn.disabled=false;btn.textContent='Повторить анализ карты';}
+  }
+});
+
 setInterval(()=>{if(document.querySelector('[data-tab="simulation"]')?.classList.contains('active')){}},250);
 
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{
@@ -5077,15 +4950,15 @@ document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{
 
 
 
-// v0.91 route map redraw
+// v0.95 route map redraw
 
 document.querySelectorAll('.tab').forEach(btn=>{
   btn.addEventListener('click',()=>{
     if(btn.dataset.tab==='route'){
       setTimeout(()=>{
         try{
-          forceDrawAnalysisScheme();
-          if(window.innerWidth>800) renderFordMap();
+          drawFordScheme();
+          renderFordMap();
           if(fordLeafletMap) fordLeafletMap.invalidateSize();
         }catch(e){}
       },180);
@@ -5094,75 +4967,12 @@ document.querySelectorAll('.tab').forEach(btn=>{
 });
 
 
-
-// v0.91 — Chrome/PWA cache refresh.
+// v0.95 — Chrome/PWA cache refresh from v0.91.
 window.addEventListener('load', async ()=>{
   if('serviceWorker' in navigator){
     try{
       const reg=await navigator.serviceWorker.getRegistration();
-      if(reg){
-        await reg.update();
-      }
+      if(reg) await reg.update();
     }catch(e){}
   }
 });
-
-// v0.94 map analysis v0.84 visual restoration
-
-(function(){
-  const btn=document.getElementById('mapAnalyzeBtn');
-  const retry=document.getElementById('mapAnalyzeRetryV084');
-  const timerEl=document.getElementById('mapAnalyzeTimerV084');
-  const pctEl=document.getElementById('mapAnalyzePercentV084');
-  const bar=document.getElementById('mapAnalyzeProgressV084');
-  const timeoutBox=document.getElementById('mapAnalyzeTimeoutV084');
-  const lastEl=document.getElementById('mapAnalyzeLastV084');
-  if(!btn || !timerEl || !pctEl || !bar) return;
-
-  let visualTimer=null;
-  let startedAt=0;
-
-  function startVisual(){
-    clearInterval(visualTimer);
-    startedAt=Date.now();
-    timeoutBox.style.display='none';
-    bar.style.width='0%';
-    pctEl.textContent='0%';
-    timerEl.textContent='00:00';
-    visualTimer=setInterval(()=>{
-      const s=(Date.now()-startedAt)/1000;
-      const mm=Math.floor(s/60), ss=Math.floor(s%60);
-      timerEl.textContent=String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0');
-      const pct=Math.min(95,Math.round((s/20)*100));
-      bar.style.width=pct+'%';
-      pctEl.textContent=pct+'%';
-    },250);
-  }
-
-  function finishVisual(ok){
-    clearInterval(visualTimer);
-    const s=(Date.now()-startedAt)/1000;
-    if(ok){
-      bar.style.width='100%';
-      pctEl.textContent='100%';
-      lastEl.textContent='Последний анализ: '+s.toFixed(1)+' с';
-    }else{
-      timeoutBox.style.display='block';
-      lastEl.textContent='Последний анализ: не выполнен.';
-    }
-  }
-
-  btn.addEventListener('click',()=>startVisual(),true);
-  retry?.addEventListener('click',()=>btn.click());
-
-  // observe existing app status to sync visual panel
-  const status=document.getElementById('mapAnalyzeStatus');
-  if(status){
-    const mo=new MutationObserver(()=>{
-      const t=status.textContent||'';
-      if(/заверш|готов|успеш/i.test(t)) finishVisual(true);
-      if(/останов|тайм|ошиб|не удалось/i.test(t)) finishVisual(false);
-    });
-    mo.observe(status,{childList:true,subtree:true,characterData:true});
-  }
-})();

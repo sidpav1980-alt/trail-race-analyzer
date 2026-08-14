@@ -8,9 +8,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Trail Analyzer">
   <title>Прогноз и анализ трейловых гонок</title>
-  <link rel="manifest" href="manifest.webmanifest?v=091">
+  <link rel="manifest" href="manifest.webmanifest?v=095">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="styles.css?v=094">
+  <link rel="stylesheet" href="styles.css?v=095">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3ynBv0TtP4JpC5dQF3Vqv2tLIbV0w=" crossorigin="">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 
@@ -172,7 +172,7 @@
 
 
 <style>
-/* v0.91 — compact phone simulation */
+/* v0.95 — compact phone simulation */
 .sim-profile-card{display:none!important}
 .sim-reference-shell{gap:10px!important}
 .sim-scene-title{
@@ -291,7 +291,7 @@
 </style>
 
 <style>
-/* v0.91 — small event notification above the track profile */
+/* v0.95 — small event notification above the track profile */
 #simEventCard{display:none!important}
 .sim-event-chip{
   position:absolute;
@@ -369,7 +369,7 @@
 </style>
 
 <style>
-/* v0.91 — static route map, no zoom/pan */
+/* v0.95 — static route map, no zoom/pan */
 .ford-leaflet-map,
 .sim-ford-map{
   touch-action:none!important;
@@ -384,7 +384,7 @@
 </style>
 
 <style>
-/* v0.91: compact controls, nothing overlaps on iPhone */
+/* v0.95: compact controls, nothing overlaps on iPhone */
 .sim-scene-controls{
   position:static!important;
   display:grid!important;
@@ -428,13 +428,13 @@
 </style>
 
 <style>
-/* v0.91 */
+/* v0.95 */
 .sim-fords-card{display:none!important}
 .sim-mid-grid{grid-template-columns:1fr!important}
 </style>
 
 <style>
-/* v0.91 — map is shown in route analysis, hidden only in simulation */
+/* v0.95 — map is shown in route analysis, hidden only in simulation */
 #route .ford-map-panel,
 [data-tabpanel="route"] .ford-map-panel,
 #tab-route .ford-map-panel{
@@ -454,221 +454,70 @@
 </style>
 
 <style>
-/* v0.91 — guaranteed GPX scheme in Analysis map block */
-#mapAnalysisResults .ford-map-panel{
-  display:block!important;
-  visibility:visible!important;
-  min-height:390px!important;
-  background:#081321!important;
-}
-#mapAnalysisResults #fordSchemeCanvas{
-  display:block!important;
-  visibility:visible!important;
-  width:100%!important;
-  height:350px!important;
-  min-height:350px!important;
-  opacity:1!important;
-}
-@media(max-width:800px){
-  #mapAnalysisResults .ford-map-layout{
-    display:grid!important;
-    grid-template-columns:minmax(0,44%) minmax(0,56%)!important;
-    gap:8px!important;
-    align-items:start!important;
-  }
-  #mapAnalysisResults .ford-map-panel{min-width:0!important;padding:7px!important}
-  #mapAnalysisResults #fordLeafletMap{display:none!important}
-  #mapAnalysisResults .ford-map-caption{display:none!important}
-}
-</style>
-
-<style>
-/* v0.91 */
-.sim-scene-controls{
-  grid-template-columns:44px 44px minmax(0,1fr) 76px!important;
-}
-#simResetTop{background:#16243a!important}
-@media(max-width:600px){
-  .sim-scene-controls{
-    grid-template-columns:40px 40px minmax(0,1fr) 68px!important;
-  }
-}
-</style>
-
-<style>
-/* v0.91 — Misha is a simulation start/finish mascot, not an event card */
-.misha-direct{
-  position:absolute; inset:0; z-index:45; display:none;
-  align-items:center; justify-content:center; pointer-events:none;
-  background:rgba(3,10,20,.25);
-}
-.misha-direct.show{display:flex!important}
-.misha-direct-card{
-  width:min(86%,390px); min-height:210px; border:1px solid #32455f;
-  border-radius:22px; background:linear-gradient(180deg,rgba(7,19,34,.96),rgba(8,17,29,.94));
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  box-shadow:0 18px 50px rgba(0,0,0,.45); overflow:hidden; padding:16px;
-}
-.misha-direct-bear{font-size:92px;line-height:1;filter:drop-shadow(0 8px 8px rgba(0,0,0,.4))}
-.misha-direct-axe{font-size:48px;margin-left:-18px;transform:rotate(-18deg);display:inline-block}
-.misha-direct-title{font-size:34px;font-weight:900;letter-spacing:.06em;margin-top:8px}
-.misha-direct-sub{font-size:15px;color:#a9bad0;margin-top:5px}
-@media(max-width:600px){
- .misha-direct-card{width:78%;min-height:175px;padding:12px}
- .misha-direct-bear{font-size:72px}.misha-direct-axe{font-size:38px}
- .misha-direct-title{font-size:29px}
-}
-</style>
-
-<style>
-/* v0.91 — definitive mobile simulation controls */
+/* v0.95 — compact simulation controls from v0.88 */
 .sim-scene-controls{
   position:static!important;
   display:grid!important;
-  grid-template-columns:48px 48px minmax(0,1fr) 72px!important;
-  grid-template-areas:"play reset status speed"!important;
+  grid-template-columns:44px 44px minmax(0,1fr) 76px!important;
   gap:8px!important;
   align-items:center!important;
-  padding:10px!important;
-  min-height:62px!important;
-}
-#simStart{grid-area:play!important}
-#simResetTop{grid-area:reset!important}
-.sim-control-center{grid-area:status!important;min-width:0!important}
-.sim-speed-wrap{grid-area:speed!important;min-width:0!important}
-#simStatus{
-  font-size:12px!important;line-height:1.3!important;
-  white-space:normal!important;word-break:normal!important;overflow-wrap:break-word!important;
+  padding:9px 10px!important;
 }
 .sim-icon-btn{
-  width:44px!important;height:44px!important;min-width:44px!important;
-  padding:0!important;font-size:20px!important;line-height:1!important;
+  width:42px!important;height:42px!important;min-width:42px!important;
+  padding:0!important;font-size:18px!important;line-height:1!important;
+  white-space:nowrap!important;
 }
+.sim-control-center{min-width:0!important}
+#simStatus{
+  margin:0!important;font-size:12px!important;line-height:1.3!important;
+  overflow-wrap:anywhere!important;
+}
+.sim-speed-wrap{min-width:0!important}
 .sim-speed-wrap span{display:none!important}
-.sim-speed-wrap select{width:100%!important;min-width:0!important;padding:6px!important}
+.sim-speed-wrap select{width:100%!important;min-width:0!important;padding:7px!important}
+#simResetTop{background:#16243a!important}
 @media(max-width:600px){
   .sim-scene-controls{
-    grid-template-columns:44px 44px minmax(0,1fr)!important;
-    grid-template-areas:
-      "play reset status"
-      "speed speed speed"!important;
+    grid-template-columns:40px 40px minmax(0,1fr)!important;
+    grid-template-areas:"play reset status" "speed speed speed"!important;
   }
-  .sim-speed-wrap{
-    display:grid!important;grid-template-columns:1fr!important;
-  }
+  #simStart{grid-area:play!important}
+  #simResetTop{grid-area:reset!important}
+  .sim-control-center{grid-area:status!important}
+  .sim-speed-wrap{grid-area:speed!important}
 }
 </style>
 
 <style>
-/* v0.91 — route-analysis GPX scheme must be visible on phone */
-#mapAnalysisResults .ford-map-layout{
-  display:grid!important;
-  grid-template-columns:1fr!important;
-  gap:10px!important;
+/* v0.95 — Misha start/finish from v0.87 */
+.misha-direct{
+  position:fixed;inset:0;z-index:99999;display:none;
+  align-items:center;justify-content:center;pointer-events:none;
+  background:rgba(3,10,20,.22)
 }
-#mapAnalysisResults .ford-map-panel{
-  display:block!important;
-  width:100%!important;
-  min-height:300px!important;
-  padding:8px!important;
-  border:1px solid #2a3a54!important;
-  border-radius:14px!important;
-  background:#081321!important;
+.misha-direct.show{display:flex!important}
+.misha-direct-card{
+  width:min(320px,82vw);padding:14px;border-radius:18px;
+  background:rgba(5,16,30,.96);border:1px solid #ffb52b;
+  box-shadow:0 14px 38px #0009;text-align:center;
+  animation:misha095 3s ease both
 }
-#mapAnalysisResults #fordSchemeCanvas{
-  display:block!important;
-  width:100%!important;
-  height:300px!important;
-  min-height:300px!important;
-  background:#081321!important;
+.misha-direct-card img{
+  width:150px;height:125px;object-fit:cover;border-radius:13px;
+  display:block;margin:0 auto 8px
 }
-#mapAnalysisResults #fordLeafletMap{display:none!important}
-#mapAnalysisResults .ford-map-title{
-  display:block!important;
-  margin-bottom:7px!important;
-  font-weight:700!important;
+.misha-direct-title{font-size:30px;font-weight:900;letter-spacing:.06em}
+.misha-direct-sub{font-size:13px;color:#aebbd0;margin-top:4px}
+@keyframes misha095{
+  0%{opacity:0;transform:translateX(30px) scale(.94)}
+  12%,80%{opacity:1;transform:translateX(0) scale(1)}
+  100%{opacity:0;transform:translateX(-35px) scale(.96)}
 }
-</style>
-
-<style>
-/* v0.91 — keep simulation illustration visible even before a forecast exists */
-.sim-scene{
-  position:relative!important;
-  min-height:430px!important;
-  overflow:hidden!important;
-}
-#simCourseCanvas{
-  display:block!important;
-  width:100%!important;
-  min-height:420px!important;
-  background:
-    linear-gradient(to bottom,rgba(20,50,80,.92) 0%,rgba(160,105,25,.90) 55%,rgba(18,35,42,.96) 56%,rgba(79,68,56,.98) 100%)!important;
-}
-.sim-empty-picture{
-  position:absolute;
-  left:0; right:0;
-  top:64px; bottom:86px;
-  z-index:1;
-  pointer-events:none;
-  display:flex;
-  align-items:flex-end;
-  justify-content:flex-start;
-  padding:18px 24px;
-}
-.sim-empty-picture .runner{
-  font-size:72px;
-  filter:drop-shadow(0 5px 5px rgba(0,0,0,.45));
-}
-.sim-empty-picture .mountains{
-  position:absolute;left:0;right:0;bottom:54px;height:125px;opacity:.72;
-  background:
-    linear-gradient(145deg,transparent 0 15%,#142632 15% 32%,transparent 32% 38%,#1b303c 38% 58%,transparent 58% 66%,#142632 66% 85%,transparent 85%);
-}
-.sim-empty-picture.hide{display:none!important}
-</style>
-
-<style>
-/* v0.94 — map analysis UI restored to v0.84 style */
-.map-analyze-v084{
-  margin:16px 0 18px;
-  padding:18px;
-  border:1px solid #2a3b55;
-  border-radius:18px;
-  background:#0b1626;
-}
-.map-analyze-head{
-  display:flex;justify-content:space-between;gap:14px;align-items:flex-start;
-}
-.map-analyze-title{font-size:22px;font-weight:800;color:#f3f7fb}
-.map-analyze-sub{font-size:14px;color:#98a9bf;margin-top:4px}
-.map-analyze-timer{font-size:30px;font-weight:800;color:#f59e0b}
-.map-analyze-progress-row{
-  display:grid;grid-template-columns:minmax(0,1fr) 52px;gap:10px;align-items:center;margin-top:14px
-}
-.map-analyze-progress{
-  height:10px;background:#243248;border-radius:999px;overflow:hidden
-}
-.map-analyze-progress>div{
-  height:100%;width:0%;background:#f59e0b;border-radius:999px;transition:width .25s ease
-}
-.map-analyze-percent{font-weight:700;color:#f59e0b;text-align:right}
-.map-analyze-timeout{
-  margin-top:16px;padding:14px;border:1px solid #8a5a12;border-radius:14px;background:#2b1d08
-}
-.map-analyze-timeout-title{font-weight:800;color:#fbbf24}
-.map-analyze-timeout-text{margin-top:6px;color:#d7c8a0}
-.map-analyze-retry{
-  margin-top:12px;width:100%;padding:12px;border:0;border-radius:12px;background:#31415c;color:white;font-weight:700
-}
-.map-analyze-info{
-  margin-top:16px;padding:14px;border:1px solid #24496a;border-radius:14px;background:#0a2032;color:#b7d8f2
-}
-.map-analyze-info-title{font-weight:800;color:#7dd3fc;margin-bottom:5px}
-.map-analyze-meta{margin-top:14px;color:#9eacc0;line-height:1.5}
 </style>
 </head>
 <body>
-<div class="app-version">v0.94</div>
+<div class="app-version">v0.95</div>
   <header class="app-header">
     <div>
       <div class="eyebrow">Прогноз и анализ трейловых гонок</div>
@@ -718,39 +567,7 @@
           <div class="muted">Время берётся из временных меток GPX: без пауз — только движение, с паузами — от первой до последней точки.</div>
         </div>
 
-        
-<div id="mapAnalyzePanelV084" class="map-analyze-v084">
-  <div class="map-analyze-head">
-    <div>
-      <div class="map-analyze-title">Анализ карты</div>
-      <div class="map-analyze-sub">Идёт анализ профиля и особенностей трека</div>
-    </div>
-    <div id="mapAnalyzeTimerV084" class="map-analyze-timer">00:00</div>
-  </div>
-
-  <div class="map-analyze-progress-row">
-    <div class="map-analyze-progress"><div id="mapAnalyzeProgressV084"></div></div>
-    <div id="mapAnalyzePercentV084" class="map-analyze-percent">0%</div>
-  </div>
-
-  <div id="mapAnalyzeTimeoutV084" class="map-analyze-timeout" style="display:none">
-    <div class="map-analyze-timeout-title">⚠️ Анализ остановлен: не удалось завершить за 20 секунд.</div>
-    <div class="map-analyze-timeout-text">Вы можете запустить анализ ещё раз или продолжить без него.</div>
-    <button id="mapAnalyzeRetryV084" class="map-analyze-retry">↻ Запустить анализ снова</button>
-  </div>
-
-  <div class="map-analyze-info">
-    <div class="map-analyze-info-title">ℹ️ Анализ карты нужен для улучшенного прогноза по треку</div>
-    <div>Находит тропы, технические участки, броды, подъёмы и спуски, что позволяет точнее оценить темп и итоговое время.</div>
-  </div>
-
-  <div class="map-analyze-meta">
-    <div>Среднее время анализа карты — 15 секунд.</div>
-    <div id="mapAnalyzeLastV084">Последний анализ: не выполнен.</div>
-  </div>
-</div>
-
-<div class="field">
+        <div class="field">
           <span>Анализ карты</span>
           <button id="mapAnalyzeBtn" type="button" class="primary action-idle" disabled>Анализ карты</button>
         <div id="mapTimingNote" class="map-info-note">
@@ -1100,11 +917,7 @@
   <b id="simEventChipTitle"></b>
   <strong id="simEventChipDelta"></strong>
 </div>
-      <div id="simEmptyPicture" class="sim-empty-picture">
-  <div class="mountains"></div>
-  <div class="runner">🚶‍♂️🎒</div>
-</div>
-<canvas id="simCourseCanvas"></canvas>
+      <canvas id="simCourseCanvas"></canvas>
 
       <div id="simEventCard" class="event-card">
         <b id="simEventTitle"></b>
@@ -1164,17 +977,11 @@
     Модель является оценочной. Броды, погода, питание, состояние покрытия, самочувствие и другие факторы могут существенно повлиять на фактический результат. Расчёты носят исключительно информационно-ознакомительный характер, не являются гарантией результата или рекомендацией к действию. Автор не несёт ответственности за решения, принятые на основании расчётов приложения.
   </footer>
 
-  <script src="app.js?v=094"></script>
+  <script src="app.js?v=095"></script>
 <footer class="app-footer">Сидоренко Павел (c) 2026</footer>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
-<div id="mishaStartSendoff" class="misha-direct">
-      <div class="misha-direct-card">
-        <div><span class="misha-direct-bear">🐻</span><span class="misha-direct-axe">🪓</span></div>
-        <div class="misha-direct-title">СТАРТ</div>
-        <div class="misha-direct-sub">Миша с топором провожает тебя на трассу</div>
-      </div>
-    </div>
+
 </div>
 <style>
 .misha-start-sendoff{position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;pointer-events:none;background:rgba(2,9,18,.18)}
@@ -1186,13 +993,23 @@
 @media(max-width:600px){.misha-start-inner{width:250px}.misha-start-inner img{width:125px;height:105px}.misha-start-inner b{font-size:15px}}
 </style>
 
-<div id="mishaFinishWelcome" class="misha-direct">
-      <div class="misha-direct-card">
-        <div><span class="misha-direct-bear">🐻</span><span class="misha-direct-axe">🪓</span></div>
-        <div class="misha-direct-title">ФИНИШ</div>
-        <div class="misha-direct-sub">Миша с топором встречает тебя на финише</div>
-      </div>
-    </div>
+
 </div>
+
+<div id="mishaStartSendoff" class="misha-direct" aria-hidden="true">
+  <div class="misha-direct-card">
+    <img src="misha_start.png" alt="Миша с топором">
+    <div class="misha-direct-title">СТАРТ</div>
+    <div class="misha-direct-sub">Миша с топором провожает тебя на трассу</div>
+  </div>
+</div>
+<div id="mishaFinishWelcome" class="misha-direct" aria-hidden="true">
+  <div class="misha-direct-card">
+    <img src="misha_start.png" alt="Миша с топором">
+    <div class="misha-direct-title">ФИНИШ</div>
+    <div class="misha-direct-sub">Миша с топором встречает тебя на финише</div>
+  </div>
+</div>
+
 </body>
 </html>
