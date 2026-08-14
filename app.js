@@ -287,7 +287,7 @@ $('installBtn').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try{
-      const reg=await navigator.serviceWorker.register('./sw.js?v=096', {updateViaCache:'none'});
+      const reg=await navigator.serviceWorker.register('./sw.js?v=097', {updateViaCache:'none'});
       await reg.update();
       let refreshing=false;
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -367,14 +367,12 @@ function parseGPX(text){
   }
 
   state.track=out;
-  document.getElementById('mishaStartSendoff')?.classList.remove('show');
-  document.getElementById('mishaFinishWelcome')?.classList.remove('show');
   setTimeout(()=>{
     try{drawFordScheme();renderFordMap();}catch(e){}
   },120);
   document.getElementById('mishaStartSendoff')?.classList.remove('show');
   document.getElementById('mishaFinishWelcome')?.classList.remove('show');
-  // v0.96: a new GPX must never leave the previous route/map analysis on screen.
+  // v0.97: a new GPX must never leave the previous route/map analysis on screen.
   state.mapAnalysis=null;
   if(typeof fordLeafletMap!=='undefined' && fordLeafletMap){
     try{fordLeafletMap.remove()}catch(e){}
@@ -1228,7 +1226,7 @@ async function analyzeMapOSM(){
 
   $('mapAnalyzeStatus').textContent='⏳ Отправляю запрос через серверный proxy…';
 
-  // v0.96: no second internal timer here.
+  // v0.97: no second internal timer here.
   // The map-analysis button owns the single hard 20 second timeout.
   let analysisTimedOut=false;
 
@@ -4124,7 +4122,7 @@ function setMovingTimeFieldFromOCR(value){
     if(m) seconds=Number(m[1])*60+Number(m[2]);
   }
 
-  // v0.96 lower field originally inherited a numeric "minutes" input.
+  // v0.97 lower field originally inherited a numeric "minutes" input.
   if(el.type==='number'){
     if(seconds!=null) el.value=(seconds/60).toFixed(2).replace(/\.00$/,'');
     else{
@@ -4283,17 +4281,51 @@ const E=id=>document.getElementById(id);
 
 function showMishaStartDirect(){
   const el=document.getElementById('mishaStartSendoff');
-  if(!el)return;
+  if(!el) return;
+  const b=el.querySelector('b'), s=el.querySelector('span');
+  if(b) b.textContent='🐻 Миша с топором';
+  if(s) s.textContent='СТАРТ 🏁';
   el.classList.add('show');
-  setTimeout(()=>el.classList.remove('show'),3000);
+  clearTimeout(window.__mishaStartTimer);
+  window.__mishaStartTimer=setTimeout(()=>el.classList.remove('show'),3000);
 }
-
 function showMishaFinishDirect(){
   const el=document.getElementById('mishaFinishWelcome');
-  if(!el)return;
+  if(!el) return;
+  const b=el.querySelector('b'), s=el.querySelector('span');
+  if(b) b.textContent='🐻 Миша с топором';
+  if(s) s.textContent='ФИНИШ 🏁';
   el.classList.add('show');
-  setTimeout(()=>el.classList.remove('show'),3000);
+  clearTimeout(window.__mishaFinishTimer);
+  window.__mishaFinishTimer=setTimeout(()=>el.classList.remove('show'),3000);
 }
+
+if(!E('simStart')) return;
+let timer=null,pauseTimer=null,countTimer=null,progress=0,penalty=0,fired=new Set(),schedule=[],particles=[],simStartDate=null;
+let aidStations=[],fatigueActive=false,luckActive=false,demotivationActive=false,negativeStreak=0,simulationDNF=false,lastAidIndex=-1;
+
+const activeEventCount=()=>{
+  const hours=Math.max(0.1,baseSec()/3600);
+
+  // v0.66: за одну симуляцию используется только небольшая случайная часть пула.
+  // Чем дольше гонка, тем больше событий, но никогда не все.
+  let minEvents=0,maxEvents=1;
+  if(hours<1){minEvents=0;maxEvents=1;}
+  else if(hours<2){minEvents=1;maxEvents=1;}
+  else if(hours<4){minEvents=1;maxEvents=3;}
+  else if(hours<6){minEvents=2;maxEvents=4;}
+  else if(hours<10){minEvents=3;maxEvents=6;}
+  else if(hours<15){minEvents=5;maxEvents=8;}
+  else {minEvents=6;maxEvents=10;}
+
+  // Жёстко не чаще 2 событий в час и не больше 10 за всю гонку.
+  const hardCap=Math.max(0,Math.floor(hours*2));
+  maxEvents=Math.min(maxEvents,hardCap,10,Math.max(0,events.length-1));
+  minEvents=Math.min(minEvents,maxEvents);
+
+  if(maxEvents<=0) return 0;
+  return minEvents + Math.floor(Math.random()*(maxEvents-minEvents+1));
+};
 
 function dist(){return Number(state?.dist||0)}
 function gain(){return Number(state?.gain||0)}
@@ -4306,20 +4338,26 @@ function chooseAidStations(){
   const d=dist();
   if(!d){aidStations=[];return}
 
+  // Минимум 5 ПП на 90 км и длиннее.
   let minCount=Math.max(1,Math.ceil(d/18));
   if(d>=90) minCount=Math.max(5,minCount);
+
+  // В текущей логике максимум 5 ПП.
   const count=Math.min(5,minCount);
 
+  // ПП не ближе 10 км друг от друга.
   const minGap=10;
   const firstMin=Math.min(8,Math.max(3,d*.08));
   const lastMax=d-3;
   const usable=Math.max(0,lastMax-firstMin);
   const baseGap=count>1?usable/(count-1):0;
+
   aidStations=[];
 
   for(let i=0;i<count;i++){
     let km=count===1 ? d*.5 : firstMin+i*baseGap;
 
+    // Небольшой рандом только когда хватает места сверх минимальных 10 км.
     if(i>0 && i<count-1){
       const room=Math.max(0,baseGap-minGap);
       km += (Math.random()-.5)*Math.min(4,room*.7);
@@ -4330,6 +4368,7 @@ function chooseAidStations(){
     aidStations.push(Math.max(1,km));
   }
 
+  // Контрольный проход.
   for(let i=1;i<aidStations.length;i++){
     if(aidStations[i]-aidStations[i-1]<minGap){
       aidStations[i]=aidStations[i-1]+minGap;
@@ -4360,7 +4399,7 @@ function initStartConditions(){
   simulationDNF=false;
   lastAidIndex=-1;
 
-  // v0.96: only one start state can appear, and only in 30% of simulations total.
+  // v0.97: only one start state can appear, and only in 30% of simulations total.
   if(Math.random()<0.30){
     const pick=Math.floor(Math.random()*3);
     if(pick===0){
@@ -4391,6 +4430,8 @@ function checkAidStation(km){
       if(fatigueActive){
         fatigueActive=false;
 
+        // Усталость может стоить максимум 30 минут.
+        // Если ПП встретился раньше, возвращаем неиспользованную часть штрафа.
         const elapsedRaceSec=Math.max(0,baseSec()*progress);
         const fatigueElapsedSec=Math.max(0,elapsedRaceSec-fatigueStartVirtualSec);
         const actualFatigueCost=Math.min(1800,fatigueElapsedSec);
@@ -4984,7 +5025,7 @@ document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{
 
 
 
-// v0.96 route map redraw
+// v0.97 route map redraw
 
 document.querySelectorAll('.tab').forEach(btn=>{
   btn.addEventListener('click',()=>{

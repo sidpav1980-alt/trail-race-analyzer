@@ -10,7 +10,7 @@
   <title>Прогноз и анализ трейловых гонок</title>
   <link rel="manifest" href="manifest.webmanifest?v=075">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="styles.css?v=096">
+  <link rel="stylesheet" href="styles.css?v=097">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3ynBv0TtP4JpC5dQF3Vqv2tLIbV0w=" crossorigin="">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 
@@ -172,7 +172,7 @@
 
 
 <style>
-/* v0.96 — compact phone simulation */
+/* v0.97 — compact phone simulation */
 .sim-profile-card{display:none!important}
 .sim-reference-shell{gap:10px!important}
 .sim-scene-title{
@@ -291,7 +291,7 @@
 </style>
 
 <style>
-/* v0.96 — small event notification above the track profile */
+/* v0.97 — small event notification above the track profile */
 #simEventCard{display:none!important}
 .sim-event-chip{
   position:absolute;
@@ -369,7 +369,7 @@
 </style>
 
 <style>
-/* v0.96 — static route map, no zoom/pan */
+/* v0.97 — static route map, no zoom/pan */
 .ford-leaflet-map,
 .sim-ford-map{
   touch-action:none!important;
@@ -384,7 +384,7 @@
 </style>
 
 <style>
-/* v0.96: compact controls, nothing overlaps on iPhone */
+/* v0.97: compact controls, nothing overlaps on iPhone */
 .sim-scene-controls{
   position:static!important;
   display:grid!important;
@@ -428,13 +428,13 @@
 </style>
 
 <style>
-/* v0.96 */
+/* v0.97 */
 .sim-fords-card{display:none!important}
 .sim-mid-grid{grid-template-columns:1fr!important}
 </style>
 
 <style>
-/* v0.96 — map is shown in route analysis, hidden only in simulation */
+/* v0.97 — map is shown in route analysis, hidden only in simulation */
 #route .ford-map-panel,
 [data-tabpanel="route"] .ford-map-panel,
 #tab-route .ford-map-panel{
@@ -454,7 +454,7 @@
 </style>
 
 <style>
-/* v0.96 — guaranteed GPX scheme in Analysis map block */
+/* v0.97 — guaranteed GPX scheme in Analysis map block */
 #mapAnalysisResults .ford-map-panel{
   display:block!important;
   visibility:visible!important;
@@ -481,43 +481,9 @@
   #mapAnalysisResults .ford-map-caption{display:none!important}
 }
 </style>
-
-<style>
-/* v0.96 — start/finish Misha from v0.87 */
-.misha-direct{
-  position:fixed;inset:0;z-index:99999;display:none;
-  align-items:center;justify-content:center;pointer-events:none;
-  background:rgba(3,10,20,.22)
-}
-.misha-direct.show{display:flex!important}
-.misha-direct-card{
-  width:min(310px,80vw);
-  padding:16px;
-  border:1px solid #f59e0b;
-  border-radius:20px;
-  background:rgba(5,16,30,.96);
-  text-align:center;
-  box-shadow:0 16px 42px rgba(0,0,0,.55);
-  animation:misha096 3s ease both;
-}
-.misha-direct-hero{font-size:78px;line-height:1}
-.misha-direct-hero span{
-  display:inline-block;font-size:44px;
-  transform:rotate(-18deg);margin-left:-14px
-}
-.misha-direct-title{
-  margin-top:8px;font-size:30px;font-weight:900;letter-spacing:.06em;color:#fff
-}
-.misha-direct-sub{margin-top:5px;font-size:13px;color:#aebbd0}
-@keyframes misha096{
-  0%{opacity:0;transform:translateY(12px) scale(.94)}
-  12%,82%{opacity:1;transform:translateY(0) scale(1)}
-  100%{opacity:0;transform:translateY(-10px) scale(.96)}
-}
-</style>
 </head>
 <body>
-<div class="app-version">v0.96</div>
+<div class="app-version">v0.97</div>
   <header class="app-header">
     <div>
       <div class="eyebrow">Прогноз и анализ трейловых гонок</div>
@@ -976,11 +942,15 @@
     Модель является оценочной. Броды, погода, питание, состояние покрытия, самочувствие и другие факторы могут существенно повлиять на фактический результат. Расчёты носят исключительно информационно-ознакомительный характер, не являются гарантией результата или рекомендацией к действию. Автор не несёт ответственности за решения, принятые на основании расчётов приложения.
   </footer>
 
-  <script src="app.js?v=096"></script>
+  <script src="app.js?v=097"></script>
 <footer class="app-footer">Сидоренко Павел (c) 2026</footer>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
-
+<div id="mishaStartSendoff" class="misha-start-sendoff" aria-hidden="true">
+  <div class="misha-start-inner">
+    <img src="misha_start.png" alt="Миша с топором">
+    <div><b>🐻 Миша с топором провожает тебя со старта!</b><span>Удачной гонки! 🪓</span></div>
+  </div>
 </div>
 <style>
 .misha-start-sendoff{position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;pointer-events:none;background:rgba(2,9,18,.18)}
@@ -992,24 +962,11 @@
 @media(max-width:600px){.misha-start-inner{width:250px}.misha-start-inner img{width:125px;height:105px}.misha-start-inner b{font-size:15px}}
 </style>
 
-
-</div>
-
-<div id="mishaStartSendoff" class="misha-direct" aria-hidden="true">
-  <div class="misha-direct-card">
-    <div class="misha-direct-hero">🐻 <span>🪓</span></div>
-    <div class="misha-direct-title">СТАРТ</div>
-    <div class="misha-direct-sub">Миша с топором провожает тебя на трассу</div>
+<div id="mishaFinishWelcome" class="misha-start-sendoff" aria-hidden="true">
+  <div class="misha-start-inner misha-finish-inner">
+    <img src="misha_start.png" alt="Миша с топором">
+    <div><b>🏁 Миша с топором встречает тебя на финише!</b><span>Финиш! 🐻🪓</span></div>
   </div>
 </div>
-
-<div id="mishaFinishWelcome" class="misha-direct" aria-hidden="true">
-  <div class="misha-direct-card">
-    <div class="misha-direct-hero">🐻 <span>🪓</span></div>
-    <div class="misha-direct-title">ФИНИШ</div>
-    <div class="misha-direct-sub">Миша с топором встречает тебя на финише</div>
-  </div>
-</div>
-
 </body>
 </html>
