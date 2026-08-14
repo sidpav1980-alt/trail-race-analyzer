@@ -287,7 +287,7 @@ $('installBtn').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try{
-      const reg=await navigator.serviceWorker.register('./sw.js?v=090', {updateViaCache:'none'});
+      const reg=await navigator.serviceWorker.register('./sw.js?v=091', {updateViaCache:'none'});
       await reg.update();
       let refreshing=false;
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -372,7 +372,7 @@ function parseGPX(text){
   },120);
   document.getElementById('mishaStartSendoff')?.classList.remove('show');
   document.getElementById('mishaFinishWelcome')?.classList.remove('show');
-  // v0.90: a new GPX must never leave the previous route/map analysis on screen.
+  // v0.91: a new GPX must never leave the previous route/map analysis on screen.
   state.mapAnalysis=null;
   if(typeof fordLeafletMap!=='undefined' && fordLeafletMap){
     try{fordLeafletMap.remove()}catch(e){}
@@ -1230,7 +1230,7 @@ async function analyzeMapOSM(){
   let resp=null;
   let lastErr=null;
 
-  // v0.90: retry short proxy/network failures instead of ending analysis after a few seconds.
+  // v0.91: retry short proxy/network failures instead of ending analysis after a few seconds.
   for(let attempt=1; attempt<=3; attempt++){
     if(runId!==mapAnalysisRunId){
       const e=new Error('Анализ карты заменён новым запуском');
@@ -1872,7 +1872,7 @@ $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
   let slowTimer=null;
   let timedOut=false;
 
-  // v0.90:
+  // v0.91:
   // At 20 s we only warn the user; we no longer destroy the OSM request.
   // Render and mobile networks can legitimately need a little longer.
   slowTimer=setTimeout(()=>{
@@ -4159,7 +4159,7 @@ function setMovingTimeFieldFromOCR(value){
     if(m) seconds=Number(m[1])*60+Number(m[2]);
   }
 
-  // v0.90 lower field originally inherited a numeric "minutes" input.
+  // v0.91 lower field originally inherited a numeric "minutes" input.
   if(el.type==='number'){
     if(seconds!=null) el.value=(seconds/60).toFixed(2).replace(/\.00$/,'');
     else{
@@ -4422,7 +4422,7 @@ function initStartConditions(){
   simulationDNF=false;
   lastAidIndex=-1;
 
-  // v0.90: only one start state can appear, and only in 30% of simulations total.
+  // v0.91: only one start state can appear, and only in 30% of simulations total.
   if(Math.random()<0.30){
     const pick=Math.floor(Math.random()*3);
     if(pick===0){
@@ -4708,8 +4708,10 @@ function draw(){
   }
 
   // Runner moves subtly across the lower scene, always facing right.
-  const rx=55+progress*Math.max(40,W-135);
-  const bob=Math.sin(progress*180)*2.5;
+  // v0.92: restore the small hiker from the earlier simulation UI.
+  // Keep him clearly visible even before/after the run and move him across the lower trail.
+  const rx=48+progress*Math.max(36,W-112);
+  const bob=Math.sin(progress*180)*2.0;
   const ry=groundY-24+bob;
   ctx.save();ctx.translate(rx,ry);
   ctx.lineCap='round';
@@ -5075,7 +5077,7 @@ document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{
 
 
 
-// v0.90 route map redraw
+// v0.91 route map redraw
 
 document.querySelectorAll('.tab').forEach(btn=>{
   btn.addEventListener('click',()=>{
@@ -5091,3 +5093,16 @@ document.querySelectorAll('.tab').forEach(btn=>{
   });
 });
 
+
+
+// v0.91 — Chrome/PWA cache refresh.
+window.addEventListener('load', async ()=>{
+  if('serviceWorker' in navigator){
+    try{
+      const reg=await navigator.serviceWorker.getRegistration();
+      if(reg){
+        await reg.update();
+      }
+    }catch(e){}
+  }
+});

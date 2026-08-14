@@ -1,62 +1,63 @@
-const CACHE='trail-analyzer-web-v075';
-const CORE=[
-  './',
-  './index.html',
-  './styles.css?v=090',
-  './app.js?v=090',
-  './manifest.webmanifest?v=075',
-  './icon-192.png',
-  './icon-512.png'
-];
+const CACHE_NAME='trail-race-v093-map-analysis-v087';
+const ASSETS=['./index.html', './styles.css?v=091', './app.js?v=091', './manifest.webmanifest?v=091', './icon-192.png', './icon-512.png', '/index.html'];
 
-self.addEventListener('install',event=>{
+self.addEventListener('install', event=>{
   self.skipWaiting();
-  event.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)));
-});
-
-self.addEventListener('activate',event=>{
   event.waitUntil(
-    caches.keys()
-      .then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))
-      .then(()=>self.clients.claim())
+    caches.open(CACHE_NAME).then(cache=>cache.addAll(ASSETS).catch(()=>{}))
   );
 });
 
-async function networkFirst(request){
-  try{
-    const response=await fetch(request,{cache:'no-store'});
-    if(response && response.ok){
-      const cache=await caches.open(CACHE);
-      cache.put(request,response.clone());
-    }
-    return response;
-  }catch(e){
-    return (await caches.match(request)) || (await caches.match('./index.html'));
-  }
-}
+self.addEventListener('activate', event=>{
+  event.waitUntil((async()=>{
+    const keys=await caches.keys();
+    await Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)));
+    await self.clients.claim();
+  })());
+});
 
-async function staleWhileRevalidate(request){
-  const cache=await caches.open(CACHE);
-  const cached=await cache.match(request);
-  const network=fetch(request,{cache:'no-store'}).then(resp=>{
-    if(resp && resp.ok) cache.put(request,resp.clone());
-    return resp;
-  }).catch(()=>null);
-  return cached || (await network) || (await cache.match('./index.html'));
-}
+self.addEventListener('fetch', event=>{
+  const req=event.request;
+  if(req.method!=='GET') return;
 
-self.addEventListener('fetch',event=>{
-  if(event.request.method!=='GET') return;
-  const url=new URL(event.request.url);
+  const url=new URL(req.url);
 
-  if(url.pathname.startsWith('/api/') || url.pathname==='/health') return;
-
-  // Always check network for page navigation so a fresh deployment appears immediately.
-  if(event.request.mode==='navigate' || url.pathname.endsWith('/index.html') || url.pathname==='/'){
-    event.respondWith(networkFirst(event.request));
+  // HTML/navigation: network first, so Chrome sees a new deployed version immediately.
+  if(req.mode==='navigate' || url.pathname.endsWith('/') || url.pathname.endsWith('/index.html')){
+    event.respondWith((async()=>{
+      try{
+        const fresh=await fetch(req,{cache:'no-store'});
+        const cache=await caches.open(CACHE_NAME);
+        cache.put(req,fresh.clone()).catch(()=>{});
+        return fresh;
+      }catch(e){
+        return (await caches.match(req)) || (await caches.match('./index.html'));
+      }
+    })());
     return;
   }
 
-  // Versioned JS/CSS can be cache-first-ish; query string changes on every release.
-  event.respondWith(staleWhileRevalidate(event.request));
+  // Versioned JS/CSS: network first as well.
+  if(url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.endsWith('.webmanifest')){
+    event.respondWith((async()=>{
+      try{
+        const fresh=await fetch(req,{cache:'no-store'});
+        const cache=await caches.open(CACHE_NAME);
+        cache.put(req,fresh.clone()).catch(()=>{});
+        return fresh;
+      }catch(e){
+        return (await caches.match(req)) || Response.error();
+      }
+    })());
+    return;
+  }
+
+  // Images/other static resources: cache first for offline.
+  event.respondWith(
+    caches.match(req).then(hit=>hit || fetch(req).then(resp=>{
+      const copy=resp.clone();
+      caches.open(CACHE_NAME).then(cache=>cache.put(req,copy)).catch(()=>{});
+      return resp;
+    }))
+  );
 });
