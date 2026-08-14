@@ -287,7 +287,7 @@ $('installBtn').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try{
-      const reg=await navigator.serviceWorker.register('./sw.js?v=204', {updateViaCache:'none'});
+      const reg=await navigator.serviceWorker.register('./sw.js?v=206', {updateViaCache:'none'});
       await reg.update();
       let refreshing=false;
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -962,7 +962,7 @@ function buildOverpassQuery(points){
   const pts=(points||[]).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
   if(!pts.length) return '[out:json][timeout:90];();out;';
 
-  // v0.0204: do NOT ask Overpass for one huge route bbox. On long/curvy tracks
+  // v0.0206: do NOT ask Overpass for one huge route bbox. On long/curvy tracks
   // that query was too heavy and all endpoints could time out, producing 0%.
   // Build several small boxes along the GPX corridor instead.
   const boxes=[];
@@ -1188,12 +1188,12 @@ function analyzeWaterCrossings(samples,elements=[]){
   }
 
   // Second pass: merge duplicated representations of the same physical ford.
-  // Different OSM objects are merged when their crossings are within 350 m.
+  // Different OSM objects are merged when their crossings are within 400 m.
   objectCrossings.sort((a,b)=>a.km-b.km);
   const physical=[];
   for(const c of objectCrossings){
     const prev=physical[physical.length-1];
-    if(prev && c.km-prev.km<=0.35){
+    if(prev && c.km-prev.km<=0.40){
       const n=prev.count||1;
       prev.km=(prev.km*n+c.km)/(n+1);
       prev.start=Math.min(prev.start,c.start);
@@ -1289,7 +1289,7 @@ function groupFordKmPoints(kms, maxGapKm=0.35){
       continue;
     }
 
-    // v0.0204: only nearby parts of the SAME water crossing are merged.
+    // v0.0206: only nearby parts of the SAME water crossing are merged.
     // 150 m is enough for braided channels / GPS jitter, while separate
     // crossings 200+ m apart remain separate.
     if(km-current.end<=maxGapKm){
@@ -1466,7 +1466,7 @@ async function analyzeMapOSM(){
   // analysis with the GPX itself. Surface/ford values remain unknown rather
   // than stopping the whole analysis.
   if(!data){
-    // v0.0204: if OSM is temporarily down, reuse ONLY a cache matching this GPX.
+    // v0.0206: if OSM is temporarily down, reuse ONLY a cache matching this GPX.
     try{
       const c=JSON.parse(localStorage.getItem('trailOSMElementsCache')||'null');
       const first=state.track?.[0], last=state.track?.[state.track.length-1];
@@ -1624,7 +1624,7 @@ function renderMapAnalysis(result){
   const {samples,summary,elements=[]}=result;
   const crossings=analyzeWaterCrossings(samples,elements);
 
-  // v0.0204: analyzeWaterCrossings already groups by OSM water object first,
+  // v0.0206: analyzeWaterCrossings already groups by OSM water object first,
   // then deduplicates only near-identical physical crossings.
   const bridgeKms=(crossings.bridges||[]).slice();
   const confirmedFordKms=(crossings.confirmed||[]).slice();
@@ -1688,7 +1688,7 @@ function renderMapAnalysis(result){
 
   $('mapAnalysisNote').textContent=result?.osmUnavailable
     ? 'OSM-серверы временно недоступны. Профиль GPX сохранён; повторите анализ позже для покрытия и бродов.'
-    : `OSM-классификация маршрута. Броды в пределах 350 м объединяются в один; рукава одной реки также объединяются, мосты исключаются. Неизвестно: ${(100-summary.coverage).toFixed(0)}%.`;
+    : `OSM-классификация маршрута. Броды в пределах 400 м объединяются в один; рукава одной реки также объединяются, мосты исключаются. Неизвестно: ${(100-summary.coverage).toFixed(0)}%.`;
   drawSurfaceStrip(samples);
   requestAnimationFrame(()=>drawFordScheme());
 }
@@ -4412,7 +4412,7 @@ const events=[
   ['🎵','Любимый трек','Поймали ритм и незаметно ускорились.',-75],
   ['🔥','Второе дыхание','Ноги неожиданно вспомнили, зачем они здесь.',-120],
   ['⚡','Идеальный спуск','Отпустили ноги и отыграли время.',-150],
-  ['📣','Болельщики включили турбо','Поддержка сработала лучше геля.',-45],
+  ['📣','Болельщики включили турбо','Поддержка сработала лучше геля. Бонус: минус 5 минут от финишного времени.',-300],
   ['🦌','Встретили оленя','Пришлось остановиться и убедиться, что это реально.',150],
   ['🌄','Залипли на рассвет','Красиво. Очень красиво. Время идёт.',180],
   ['🧭','Идеально срезали развилку','Разметку прочитали с первого раза.',-45],
@@ -4509,14 +4509,12 @@ function showMishaFinishDirect(){
 if(!E('simStart')) return;
 let timer=null,pauseTimer=null,countTimer=null,progress=0,penalty=0,fired=new Set(),schedule=[],particles=[],simStartDate=null;
 let aidStations=[],fatigueActive=false,luckActive=false,demotivationActive=false,negativeStreak=0,simulationDNF=false,lastAidIndex=-1;
-let chestPeekTimes=[],chestPeekIndex=0,chestCatVisible=false,chestCatCaught=false;
-let chestHideTimer=null,chestHitTimer=null,bonusEventsCaught=0;
 
 
 const activeEventCount=()=>{
   const hours=Math.max(0.1,baseSec()/3600);
 
-  // v0.0204 — event count by forecast duration:
+  // v0.0206 — event count by forecast duration:
   // ~1 h  -> exactly 3
   // ~2 h  -> 4–6
   // ~3 h  -> 5–7
@@ -4681,61 +4679,6 @@ function endSimulationDNF(){
 }
 
 
-function setupChestPeeks(){
-  // Three unpredictable chances per race.
-  const bases=[.20,.50,.80];
-  chestPeekTimes=bases.map(b=>Math.max(.08,Math.min(.92,b+(Math.random()-.5)*.16))).sort((a,b)=>a-b);
-  chestPeekIndex=0;
-  chestCatVisible=false;
-  chestCatCaught=false;
-  bonusEventsCaught=0;
-  clearTimeout(chestHideTimer);
-  clearTimeout(chestHitTimer);
-  E('simChest')?.classList.remove('cat-open');
-  E('simChestHit')?.classList.remove('show');
-}
-function showChestCat(){
-  const chest=E('simChest');
-  if(!chest || chestCatVisible) return;
-  chestCatVisible=true;
-  chestCatCaught=false;
-  chest.classList.remove('cat-open');
-  void chest.offsetWidth;
-  chest.classList.add('cat-open');
-  clearTimeout(chestHideTimer);
-  chestHideTimer=setTimeout(()=>{
-    chestCatVisible=false;
-    chest.classList.remove('cat-open');
-  },500);
-}
-function addBonusRandomEvent(){
-  const pool=events.filter(e=>e[1]!=='Встреча с Мишей с топором');
-  if(!pool.length || progress>=.965) return false;
-  const e=pool[Math.floor(Math.random()*pool.length)];
-  const at=Math.min(.985,progress+.035+Math.random()*.07);
-  // Append without sorting: fired stores schedule indexes, so existing indexes stay stable.
-  schedule.push({at,e,bonus:true});
-  E('simEventsCount').textContent=`${fired.size} / ${schedule.length}`;
-  return true;
-}
-function catchChestCat(){
-  if(!chestCatVisible || chestCatCaught) return;
-  chestCatCaught=true;
-  chestCatVisible=false;
-  clearTimeout(chestHideTimer);
-  E('simChest')?.classList.remove('cat-open');
-  const added=addBonusRandomEvent();
-  if(!added) return;
-  bonusEventsCaught++;
-  const hit=E('simChestHit');
-  if(hit){
-    hit.textContent=`🐱 Поймано! +1 событие`;
-    hit.classList.add('show');
-    clearTimeout(chestHitTimer);
-    chestHitTimer=setTimeout(()=>hit.classList.remove('show'),1200);
-  }
-  showConditionChip('🐱','Кошка из сундука','+1 случайное событие');
-}
 function makeSchedule(){
   const n=activeEventCount();
   const misha=events.find(e=>e[1]==='Встреча с Мишей с топором');
@@ -4745,7 +4688,7 @@ function makeSchedule(){
   const positives=shuffled(events.filter(e=>e!==misha && e[3]<0));
   const neutral=shuffled(events.filter(e=>e!==misha && e[3]===0));
 
-  // v0.0204: balance the selected event pool as close to 50/50 as possible.
+  // v0.0206: balance the selected event pool as close to 50/50 as possible.
   // For an odd number of events, the extra event is assigned randomly.
   let negNeed=Math.floor(n/2);
   let posNeed=Math.floor(n/2);
@@ -4839,8 +4782,15 @@ function addParticles(icon){
   for(let i=0;i<n;i++)particles.push({icon,life:1,x:0,y:0,vx:(Math.random()-.5)*2.5,vy:-1.2-Math.random()*2.1,rot:(Math.random()-.5)*.25,size:20+Math.random()*11});
 }
 function fire(idx){
-  const {at,e}=schedule[idx];fired.add(idx);penalty+=e[3];addParticles(e[0]);
-  if(e[3]>0)negativeStreak++;else negativeStreak=0;
+  const {at,e}=schedule[idx];
+  fired.add(idx);
+  const timeAdjustmentSec=Number(e[3])||0;
+  // Event sign convention:
+  // positive event -> negative adjustment -> time is SUBTRACTED;
+  // negative event -> positive adjustment -> time is ADDED.
+  penalty+=timeAdjustmentSec;
+  addParticles(e[0]);
+  if(timeAdjustmentSec>0)negativeStreak++;else negativeStreak=0;
   if(demotivationActive&&negativeStreak>=3){
     const km=(at*dist()).toFixed(1),row=document.createElement('div');row.className='current';
     row.innerHTML=`<span>${km} км</span><span>😞 Три отрицательных события подряд</span><b class="plus">DNF</b>`;
@@ -5115,11 +5065,7 @@ function maybePauseForFord(km){
 }
 
 function tick(){
-  const b=baseSec();
-  if(chestPeekIndex<chestPeekTimes.length && progress>=chestPeekTimes[chestPeekIndex]){
-    chestPeekIndex++;
-    showChestCat();
-  }if(!b||!dist()){stop('Сначала загрузите GPX и рассчитайте прогноз гонки.');return}
+  const b=baseSec();if(!b||!dist()){stop('Сначала загрузите GPX и рассчитайте прогноз гонки.');return}
   const speed=+E('simSpeed').value||1;const realDuration=Math.max(28000,Math.min(75000,28000+dist()*450));progress=Math.min(1,progress+(120/realDuration)*speed);E('simProgress').style.width=(progress*100)+'%';E('simDistance').textContent=`${(progress*dist()).toFixed(1)} / ${dist().toFixed(1)} км`;checkAidStation(progress*dist());updateResults();draw();
 
   // Ford is a route event, not a random event: stop for exactly 3 seconds.
@@ -5138,7 +5084,7 @@ function tick(){
 }
 function run(){clearInterval(timer);timer=setInterval(tick,120);E('simStart').textContent='⏸';E('simStatus').textContent='Симуляция идёт по профилю загруженного трека.'}
 function stop(msg){clearInterval(timer);clearTimeout(pauseTimer);clearInterval(countTimer);timer=null;if(msg)E('simStatus').textContent=msg;E('simStart').textContent='▶'}
-function reset(){clearTimeout(window.__simStartGateTimer);stop();progress=0;penalty=0;fired.clear();particles=[];lastFordPauseKm=null;fordPauseActive=false;fatigueStartVirtualSec=0;fatiguePenaltyAppliedSec=0;simStartDate=firstTrackDate();setupChestPeeks();E('simDnfBanner')?.classList.remove('show');chooseAidStations();initStartConditions();makeSchedule();E('simProgress').style.width='0';E('simDistance').textContent=dist()?`0.0 / ${dist().toFixed(1)} км`:'—';E('simGain').textContent=gain()?`${Math.round(gain())} м`:'—';E('simEventsCount').textContent=`0 / ${schedule.length}`;E('simPenalty').textContent='+0:00';E('simLog').innerHTML='<div><span>—</span><span>События появятся случайно по ходу гонки</span><b>31 событие в пуле</b></div>';E('simEventCard')?.classList.remove('show'); E('simEventChip')?.classList.remove('show');E('simPauseBadge').classList.remove('show');E('simStart').textContent='▶';E('simStart').setAttribute('aria-label','Старт');E('simStart').title='Старт';E('simStart').disabled=!(baseSec()&&dist());updateResults();E('simStatus').textContent=baseSec()&&dist()?'Готово: профиль и время взяты из текущего прогноза.':'Сначала рассчитайте «Прогноз гонки» в разделе 2.';draw()}
+function reset(){clearTimeout(window.__simStartGateTimer);stop();progress=0;penalty=0;fired.clear();particles=[];lastFordPauseKm=null;fordPauseActive=false;fatigueStartVirtualSec=0;fatiguePenaltyAppliedSec=0;simStartDate=firstTrackDate();E('simDnfBanner')?.classList.remove('show');chooseAidStations();initStartConditions();makeSchedule();E('simProgress').style.width='0';E('simDistance').textContent=dist()?`0.0 / ${dist().toFixed(1)} км`:'—';E('simGain').textContent=gain()?`${Math.round(gain())} м`:'—';E('simEventsCount').textContent=`0 / ${schedule.length}`;E('simPenalty').textContent='+0:00';E('simLog').innerHTML='<div><span>—</span><span>События появятся случайно по ходу гонки</span><b>31 событие в пуле</b></div>';E('simEventCard')?.classList.remove('show'); E('simEventChip')?.classList.remove('show');E('simPauseBadge').classList.remove('show');E('simStart').textContent='▶';E('simStart').setAttribute('aria-label','Старт');E('simStart').title='Старт';E('simStart').disabled=!(baseSec()&&dist());updateResults();E('simStatus').textContent=baseSec()&&dist()?'Готово: профиль и время взяты из текущего прогноза.':'Сначала рассчитайте «Прогноз гонки» в разделе 2.';draw()}
 
 setInterval(()=>{
   const b=E('simStart');
@@ -5166,7 +5112,7 @@ E('simStart').addEventListener('click',()=>{
     return;
   }
 
-  // v0.0204: start animation is always a real 3-second start gate.
+  // v0.0206: start animation is always a real 3-second start gate.
   // Simulation speed (including 4×) cannot skip or outrun Misha.
   if(startingFresh){
     showMishaStartDirect();
@@ -5187,9 +5133,6 @@ E('simStart').addEventListener('click',()=>{
     E('simStart').setAttribute('aria-label','Пауза');
     E('simStart').title='Пауза';
   }
-});E('simChest')?.addEventListener('pointerdown',(ev)=>{
-  ev.preventDefault();
-  catchChestCat();
 });
 E('simReset').addEventListener('click',reset);E('simSpeed').addEventListener('change',draw);window.addEventListener('resize',draw);
 // Keep simulation synced when user switches to tab 5 or recalculates forecast.
