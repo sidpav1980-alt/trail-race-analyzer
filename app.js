@@ -1226,25 +1226,15 @@ async function analyzeMapOSM(){
 
   $('mapAnalyzeStatus').textContent='⏳ Отправляю запрос через серверный proxy…';
 
-  // v0.97: no second internal timer here.
-  // The map-analysis button owns the single hard 20 second timeout.
-  let analysisTimedOut=false;
+  // v0.98: no hard timeout — analysis runs until the server responds.
 
   const resp=await fetch('/api/osm',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({query}),
-    signal:controller.signal,
     cache:'no-store'
   });
 
-  if(runId!==mapAnalysisRunId || controller.signal.aborted){
-    const err=new Error(analysisTimedOut
-      ? 'Анализ карты остановлен: превышено 20 секунд'
-      : 'Анализ карты остановлен');
-    err.name=analysisTimedOut?'TimeoutError':'AbortError';
-    throw err;
-  }
 
   if(!resp.ok){
     let detail='';
@@ -1256,13 +1246,6 @@ async function analyzeMapOSM(){
   }
 
   const data=await resp.json();
-  if(runId!==mapAnalysisRunId || controller.signal.aborted){
-    const err=new Error(analysisTimedOut
-      ? 'Анализ карты остановлен: превышено 20 секунд'
-      : 'Анализ карты остановлен');
-    err.name=analysisTimedOut?'TimeoutError':'AbortError';
-    throw err;
-  }
   mapAnalysisAbortController=null;
     normalizeFordData(data);
     {
@@ -1845,38 +1828,12 @@ $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
   setActionState('mapAnalyzeBtn','working');
   p.style.display='block';
   p.value=15;
-  $('mapAnalyzeStatus').textContent='⏳ Анализ карты… лимит 20 секунд.';
+  $('mapAnalyzeStatus').textContent='⏳ Анализ карты… дождитесь полного завершения.';
   startMapAnalysisTimer();
 
-  let timeoutId=null;
-  let timedOut=false;
-
-  const timeoutPromise=new Promise((_,reject)=>{
-    timeoutId=setTimeout(()=>{
-      timedOut=true;
-
-      // invalidates the result of the running analyzeMapOSM()
-      mapAnalysisRunId++;
-      try{
-        if(mapAnalysisAbortController) mapAnalysisAbortController.abort();
-      }catch(e){}
-      mapAnalysisAbortController=null;
-
-      const e=new Error('MAP_HARD_TIMEOUT_20');
-      e.name='TimeoutError';
-      reject(e);
-    },20000);
-  });
 
   try{
-    const result=await Promise.race([
-      analyzeMapOSM(),
-      timeoutPromise
-    ]);
-
-    if(timedOut) return;
-
-    clearTimeout(timeoutId);
+    const result=await analyzeMapOSM();
     p.value=85;
     renderMapAnalysis(result); setTimeout(()=>{try{drawFordScheme();renderFordMap();}catch(e){}},120);
     p.value=100;
@@ -1885,34 +1842,15 @@ $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
     setActionState('mapAnalyzeBtn','success');
     setTimeout(()=>{p.style.display='none'},900);
   }catch(err){
-    clearTimeout(timeoutId);
     stopMapAnalysisTimer();
     p.style.display='none';
     p.value=0;
-
-    if(timedOut || err?.name==='TimeoutError' || err?.message==='MAP_HARD_TIMEOUT_20'){
-      $('mapAnalyzeStatus').textContent='⚠️ Анализ остановлен: превышен лимит 20 секунд. Нажмите «Повторить анализ карты» или используйте прогноз без анализа.';
-      btn.disabled=false;
-      btn.textContent='Повторить анализ карты';
-      setActionState('mapAnalyzeBtn','ready');
-      restoreMapInfoNote();
-      return;
-    }
-
-    if(err?.name==='AbortError'){
-      $('mapAnalyzeStatus').textContent='Анализ карты остановлен.';
-      setActionState('mapAnalyzeBtn','idle');
-    }else{
-      $('mapAnalyzeStatus').textContent='✕ Ошибка анализа карты: '+(err.message||String(err));
-      setActionState('mapAnalyzeBtn','error');
-    }
+    $('mapAnalyzeStatus').textContent='✕ Ошибка анализа карты: '+(err.message||String(err));
+    setActionState('mapAnalyzeBtn','error');
   }finally{
-    clearTimeout(timeoutId);
-    if(!timedOut){
-      mapAnalysisAbortController=null;
-      syncMapAnalyzeButton();
-      restoreMapInfoNote();
-    }
+    mapAnalysisAbortController=null;
+    syncMapAnalyzeButton();
+    restoreMapInfoNote();
   }
 });
 
@@ -4833,7 +4771,7 @@ document.querySelectorAll('.tab').forEach(btn=>{
 
 
 function mapAnalysisTimeoutMessage(){
-  return '⚠️ Анализ остановлен: превышен лимит 20 секунд. Полученные данные сохранены. Часть информации о покрытии и бродах могла не успеть загрузиться. Попробуйте анализ ещё раз.';
+  return '⏳ Анализ карты выполняется до полного завершения.';
 }
 
 function ensureAnalysisTrackScheme(){
