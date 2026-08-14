@@ -287,7 +287,7 @@ $('installBtn').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try{
-      const reg=await navigator.serviceWorker.register('./sw.js?v=091', {updateViaCache:'none'});
+      const reg=await navigator.serviceWorker.register('./sw.js?v=094', {updateViaCache:'none'});
       await reg.update();
       let refreshing=false;
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -4708,7 +4708,7 @@ function draw(){
   }
 
   // Runner moves subtly across the lower scene, always facing right.
-  // v0.92: restore the small hiker from the earlier simulation UI.
+  // v0.94: restore the small hiker from the earlier simulation UI.
   // Keep him clearly visible even before/after the run and move him across the lower trail.
   const rx=48+progress*Math.max(36,W-112);
   const bob=Math.sin(progress*180)*2.0;
@@ -5106,3 +5106,63 @@ window.addEventListener('load', async ()=>{
     }catch(e){}
   }
 });
+
+// v0.94 map analysis v0.84 visual restoration
+
+(function(){
+  const btn=document.getElementById('mapAnalyzeBtn');
+  const retry=document.getElementById('mapAnalyzeRetryV084');
+  const timerEl=document.getElementById('mapAnalyzeTimerV084');
+  const pctEl=document.getElementById('mapAnalyzePercentV084');
+  const bar=document.getElementById('mapAnalyzeProgressV084');
+  const timeoutBox=document.getElementById('mapAnalyzeTimeoutV084');
+  const lastEl=document.getElementById('mapAnalyzeLastV084');
+  if(!btn || !timerEl || !pctEl || !bar) return;
+
+  let visualTimer=null;
+  let startedAt=0;
+
+  function startVisual(){
+    clearInterval(visualTimer);
+    startedAt=Date.now();
+    timeoutBox.style.display='none';
+    bar.style.width='0%';
+    pctEl.textContent='0%';
+    timerEl.textContent='00:00';
+    visualTimer=setInterval(()=>{
+      const s=(Date.now()-startedAt)/1000;
+      const mm=Math.floor(s/60), ss=Math.floor(s%60);
+      timerEl.textContent=String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0');
+      const pct=Math.min(95,Math.round((s/20)*100));
+      bar.style.width=pct+'%';
+      pctEl.textContent=pct+'%';
+    },250);
+  }
+
+  function finishVisual(ok){
+    clearInterval(visualTimer);
+    const s=(Date.now()-startedAt)/1000;
+    if(ok){
+      bar.style.width='100%';
+      pctEl.textContent='100%';
+      lastEl.textContent='Последний анализ: '+s.toFixed(1)+' с';
+    }else{
+      timeoutBox.style.display='block';
+      lastEl.textContent='Последний анализ: не выполнен.';
+    }
+  }
+
+  btn.addEventListener('click',()=>startVisual(),true);
+  retry?.addEventListener('click',()=>btn.click());
+
+  // observe existing app status to sync visual panel
+  const status=document.getElementById('mapAnalyzeStatus');
+  if(status){
+    const mo=new MutationObserver(()=>{
+      const t=status.textContent||'';
+      if(/заверш|готов|успеш/i.test(t)) finishVisual(true);
+      if(/останов|тайм|ошиб|не удалось/i.test(t)) finishVisual(false);
+    });
+    mo.observe(status,{childList:true,subtree:true,characterData:true});
+  }
+})();

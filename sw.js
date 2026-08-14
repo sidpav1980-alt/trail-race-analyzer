@@ -1,5 +1,5 @@
-const CACHE_NAME='trail-race-v093-map-analysis-v087';
-const ASSETS=['./index.html', './styles.css?v=091', './app.js?v=091', './manifest.webmanifest?v=091', './icon-192.png', './icon-512.png', '/index.html'];
+const CACHE_NAME='trail-race-v094-map-analysis-v084';
+const ASSETS=['./index.html', './styles.css?v=094', './app.js?v=094', './manifest.webmanifest?v=091', './icon-192.png', './icon-512.png', '/index.html'];
 
 self.addEventListener('install', event=>{
   self.skipWaiting();

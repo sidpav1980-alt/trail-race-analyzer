@@ -10,7 +10,7 @@
   <title>Прогноз и анализ трейловых гонок</title>
   <link rel="manifest" href="manifest.webmanifest?v=091">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="styles.css?v=091">
+  <link rel="stylesheet" href="styles.css?v=094">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3ynBv0TtP4JpC5dQF3Vqv2tLIbV0w=" crossorigin="">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 
@@ -626,9 +626,49 @@
 }
 .sim-empty-picture.hide{display:none!important}
 </style>
+
+<style>
+/* v0.94 — map analysis UI restored to v0.84 style */
+.map-analyze-v084{
+  margin:16px 0 18px;
+  padding:18px;
+  border:1px solid #2a3b55;
+  border-radius:18px;
+  background:#0b1626;
+}
+.map-analyze-head{
+  display:flex;justify-content:space-between;gap:14px;align-items:flex-start;
+}
+.map-analyze-title{font-size:22px;font-weight:800;color:#f3f7fb}
+.map-analyze-sub{font-size:14px;color:#98a9bf;margin-top:4px}
+.map-analyze-timer{font-size:30px;font-weight:800;color:#f59e0b}
+.map-analyze-progress-row{
+  display:grid;grid-template-columns:minmax(0,1fr) 52px;gap:10px;align-items:center;margin-top:14px
+}
+.map-analyze-progress{
+  height:10px;background:#243248;border-radius:999px;overflow:hidden
+}
+.map-analyze-progress>div{
+  height:100%;width:0%;background:#f59e0b;border-radius:999px;transition:width .25s ease
+}
+.map-analyze-percent{font-weight:700;color:#f59e0b;text-align:right}
+.map-analyze-timeout{
+  margin-top:16px;padding:14px;border:1px solid #8a5a12;border-radius:14px;background:#2b1d08
+}
+.map-analyze-timeout-title{font-weight:800;color:#fbbf24}
+.map-analyze-timeout-text{margin-top:6px;color:#d7c8a0}
+.map-analyze-retry{
+  margin-top:12px;width:100%;padding:12px;border:0;border-radius:12px;background:#31415c;color:white;font-weight:700
+}
+.map-analyze-info{
+  margin-top:16px;padding:14px;border:1px solid #24496a;border-radius:14px;background:#0a2032;color:#b7d8f2
+}
+.map-analyze-info-title{font-weight:800;color:#7dd3fc;margin-bottom:5px}
+.map-analyze-meta{margin-top:14px;color:#9eacc0;line-height:1.5}
+</style>
 </head>
 <body>
-<div class="app-version">v0.93</div>
+<div class="app-version">v0.94</div>
   <header class="app-header">
     <div>
       <div class="eyebrow">Прогноз и анализ трейловых гонок</div>
@@ -678,9 +718,46 @@
           <div class="muted">Время берётся из временных меток GPX: без пауз — только движение, с паузами — от первой до последней точки.</div>
         </div>
 
-        <div class="field">
+        
+<div id="mapAnalyzePanelV084" class="map-analyze-v084">
+  <div class="map-analyze-head">
+    <div>
+      <div class="map-analyze-title">Анализ карты</div>
+      <div class="map-analyze-sub">Идёт анализ профиля и особенностей трека</div>
+    </div>
+    <div id="mapAnalyzeTimerV084" class="map-analyze-timer">00:00</div>
+  </div>
+
+  <div class="map-analyze-progress-row">
+    <div class="map-analyze-progress"><div id="mapAnalyzeProgressV084"></div></div>
+    <div id="mapAnalyzePercentV084" class="map-analyze-percent">0%</div>
+  </div>
+
+  <div id="mapAnalyzeTimeoutV084" class="map-analyze-timeout" style="display:none">
+    <div class="map-analyze-timeout-title">⚠️ Анализ остановлен: не удалось завершить за 20 секунд.</div>
+    <div class="map-analyze-timeout-text">Вы можете запустить анализ ещё раз или продолжить без него.</div>
+    <button id="mapAnalyzeRetryV084" class="map-analyze-retry">↻ Запустить анализ снова</button>
+  </div>
+
+  <div class="map-analyze-info">
+    <div class="map-analyze-info-title">ℹ️ Анализ карты нужен для улучшенного прогноза по треку</div>
+    <div>Находит тропы, технические участки, броды, подъёмы и спуски, что позволяет точнее оценить темп и итоговое время.</div>
+  </div>
+
+  <div class="map-analyze-meta">
+    <div>Среднее время анализа карты — 15 секунд.</div>
+    <div id="mapAnalyzeLastV084">Последний анализ: не выполнен.</div>
+  </div>
+</div>
+
+<div class="field">
           <span>Анализ карты</span>
           <button id="mapAnalyzeBtn" type="button" class="primary action-idle" disabled>Анализ карты</button>
+        <div id="mapTimingNote" class="map-info-note">
+  <b>Зачем нужен анализ карты?</b><br>
+  Он улучшает прогноз по треку: определяет <b>тропы, грунт, асфальт, воду и броды</b> и использует эти данные для более точной коррекции темпа и итогового времени.
+  <br><span class="muted">Если анализ не завершится за 20 секунд, он автоматически остановится. Обычный прогноз по GPX останется доступен.</span>
+</div>
           <div id="mapAnalyzeStatus" class="muted">Сначала загрузите и обработайте GPX.</div>
           <progress id="mapAnalyzeProgress" value="0" max="100" style="width:100%;display:none"></progress>
         </div>
@@ -701,8 +778,18 @@
             <div><span>Грунт</span><b id="dirtMetric">—</b></div>
             <div><span>Асфальт</span><b id="pavedMetric">—</b></div>
           </div>
-          <div class="muted" id="mapAnalysisNote">—</div>
-          <canvas id="surfaceStripCanvas" height="90"></canvas>
+          <div class="ford-map-layout">
+  <div class="ford-map-info">
+    <div class="muted" id="mapAnalysisNote">—</div>
+    <canvas id="surfaceStripCanvas" height="90"></canvas>
+  </div>
+  <div class="ford-map-panel">
+    <div class="ford-map-title">Схема трека и броды</div>
+    <canvas id="fordSchemeCanvas" class="ford-scheme-canvas"></canvas>
+    <div id="fordLeafletMap" class="ford-leaflet-map"></div>
+    <div class="muted ford-map-caption">Красная линия — GPX трек. 🌊 — вероятный брод, ✅ — подтверждённый OSM, 🌉 — мост. Карта фиксированная, без зума.</div>
+  </div>
+</div>
           <div class="surface-legend" aria-label="Легенда покрытия">
             <div><span class="surface-swatch sw-wetland"></span><span>Болото / wetland</span></div>
             <div><span class="surface-swatch sw-water"></span><span>Вода / река</span></div>
@@ -1077,7 +1164,7 @@
     Модель является оценочной. Броды, погода, питание, состояние покрытия, самочувствие и другие факторы могут существенно повлиять на фактический результат. Расчёты носят исключительно информационно-ознакомительный характер, не являются гарантией результата или рекомендацией к действию. Автор не несёт ответственности за решения, принятые на основании расчётов приложения.
   </footer>
 
-  <script src="app.js?v=091"></script>
+  <script src="app.js?v=094"></script>
 <footer class="app-footer">Сидоренко Павел (c) 2026</footer>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
