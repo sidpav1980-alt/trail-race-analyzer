@@ -238,6 +238,13 @@ function syncMapAnalyzeButton(){
   }
 }
 
+function restoreMapInfoNote(){
+  const n=$('mapTimingNote');
+  if(n){
+    n.style.display='block';
+  }
+}
+
 function updateOfflineUi(){
   const el=$('offlineState');
   const online=navigator.onLine!==false;
@@ -245,7 +252,7 @@ function updateOfflineUi(){
     el.textContent=online?'ONLINE / OFFLINE READY':'OFFLINE';
     el.className='app-offline-state '+(online?'online':'offline');
   }
-  syncMapAnalyzeButton();
+  syncMapAnalyzeButton(); restoreMapInfoNote();
 }
 
 window.addEventListener('online',updateOfflineUi);
@@ -280,7 +287,7 @@ $('installBtn').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try{
-      const reg=await navigator.serviceWorker.register('./sw.js?v=060', {updateViaCache:'none'});
+      const reg=await navigator.serviceWorker.register('./sw.js?v=067', {updateViaCache:'none'});
       await reg.update();
       let refreshing=false;
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -367,7 +374,7 @@ function parseGPX(text){
     p.time=tn ? tn.textContent.trim() : null;
   });
 state.dist=total/1000;state.gain=gain;state.loss=loss;
-  syncMapAnalyzeButton();
+  syncMapAnalyzeButton(); restoreMapInfoNote();
   $('distMetric').textContent=state.dist.toFixed(1)+' км';
   $('gainMetric').textContent=state.hasElevation ? Math.round(gain)+' м' : 'нет данных';
   $('lossMetric').textContent=state.hasElevation ? Math.round(loss)+' м' : 'нет данных';
@@ -459,7 +466,7 @@ $('gpxLoadBtn').addEventListener('click',async ()=>{
     $('gpxStatus').textContent=state.hasElevation
       ? '✓ GPX обработан: '+state.dist.toFixed(1)+' км · +'+Math.round(state.gain)+' м · −'+Math.round(state.loss)+' м'
       : '⚠ GPX обработан: '+state.dist.toFixed(1)+' км. В файле нет данных высоты — профиль высоты, набор и сброс не рассчитываются.';
-    syncMapAnalyzeButton(); setActionState('gpxLoadBtn','success');
+    syncMapAnalyzeButton(); restoreMapInfoNote(); setActionState('gpxLoadBtn','success');
     setTimeout(()=>{prog.style.display='none';},1200);
   }catch(err){
     prog.style.display='none';
@@ -918,18 +925,37 @@ out tags geom;`;
 
 
 function analyzeWaterCrossings(samples,elements=[]){
-  if(!samples || samples.length<2) return {fords:[],bridges:[]};
+  if(!samples || samples.length<2) return {fords:[],bridges:[],confirmed:[],likely:[]};
+
+  const track=(state.track||[]).filter(p=>
+    Number.isFinite(p.km)&&Number.isFinite(p.lat)&&Number.isFinite(p.lon)
+  );
+  if(track.length<2) return {fords:[],bridges:[],confirmed:[],likely:[]};
 
   const bridgeWays=(elements||[]).filter(el=>{
     const t=el.tags||{};
     return el.type==='way' && Array.isArray(el.geometry) && el.geometry.length>=2 &&
-      (t.bridge==='yes' || t.bridge==='true' || t.bridge==='viaduct' || t.man_made==='bridge');
+      (t.bridge==='yes'||t.bridge==='true'||t.bridge==='viaduct'||t.man_made==='bridge');
+  });
+
+  const waterWays=(elements||[]).filter(el=>{
+    const t=el.tags||{};
+    return el.type==='way' && Array.isArray(el.geometry) && el.geometry.length>=2 &&
+      (
+        ['river','stream','canal','ditch','drain'].includes(String(t.waterway||'').toLowerCase()) ||
+        t.natural==='water' || t.water==='river' || t.water==='stream'
+      );
+  });
+
+  const explicitFordNodes=(elements||[]).filter(el=>{
+    const t=el.tags||{};
+    return el.type==='node' && Number.isFinite(el.lat)&&Number.isFinite(el.lon) &&
+      (t.ford==='yes'||t.ford==='stepping_stones'||t.highway==='ford');
   });
 
   function trackPointAtKm(km){
     let best=null,bestDiff=Infinity;
-    for(const p of (state.track||[])){
-      if(!Number.isFinite(p.km)||!Number.isFinite(p.lat)||!Number.isFinite(p.lon)) continue;
+    for(const p of track){
       const d=Math.abs(p.km-km);
       if(d<bestDiff){best=p;bestDiff=d;}
     }
@@ -942,43 +968,122 @@ function analyzeWaterCrossings(samples,elements=[]){
     for(const way of bridgeWays){
       const g=way.geometry||[];
       for(let i=1;i<g.length;i++){
-        const a={lat:g[i-1].lat,lon:g[i-1].lon};
-        const b={lat:g[i].lat,lon:g[i].lon};
-        const d=distancePointToSegmentKm({lat:p.lat,lon:p.lon},a,b);
-        if(Number.isFinite(d) && d<=0.035) return true;
+        const d=distancePointToSegmentKm(
+          {lat:p.lat,lon:p.lon},
+          {lat:g[i-1].lat,lon:g[i-1].lon},
+          {lat:g[i].lat,lon:g[i].lon}
+        );
+        if(Number.isFinite(d)&&d<=0.040) return true;
       }
     }
     return false;
   }
 
-  const fords=[],bridges=[];
-  let inWater=false,startKm=0;
-
-  function finish(endKm){
-    const len=Math.max(0,endKm-startKm);
-    // Ignore tiny OSM/GPS water fragments: a crossing must be at least 2 metres.
-    // Keep every contiguous water section consistent with the forecast table.
-    if(len<0.002) return;
-    const mid=(startKm+endKm)/2;
-    if(bridgeNearKm(mid)) bridges.push(mid);
-    else fords.push(mid);
+  // Fast 2D segment intersection; adequate at the scale of one race route.
+  function orient(a,b,c){
+    return (b.lon-a.lon)*(c.lat-a.lat)-(b.lat-a.lat)*(c.lon-a.lon);
+  }
+  function segmentIntersects(a,b,c,d){
+    const o1=orient(a,b,c),o2=orient(a,b,d),o3=orient(c,d,a),o4=orient(c,d,b);
+    const eps=1e-12;
+    return ((o1>eps&&o2<-eps)||(o1<-eps&&o2>eps)) &&
+           ((o3>eps&&o4<-eps)||(o3<-eps&&o4>eps));
   }
 
-  for(let i=0;i<samples.length;i++){
-    const water=String(samples[i].cls||'').toLowerCase()==='water';
-    if(water && !inWater){
-      inWater=true;
-      startKm=Number(samples[i].km||0);
-    }else if(!water && inWater){
-      finish(Number(samples[Math.max(0,i-1)].km||startKm));
-      inWater=false;
+  function nearestTrackKmToPoint(lat,lon,maxKm=0.035){
+    let bestKm=NaN,bestD=Infinity;
+    for(let i=1;i<track.length;i++){
+      const a=track[i-1],b=track[i];
+      const d=distancePointToSegmentKm({lat,lon},a,b);
+      if(d<bestD){
+        bestD=d;
+        const da=haversineKm(a.lat,a.lon,lat,lon);
+        const db=haversineKm(b.lat,b.lon,lat,lon);
+        const t=(da+db)>0?da/(da+db):0.5;
+        bestKm=a.km+(b.km-a.km)*Math.max(0,Math.min(1,t));
+      }
+    }
+    return bestD<=maxKm?bestKm:NaN;
+  }
+
+  const confirmed=[];
+  for(const n of explicitFordNodes){
+    const km=nearestTrackKmToPoint(n.lat,n.lon,0.050);
+    if(Number.isFinite(km)&&!bridgeNearKm(km)) confirmed.push(km);
+  }
+
+  // Detect actual geometric crossings of the GPX line with OSM river/stream ways.
+  // This catches crossings even when OSM has no ford=yes tag.
+  const likely=[];
+  for(const ww of waterWays){
+    const g=ww.geometry||[];
+    for(let wi=1;wi<g.length;wi++){
+      const c={lat:g[wi-1].lat,lon:g[wi-1].lon};
+      const d={lat:g[wi].lat,lon:g[wi].lon};
+      const minLat=Math.min(c.lat,d.lat)-0.00015,maxLat=Math.max(c.lat,d.lat)+0.00015;
+      const minLon=Math.min(c.lon,d.lon)-0.00020,maxLon=Math.max(c.lon,d.lon)+0.00020;
+      for(let ti=1;ti<track.length;ti++){
+        const a=track[ti-1],b=track[ti];
+        if(Math.max(a.lat,b.lat)<minLat||Math.min(a.lat,b.lat)>maxLat||
+           Math.max(a.lon,b.lon)<minLon||Math.min(a.lon,b.lon)>maxLon) continue;
+
+        let hit=segmentIntersects(a,b,c,d);
+        // OSM and GPX can be offset by several metres. Treat <=8 m as crossing candidate.
+        if(!hit){
+          const d1=distancePointToSegmentKm(a,c,d);
+          const d2=distancePointToSegmentKm(b,c,d);
+          hit=Math.min(d1,d2)<=0.008;
+        }
+        if(hit){
+          const km=(a.km+b.km)/2;
+          if(!bridgeNearKm(km)) likely.push(km);
+          break;
+        }
+      }
     }
   }
 
-  if(inWater) finish(Number(samples[samples.length-1].km||startKm));
-  return {fords,bridges};
-}
+  // Keep legacy polygon/sample water detection as an additional signal.
+  let inWater=false,startKm=0;
+  function finishSample(endKm){
+    const len=Math.max(0,endKm-startKm);
+    if(len<0.002) return;
+    const mid=(startKm+endKm)/2;
+    if(!bridgeNearKm(mid)) likely.push(mid);
+  }
+  for(let i=0;i<samples.length;i++){
+    const water=String(samples[i].cls||'').toLowerCase()==='water';
+    if(water&&!inWater){inWater=true;startKm=Number(samples[i].km||0);}
+    else if(!water&&inWater){
+      finishSample(Number(samples[Math.max(0,i-1)].km||startKm));
+      inWater=false;
+    }
+  }
+  if(inWater) finishSample(Number(samples[samples.length-1].km||startKm));
 
+  // Deduplicate braided channels / several nearby OSM lines into one physical crossing.
+  const confirmedGroups=groupFordKmPoints(confirmed);
+  const confirmedKm=confirmedGroups.map(g=>g.start);
+  const likelyNoConfirmed=likely.filter(k=>!confirmedKm.some(c=>Math.abs(c-k)<=0.25));
+  const likelyGroups=groupFordKmPoints(likelyNoConfirmed);
+  const likelyKm=likelyGroups.map(g=>g.start);
+
+  const all=groupFordKmPoints([...confirmedKm,...likelyKm]).map(g=>g.start);
+  const bridges=[];
+  // Retain bridge crossings from sampled water sections for display.
+  for(const s of samples){
+    if(String(s.cls||'').toLowerCase()==='water'&&bridgeNearKm(Number(s.km||0))){
+      bridges.push(Number(s.km||0));
+    }
+  }
+
+  return {
+    fords:all,
+    bridges:groupFordKmPoints(bridges).map(g=>g.start),
+    confirmed:confirmedKm,
+    likely:likelyKm
+  };
+}
 function findLikelyFords(samples,elements=[]){
   return analyzeWaterCrossings(samples,elements).fords;
 }
@@ -1175,22 +1280,110 @@ async function analyzeMapOSM(){
 
   return {samples,summary,elements};
 }
+
+let fordLeafletMap=null;
+let fordLeafletLayerGroup=null;
+
+function nearestTrackPointByKm(km){
+  let best=null,bestDiff=Infinity;
+  for(const p of (state.track||[])){
+    if(!Number.isFinite(p.km)||!Number.isFinite(p.lat)||!Number.isFinite(p.lon)) continue;
+    const d=Math.abs(p.km-km);
+    if(d<bestDiff){best=p;bestDiff=d;}
+  }
+  return best;
+}
+
+function renderFordMap(fordKms=[],confirmedFordKms=[],likelyFordKms=[],bridgeKms=[]){
+  const el=document.getElementById('fordLeafletMap');
+  if(!el) return;
+
+  const pts=(state.track||[]).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
+  if(pts.length<2){
+    el.innerHTML='<div class="muted" style="padding:12px">Нет координат GPX для карты.</div>';
+    return;
+  }
+
+  // Fallback if Leaflet CDN is unavailable.
+  if(typeof L==='undefined'){
+    el.innerHTML='<div class="muted" style="padding:12px">Карта OSM недоступна. Проверьте интернет-соединение.</div>';
+    return;
+  }
+
+  if(fordLeafletMap){
+    try{fordLeafletMap.remove()}catch(e){}
+    fordLeafletMap=null;
+  }
+
+  fordLeafletMap=L.map(el,{zoomControl:true,attributionControl:true});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19,
+    attribution:'&copy; OpenStreetMap'
+  }).addTo(fordLeafletMap);
+
+  fordLeafletLayerGroup=L.layerGroup().addTo(fordLeafletMap);
+
+  const latlngs=pts.map(p=>[p.lat,p.lon]);
+  const route=L.polyline(latlngs,{color:'#ff2b2b',weight:5,opacity:.95}).addTo(fordLeafletLayerGroup);
+  fordLeafletMap.fitBounds(route.getBounds(),{padding:[16,16]});
+
+  function addMarker(km,kind){
+    const p=nearestTrackPointByKm(km);
+    if(!p) return;
+
+    let emoji='🌊', label='Вероятный брод', cls='#38bdf8';
+    if(kind==='confirmed'){emoji='✅';label='Подтверждённый брод OSM';cls='#22c55e'}
+    if(kind==='bridge'){emoji='🌉';label='Пересечение воды по мосту';cls='#f59e0b'}
+
+    const icon=L.divIcon({
+      className:'',
+      html:`<div style="
+        width:30px;height:30px;border-radius:50%;
+        display:flex;align-items:center;justify-content:center;
+        background:#0f172a;border:2px solid ${cls};
+        box-shadow:0 2px 8px rgba(0,0,0,.35);
+        font-size:16px">${emoji}</div>`,
+      iconSize:[30,30],
+      iconAnchor:[15,15]
+    });
+
+    L.marker([p.lat,p.lon],{icon})
+      .bindPopup(`<b>${label}</b><br>${Number(km).toFixed(1)} км`)
+      .addTo(fordLeafletLayerGroup);
+  }
+
+  confirmedFordKms.forEach(k=>addMarker(k,'confirmed'));
+  likelyFordKms.forEach(k=>addMarker(k,'likely'));
+  bridgeKms.forEach(k=>addMarker(k,'bridge'));
+
+  // If old data has only a combined ford list, show them as likely.
+  if(!confirmedFordKms.length&&!likelyFordKms.length){
+    fordKms.forEach(k=>addMarker(k,'likely'));
+  }
+
+  setTimeout(()=>{try{fordLeafletMap.invalidateSize()}catch(e){}},120);
+}
 function renderMapAnalysis(result){
   const {samples,summary,elements=[]}=result;
   const crossings=analyzeWaterCrossings(samples,elements);
-  // One physical water section = one ford. Display only the first (entry) km.
+  // One braided/nearby water system is grouped as one physical crossing.
   const fordGroups=groupFordKmPoints(crossings.fords);
   const fordKms=fordGroups.map(g=>g.start);
   const bridgeKms=crossings.bridges;
+  const confirmedFordKms=crossings.confirmed||[];
+  const likelyFordKms=crossings.likely||[];
   state.mapAnalysis={
     result,
     samples:[...samples],
     summary:{...summary},
     fordKms:[...fordKms],
     fordCount:fordKms.length,
-    bridgeKms:[...bridgeKms]
+    bridgeKms:[...bridgeKms],
+    confirmedFordKms:[...confirmedFordKms],
+    likelyFordKms:[...likelyFordKms]
   };
   state.mapAnalysisReadyForCurrentGpx=true;
+  renderFordMap(fordKms,confirmedFordKms,likelyFordKms,bridgeKms);
 
   // New route analysis becomes the source of automatic segment boundaries.
   // Reset any previously entered manual table step back to AUTO.
@@ -1215,9 +1408,16 @@ function renderMapAnalysis(result){
   if(fordCount) fordCount.textContent=String(fordKms.length);
 
   const fordList=$('fordKmList');
-  if(fordList) fordList.textContent=fordKms.length
-    ? 'Броды на км: '+fordKms.map(x=>x.toFixed(1)).join(', ')
-    : 'Броды: не обнаружены';
+  if(fordList){
+    if(fordKms.length){
+      const parts=[];
+      if(confirmedFordKms.length) parts.push('подтверждённые OSM: '+confirmedFordKms.map(x=>x.toFixed(1)).join(', '));
+      if(likelyFordKms.length) parts.push('вероятные по пересечению воды: '+likelyFordKms.map(x=>x.toFixed(1)).join(', '));
+      fordList.textContent='Броды ('+fordKms.length+'): '+parts.join(' · ');
+    }else{
+      fordList.textContent='Броды: не обнаружены';
+    }
+  }
 
   const bridgeList=$('bridgeFordKmList');
   if(bridgeList) bridgeList.textContent=bridgeKms.length
@@ -1607,6 +1807,26 @@ function threat(delta){
 }
 
 $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
+  const hardTimeoutMs=20000;
+  let mapHardTimedOut=false;
+  const mapHardTimeoutId=setTimeout(()=>{
+    mapHardTimedOut=true;
+    try{
+      mapAnalysisRunId++;
+      if(mapAnalysisAbortController){
+        mapAnalysisAbortController.abort();
+        mapAnalysisAbortController=null;
+      }
+    }catch(e){}
+    stopMapAnalysisTimer();
+    const p=$('mapAnalyzeProgress');
+    if(p){p.style.display='none';p.value=0;}
+    const b=$('mapAnalyzeBtn');
+    if(b){b.disabled=false;setActionState('mapAnalyzeBtn','ready');}
+    const s=$('mapAnalyzeStatus');
+    if(s) s.textContent='⚠️ Анализ остановлен: превышено 20 секунд. Можно повторить анализ или рассчитать прогноз без анализа карты.';
+  },hardTimeoutMs);
+
   if(navigator.onLine===false){
     $('mapAnalyzeStatus').textContent='Офлайн: анализ карты требует интернет. Используйте обычный прогноз или ранее сохранённый анализ.';
     return;
@@ -1647,8 +1867,10 @@ $('mapAnalyzeBtn')?.addEventListener('click',async ()=>{
     }
   }finally{
     mapAnalysisAbortController=null;
-    syncMapAnalyzeButton();
+    syncMapAnalyzeButton(); restoreMapInfoNote();
   }
+
+  clearTimeout(mapHardTimeoutId);
 });
 
 
@@ -3938,13 +4160,35 @@ const events=[
   ['🧃','Гель открылся в рюкзаке','Спасательная операция липких запасов.',105],
   ['🫠','Засосало в грязь','Кроссовок остался с вами, но не сразу.',150],
   ['🌬️','Попутный ветер','Несколько открытых километров прошли легче.',-75],
+  ['🦫','Бобр сделал плотину','Пришлось искать обход и разбираться с новой гидротехнической обстановкой.',1800],
   ['🧠','Идеально разложились','Не форсировали начало и отыграли на второй половине.',-120]
 ];
 
 const E=id=>document.getElementById(id);
 if(!E('simStart')) return;
 let timer=null,pauseTimer=null,countTimer=null,progress=0,penalty=0,fired=new Set(),schedule=[],particles=[],simStartDate=null;
-const activeEventCount=()=>Math.min(30, Math.max(8, Math.round((Number(state?.dist)||30)/4)+6));
+const activeEventCount=()=>{
+  const hours=Math.max(0.1,baseSec()/3600);
+
+  // v0.66: за одну симуляцию используется только небольшая случайная часть пула.
+  // Чем дольше гонка, тем больше событий, но никогда не все.
+  let minEvents=0,maxEvents=1;
+  if(hours<1){minEvents=0;maxEvents=1;}
+  else if(hours<2){minEvents=1;maxEvents=1;}
+  else if(hours<4){minEvents=1;maxEvents=3;}
+  else if(hours<6){minEvents=2;maxEvents=4;}
+  else if(hours<10){minEvents=3;maxEvents=6;}
+  else if(hours<15){minEvents=5;maxEvents=8;}
+  else {minEvents=6;maxEvents=10;}
+
+  // Жёстко не чаще 2 событий в час и не больше 10 за всю гонку.
+  const hardCap=Math.max(0,Math.floor(hours*2));
+  maxEvents=Math.min(maxEvents,hardCap,10,Math.max(0,events.length-1));
+  minEvents=Math.min(minEvents,maxEvents);
+
+  if(maxEvents<=0) return 0;
+  return minEvents + Math.floor(Math.random()*(maxEvents-minEvents+1));
+};
 
 function dist(){return Number(state?.dist||0)}
 function gain(){return Number(state?.gain||0)}
@@ -3953,11 +4197,25 @@ function fmt(sec){sec=Math.max(0,Math.round(sec||0));const h=Math.floor(sec/3600
 function delta(s){const sign=s>=0?'+':'−',a=Math.abs(Math.round(s));return `${sign}${Math.floor(a/60)}:${String(a%60).padStart(2,'0')}`}
 function shuffled(a){return a.slice().sort(()=>Math.random()-.5)}
 function makeSchedule(){
-  const n=activeEventCount(), selected=shuffled(events).slice(0,n);
-  schedule=selected.map((e,i)=>{
-    const center=(i+1)/(n+1),jitter=(Math.random()-.5)*Math.min(.055,.45/(n+1));
-    return {at:Math.max(.035,Math.min(.965,center+jitter)),e};
-  }).sort((a,b)=>a.at-b.at);
+  const n=activeEventCount();
+  const selected=shuffled(events).slice(0,n);
+  const total=Math.max(1,baseSec());
+
+  // События ставятся в случайные моменты, но минимум через 30 минут
+  // виртуального времени друг от друга. Это гарантирует не более 2/час.
+  const minGapSec=1800;
+  const times=[];
+  let attempts=0;
+  while(times.length<n && attempts<2000){
+    attempts++;
+    const t=total*(0.06+Math.random()*0.88);
+    if(times.every(x=>Math.abs(x-t)>=minGapSec)) times.push(t);
+  }
+
+  // На коротких гонках, где физически нельзя разместить столько событий,
+  // уменьшаем выборку вместо уплотнения.
+  times.sort((a,b)=>a-b);
+  schedule=times.map((t,i)=>({at:t/total,e:selected[i]}));
 }
 function firstTrackDate(){
   const p=(state?.track||[]).find(x=>x?.time);
@@ -3971,6 +4229,21 @@ function interpElevation(km){
   return pts.at(-1).ele;
 }
 function simClockSec(){return baseSec()*progress+penalty}
+function fordState(km){
+  const ma=state?.mapAnalysis||{};
+  const confirmed=(ma.confirmedFordKms||[]).map(Number).filter(Number.isFinite);
+  const likely=(ma.likelyFordKms||[]).map(Number).filter(Number.isFinite);
+  const grouped=(ma.fordKms||[]).map(Number).filter(Number.isFinite);
+  const all=[...new Set([...confirmed,...likely,...grouped])];
+  if(!all.length) return {active:false,nearest:null,confirmed:false};
+  let nearest=all[0];
+  for(const x of all) if(Math.abs(x-km)<Math.abs(nearest-km)) nearest=x;
+  return {
+    active:Math.abs(nearest-km)<=0.22,
+    nearest,
+    confirmed:confirmed.some(x=>Math.abs(x-nearest)<=0.12)
+  };
+}
 function skyInfo(){
   const d=new Date(simStartDate.getTime()+simClockSec()*1000);const h=d.getHours()+d.getMinutes()/60;
   const sunrise=6,sunset=18.5;let day=0,sunT=0;
@@ -3986,39 +4259,173 @@ function fire(idx){
   const {at,e}=schedule[idx];fired.add(idx);penalty+=e[3];addParticles(e[0]);
   E('simEventTitle').textContent=e[0]+' '+e[1];E('simEventText').textContent=e[2];E('simEventDelta').textContent=delta(e[3]);
   E('simEventDelta').className=e[3]<0?'positive':'negative';E('simEventCard').classList.add('show');E('simPauseBadge').classList.add('show');
-  let left=5;E('simPauseCountdown').textContent=left;
+  let left=3;E('simPauseCountdown').textContent=left;
   const km=(at*dist()).toFixed(1);const row=document.createElement('div');row.className='current';row.innerHTML=`<span>${km} км</span><span>${e[0]} ${e[1]}</span><b class="${e[3]<0?'minus':'plus'}">${delta(e[3])}</b>`;E('simLog').prepend(row);
-  E('simEventsCount').textContent=`${fired.size} / 30`;E('simPenalty').textContent=delta(penalty);updateResults();
+  E('simEventsCount').textContent=`${fired.size} / ${schedule.length}`;E('simPenalty').textContent=delta(penalty);updateResults();
   clearInterval(timer);timer=null;clearInterval(countTimer);countTimer=setInterval(()=>{left--;E('simPauseCountdown').textContent=Math.max(0,left);if(left<=0)clearInterval(countTimer)},1000);
   pauseTimer=setTimeout(()=>{E('simEventCard').classList.remove('show');E('simPauseBadge').classList.remove('show');E('simStatus').textContent='Гонка продолжается';run()},3000);
 }
 function draw(){
-  const c=E('simCourseCanvas');if(!c)return;const r=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1,W=Math.max(320,r.width),H=r.height||360;
+  const c=E('simCourseCanvas');if(!c)return;
+  const r=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1,W=Math.max(320,r.width),H=Math.max(420,r.height||460);
   if(c.width!==Math.round(W*dpr)||c.height!==Math.round(H*dpr)){c.width=Math.round(W*dpr);c.height=Math.round(H*dpr)}
   const ctx=c.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
+
   const sky=skyInfo();
-  let top='#07111f',bottom='#102a43';if(sky.day){top='#123c62';bottom='#f59e0b'}else if(sky.twilight){top='#14213d';bottom='#9a3412'}
-  const grad=ctx.createLinearGradient(0,0,0,H);grad.addColorStop(0,top);grad.addColorStop(.62,bottom);grad.addColorStop(1,'#07111f');ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
-  // stars at night
-  if(!sky.day){ctx.fillStyle='rgba(255,255,255,.72)';for(let i=0;i<30;i++){const x=(i*83%997)/997*W,y=18+((i*137)%211)/211*H*.42;ctx.fillRect(x,y,1.3,1.3)}}
-  // sun/moon arc
-  const sunX=sky.day?30+sky.sunT*(W-60):W-45;const sunY=sky.day?(104-Math.sin(Math.PI*sky.sunT)*76):52;
-  ctx.font='30px system-ui, Apple Color Emoji';ctx.textAlign='center';ctx.fillText(sky.day?'☀️':'🌙',sunX,sunY);
-  ctx.strokeStyle='rgba(255,255,255,.28)';ctx.setLineDash([3,5]);ctx.beginPath();for(let x=30;x<W-30;x+=8){const t=(x-30)/(W-60),y=104-Math.sin(Math.PI*t)*76;if(x===30)ctx.moveTo(x,y);else ctx.lineTo(x,y)}ctx.stroke();ctx.setLineDash([]);
-  const pts=(state?.track||[]).filter(p=>Number.isFinite(p.km)&&Number.isFinite(p.ele));const L=42,R=16,T=125,B=42,baseY=H-B;
-  let minE=0,maxE=1;if(pts.length){minE=Math.min(...pts.map(p=>p.ele));maxE=Math.max(...pts.map(p=>p.ele));if(maxE-minE<1)maxE=minE+1}
-  const xOf=km=>L+(km/Math.max(.1,dist()))*(W-L-R);const yOf=ele=>baseY-((ele-minE)/(maxE-minE))*(baseY-T);
-  // profile fill + green profile line
-  if(pts.length){ctx.beginPath();pts.forEach((p,i)=>{const x=xOf(p.km),y=yOf(p.ele);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.lineTo(xOf(dist()),baseY);ctx.lineTo(L,baseY);ctx.closePath();ctx.fillStyle='rgba(22,163,74,.28)';ctx.fill();
-    ctx.beginPath();pts.forEach((p,i)=>{const x=xOf(p.km),y=yOf(p.ele);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.strokeStyle='#22c55e';ctx.lineWidth=3;ctx.stroke();}
-  // axes
-  ctx.fillStyle='rgba(226,232,240,.8)';ctx.font='11px system-ui';ctx.textAlign='left';ctx.fillText(`${Math.round(maxE)} м`,6,T+4);ctx.fillText(`${Math.round(minE)} м`,6,baseY);ctx.textAlign='center';for(let i=0;i<=4;i++){const km=dist()*i/4;ctx.fillText(`${km.toFixed(km<10?1:0)} км`,xOf(km),H-15)}
-  // progress: white vertical time line follows current point on profile
-  const km=dist()*progress,x=xOf(km),ele=interpElevation(km),y=yOf(ele);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,T-8);ctx.lineTo(x,baseY+2);ctx.stroke();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
-  // runner: stick-ish, backpack and poles, facing right, no floating cap/arrow
-  const rx=Math.min(W-38,Math.max(38,x)),ry=y-12;ctx.save();ctx.translate(rx,ry);ctx.strokeStyle='#f8fafc';ctx.lineWidth=3;ctx.lineCap='round';ctx.fillStyle='#f1c27d';ctx.beginPath();ctx.arc(0,-24,7,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#f59e0b';ctx.beginPath();ctx.moveTo(0,-16);ctx.lineTo(5,3);ctx.moveTo(3,-9);ctx.lineTo(15,-1);ctx.moveTo(4,2);ctx.lineTo(16,17);ctx.moveTo(4,2);ctx.lineTo(-7,18);ctx.stroke();ctx.fillStyle='#ef4444';ctx.fillRect(-10,-15,8,15);ctx.strokeStyle='#cbd5e1';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(14,-1);ctx.lineTo(24,24);ctx.moveTo(-3,-4);ctx.lineTo(-16,23);ctx.stroke();ctx.font='18px system-ui, Apple Color Emoji';ctx.fillText('🎒',-11,-5);if(E('simPauseBadge').classList.contains('show')){ctx.font='28px system-ui, Apple Color Emoji';ctx.fillText('😲',0,-48)}ctx.restore();
-  // event particles from current runner/profile point
-  ctx.textAlign='center';particles.forEach(p=>{if(p.x===0&&p.y===0){p.x=rx;p.y=ry-25}p.x+=p.vx;p.y+=p.vy;p.vy+=.035;p.life-=.012;ctx.globalAlpha=Math.max(0,p.life);ctx.font=`${p.size}px system-ui, Apple Color Emoji`;ctx.fillText(p.icon,p.x,p.y)});ctx.globalAlpha=1;particles=particles.filter(p=>p.life>0);
+  let top='#07111f',bottom='#102a43';
+  if(sky.day){top='#123c62';bottom='#d97706'}
+  else if(sky.twilight){top='#14213d';bottom='#9a3412'}
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,top);grad.addColorStop(.55,bottom);grad.addColorStop(1,'#07111f');
+  ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+
+  if(!sky.day){
+    ctx.fillStyle='rgba(255,255,255,.72)';
+    for(let i=0;i<34;i++){
+      const sx=(i*83%997)/997*W,sy=15+((i*137)%211)/211*H*.34;
+      ctx.fillRect(sx,sy,1.3,1.3);
+    }
+  }
+
+  // Sun / moon travels through the race according to virtual race time.
+  const sunX=sky.day?30+sky.sunT*(W-60):W-45;
+  const sunY=sky.day?(88-Math.sin(Math.PI*sky.sunT)*60):42;
+  ctx.font='29px system-ui, Apple Color Emoji';ctx.textAlign='center';
+  ctx.fillText(sky.day?'☀️':'🌙',sunX,sunY);
+  ctx.strokeStyle='rgba(255,255,255,.24)';ctx.setLineDash([3,5]);ctx.beginPath();
+  for(let sx=30;sx<W-30;sx+=8){
+    const t=(sx-30)/(W-60),sy=88-Math.sin(Math.PI*t)*60;
+    if(sx===30)ctx.moveTo(sx,sy);else ctx.lineTo(sx,sy);
+  }
+  ctx.stroke();ctx.setLineDash([]);
+
+  const pts=(state?.track||[]).filter(p=>Number.isFinite(p.km)&&Number.isFinite(p.ele));
+  const L=42,R=16,T=104;
+  const profileBottom=Math.round(H*.58);
+  let minE=0,maxE=1;
+  if(pts.length){
+    minE=Math.min(...pts.map(p=>p.ele));maxE=Math.max(...pts.map(p=>p.ele));
+    if(maxE-minE<1)maxE=minE+1;
+  }
+  const xOf=km=>L+(km/Math.max(.1,dist()))*(W-L-R);
+  const yOf=ele=>profileBottom-((ele-minE)/(maxE-minE))*(profileBottom-T);
+
+  // Upper chart: real GPX elevation profile.
+  if(pts.length){
+    ctx.beginPath();
+    pts.forEach((p,i)=>{const px=xOf(p.km),py=yOf(p.ele);i?ctx.lineTo(px,py):ctx.moveTo(px,py)});
+    ctx.lineTo(xOf(dist()),profileBottom);ctx.lineTo(L,profileBottom);ctx.closePath();
+    ctx.fillStyle='rgba(22,163,74,.30)';ctx.fill();
+
+    ctx.beginPath();
+    pts.forEach((p,i)=>{const px=xOf(p.km),py=yOf(p.ele);i?ctx.lineTo(px,py):ctx.moveTo(px,py)});
+    ctx.strokeStyle='#22c55e';ctx.lineWidth=3;ctx.stroke();
+  }
+
+  ctx.fillStyle='rgba(226,232,240,.82)';ctx.font='11px system-ui';ctx.textAlign='left';
+  ctx.fillText(`${Math.round(maxE)} м`,6,T+4);ctx.fillText(`${Math.round(minE)} м`,6,profileBottom);
+  ctx.textAlign='center';
+  for(let i=0;i<=4;i++){
+    const k=dist()*i/4;ctx.fillText(`${k.toFixed(k<10?1:0)} км`,xOf(k),profileBottom+20);
+  }
+
+  // White marker shows where the runner currently is on the profile.
+  const km=dist()*progress,x=xOf(km),ele=interpElevation(km),y=yOf(ele);
+  ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,T-5);ctx.lineTo(x,profileBottom+2);ctx.stroke();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
+
+  // Lower scene: runner stays on the trail, separate from the graph.
+  const sceneTop=profileBottom+28;
+  const groundY=H-46;
+  const hillGrad=ctx.createLinearGradient(0,sceneTop,0,groundY);
+  hillGrad.addColorStop(0,'rgba(15,40,35,.18)');hillGrad.addColorStop(1,'rgba(30,55,35,.75)');
+  ctx.fillStyle=hillGrad;ctx.fillRect(0,sceneTop,W,groundY-sceneTop);
+
+  // distant mountain silhouettes
+  ctx.fillStyle='rgba(9,25,38,.75)';ctx.beginPath();ctx.moveTo(0,groundY-48);
+  const peaks=[0,.13,.25,.39,.52,.68,.82,1];
+  const heights=[20,58,35,75,42,66,32,54];
+  peaks.forEach((p,i)=>ctx.lineTo(p*W,groundY-heights[i]));ctx.lineTo(W,groundY);ctx.lineTo(0,groundY);ctx.fill();
+
+  // rocky trail
+  ctx.fillStyle='#55483b';ctx.fillRect(0,groundY-18,W,64);
+  ctx.fillStyle='rgba(148,163,184,.35)';
+  for(let i=0;i<18;i++){const px=(i*71)%W,py=groundY-10+((i*29)%34);ctx.beginPath();ctx.ellipse(px,py,4+(i%4),2+(i%3),0,0,Math.PI*2);ctx.fill()}
+
+  // v0.67: animated water appears when the simulated runner reaches a detected ford.
+  const ford=fordState(km);
+  if(ford.active){
+    const pulse=(Math.sin(Date.now()/180)+1)/2;
+    const waterY=groundY+4;
+    const waterGrad=ctx.createLinearGradient(0,waterY-18,0,waterY+42);
+    waterGrad.addColorStop(0,'rgba(56,189,248,.58)');
+    waterGrad.addColorStop(1,'rgba(2,132,199,.88)');
+    ctx.fillStyle=waterGrad;
+    ctx.beginPath();
+    ctx.ellipse(W*.52,waterY+10,W*.47,31+pulse*5,0,0,Math.PI*2);
+    ctx.fill();
+
+    const runnerWaterX=55+progress*Math.max(40,W-135);
+    ctx.strokeStyle='rgba(224,242,254,.78)';
+    ctx.lineWidth=2;
+    for(let i=0;i<5;i++){
+      const rr=20+i*24+((Date.now()/45+i*13)%22);
+      ctx.beginPath();
+      ctx.ellipse(runnerWaterX,waterY+5,rr,6+rr*.10,0,0,Math.PI*2);
+      ctx.stroke();
+    }
+    ctx.fillStyle='rgba(14,165,233,.22)';
+    ctx.fillRect(0,groundY-7,W,53);
+    ctx.font='15px system-ui, Apple Color Emoji';
+    ctx.textAlign='left';ctx.fillStyle='#e0f2fe';
+    ctx.fillText(`${ford.confirmed?'🌊 Подтверждённый брод':'💦 Вероятный брод'} · ${ford.nearest.toFixed(1)} км`,16,sceneTop+22);
+  }
+
+  // Runner moves subtly across the lower scene, always facing right.
+  const rx=55+progress*Math.max(40,W-135);
+  const bob=Math.sin(progress*180)*2.5;
+  const ry=groundY-24+bob;
+  ctx.save();ctx.translate(rx,ry);
+  ctx.lineCap='round';
+  // legs
+  const phase=Math.sin(progress*220);
+  ctx.strokeStyle='#e5e7eb';ctx.lineWidth=4;ctx.beginPath();
+  ctx.moveTo(0,-5);ctx.lineTo(12+phase*5,18);ctx.moveTo(0,-5);ctx.lineTo(-10-phase*5,18);ctx.stroke();
+  // torso leaning forward
+  ctx.strokeStyle='#f59e0b';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(-2,-31);ctx.lineTo(4,-6);ctx.stroke();
+  // head
+  ctx.fillStyle='#f1c27d';ctx.beginPath();ctx.arc(2,-40,8,0,Math.PI*2);ctx.fill();
+  // cap pointing right
+  ctx.fillStyle='#3b82f6';ctx.beginPath();ctx.arc(0,-45,7,Math.PI,0);ctx.fill();ctx.fillRect(3,-45,10,3);
+  // arms + poles
+  ctx.strokeStyle='#f1c27d';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(0,-27);ctx.lineTo(15,-17);ctx.moveTo(0,-25);ctx.lineTo(-12,-14);ctx.stroke();
+  ctx.strokeStyle='#cbd5e1';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(15,-17);ctx.lineTo(28,23);ctx.moveTo(-12,-14);ctx.lineTo(-22,24);ctx.stroke();
+  // backpack / vest
+  ctx.fillStyle='#ef4444';ctx.beginPath();ctx.roundRect(-13,-34,11,22,4);ctx.fill();
+  ctx.font='18px system-ui, Apple Color Emoji';ctx.textAlign='center';ctx.fillText('🎒',-10,-18);
+
+  if(ford.active){
+    const splashPhase=Date.now()/120;
+    ctx.font='22px system-ui, Apple Color Emoji';ctx.textAlign='center';
+    ctx.fillText('💦',-18+Math.sin(splashPhase)*7,10);
+    ctx.fillText('💧',18+Math.cos(splashPhase*.9)*8,5);
+  }
+  if(E('simPauseBadge').classList.contains('show')){
+    ctx.font='30px system-ui, Apple Color Emoji';ctx.fillText('😲',3,-68);
+  }
+  ctx.restore();
+
+  // Event emojis fly out from the runner in the lower scene.
+  ctx.textAlign='center';
+  particles.forEach(p=>{
+    if(p.x===0&&p.y===0){p.x=rx+8;p.y=ry-48}
+    p.x+=p.vx;p.y+=p.vy;p.vy+=.035;p.life-=.024;
+    ctx.globalAlpha=Math.max(0,p.life);
+    ctx.font=`${p.size}px system-ui, Apple Color Emoji`;
+    ctx.fillText(p.icon,p.x,p.y);
+  });
+  ctx.globalAlpha=1;
+  particles=particles.filter(p=>p.life>0);
 }
 function updateResults(){
   const b=baseSec(),cur=Math.max(0,b*progress+penalty),finish=Math.max(0,b+penalty);E('simBaseTime').textContent=b?fmt(b):'—';E('simTime').textContent=b?fmt(cur):'—';E('simResultBase').textContent=b?fmt(b):'—';E('simResultDelta').textContent=delta(penalty);E('simResultFinish').textContent=b?fmt(finish):'—';E('simResultProgress').textContent=Math.round(progress*100)+'%';
@@ -4031,11 +4438,23 @@ function tick(){
 }
 function run(){clearInterval(timer);timer=setInterval(tick,120);E('simStart').textContent='⏸ Пауза';E('simStatus').textContent='Симуляция идёт по профилю загруженного трека.'}
 function stop(msg){clearInterval(timer);clearTimeout(pauseTimer);clearInterval(countTimer);timer=null;if(msg)E('simStatus').textContent=msg;E('simStart').textContent='▶ Симуляция гонки'}
-function reset(){stop();progress=0;penalty=0;fired.clear();particles=[];simStartDate=firstTrackDate();makeSchedule();E('simProgress').style.width='0';E('simDistance').textContent=dist()?`0.0 / ${dist().toFixed(1)} км`:'—';E('simGain').textContent=gain()?`${Math.round(gain())} м`:'—';E('simEventsCount').textContent='0 / 30';E('simPenalty').textContent='+0:00';E('simLog').innerHTML='<div><span>—</span><span>События появятся случайно по ходу гонки</span><b>30 в пуле</b></div>';E('simEventCard').classList.remove('show');E('simPauseBadge').classList.remove('show');E('simStart').textContent='▶ Симуляция гонки';E('simStart').disabled=!(baseSec()&&dist());updateResults();E('simStatus').textContent=baseSec()&&dist()?'Готово: профиль и время взяты из текущего прогноза.':'Сначала рассчитайте «Прогноз гонки» в разделе 2.';draw()}
+function reset(){stop();progress=0;penalty=0;fired.clear();particles=[];simStartDate=firstTrackDate();makeSchedule();E('simProgress').style.width='0';E('simDistance').textContent=dist()?`0.0 / ${dist().toFixed(1)} км`:'—';E('simGain').textContent=gain()?`${Math.round(gain())} м`:'—';E('simEventsCount').textContent=`0 / ${schedule.length}`;E('simPenalty').textContent='+0:00';E('simLog').innerHTML='<div><span>—</span><span>События появятся случайно по ходу гонки</span><b>31 событие в пуле</b></div>';E('simEventCard').classList.remove('show');E('simPauseBadge').classList.remove('show');E('simStart').textContent='▶ Симуляция гонки';E('simStart').disabled=!(baseSec()&&dist());updateResults();E('simStatus').textContent=baseSec()&&dist()?'Готово: профиль и время взяты из текущего прогноза.':'Сначала рассчитайте «Прогноз гонки» в разделе 2.';draw()}
 
 setInterval(()=>{const b=E('simStart');if(b&&!timer)b.disabled=!(baseSec()&&dist());},500);
+setInterval(()=>{if(document.querySelector('[data-tab="simulation"]')?.classList.contains('active')) draw();},120);
 E('simStart').addEventListener('click',()=>{if(progress>=1)reset();if(!baseSec()||!dist()){reset();return}if(timer){clearInterval(timer);timer=null;E('simStart').textContent='▶ Продолжить';E('simStatus').textContent='Пауза';}else run()});E('simReset').addEventListener('click',reset);E('simSpeed').addEventListener('change',draw);window.addEventListener('resize',draw);
 // Keep simulation synced when user switches to tab 5 or recalculates forecast.
 document.querySelector('[data-tab="simulation"]')?.addEventListener('click',()=>setTimeout(reset,0));
 reset();
 })();;
+
+window.addEventListener('resize',()=>{
+  try{ if(fordLeafletMap) fordLeafletMap.invalidateSize(); }catch(e){}
+});
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    if(btn.dataset.tab==='route'){
+      setTimeout(()=>{try{if(fordLeafletMap)fordLeafletMap.invalidateSize()}catch(e){}},150);
+    }
+  });
+});
