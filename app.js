@@ -1,4 +1,4 @@
-const APP_VERSION='10.56';
+const APP_VERSION='10.57';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -1074,7 +1074,7 @@ function startRace(){
      showStartRequirementsError('Не подходит экипировка для этой гонки',[
        `${raceWeather.emoji} ${raceWeather.name}, ${raceWeather.temp}°C.`,
        `Мембранка: нужна ур. ${requiredMembrane}/7 или выше.`,
-       `Сейчас надета: ${equippedName} · ур. ${equippedMembrane}/7.`
+       `Мембранка: ${equippedMembrane <= 1 ? 'отсутствует' : equippedName + ' · ур. ' + equippedMembrane + '/7'}.`
      ]);
      activeShopCategory='jacket';
      renderShop();
