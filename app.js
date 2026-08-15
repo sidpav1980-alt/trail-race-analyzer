@@ -1,4 +1,4 @@
-const APP_VERSION='10.51';
+const APP_VERSION='10.53';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -1205,7 +1205,7 @@ function tick(ts){
  if(!run||!run.running)return;
  // Визуальная скорость прохождения увеличена в 2 раза относительно предыдущей сборки; игровое финишное время не меняется.
  const dt=(ts-lastTs)/1000*Number($('speed').value||2);lastTs=ts;
- if(!run.paused){
+ if(!run.paused && !run.eventPause){
    const total=Math.max(60,run.base+run.penalty);
    run.elapsed+=dt;
    run.p=Math.min(1,run.elapsed/total);
@@ -1302,7 +1302,13 @@ function fireEvents(){
 }
 function showEvent(ev,sec,extra){
  const ov=$('eventOverlay');ov.innerHTML=`<div class="overlay-box"><div class="emoji">${ev.emoji}</div><b>${ev.name}</b><span>${sec>=0?'+':'−'}${fmt(Math.abs(sec))}${extra}</span></div>`;ov.classList.add('show');
- setTimeout(()=>ov.classList.remove('show'),1600);
+ // Пока плашка события видна, игровое время и движение по трассе стоят.
+ // Пользовательская пауза при этом остаётся независимой.
+ if(run && run.running) run.eventPause=true;
+ setTimeout(()=>{
+   ov.classList.remove('show');
+   if(run){ run.eventPause=false; lastTs=performance.now(); }
+ },2000);
  const cls=sec<0?'good':sec>0?'bad':'neutral';
  $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>${(run.p*levelData()[1]).toFixed(1)} км</span><b>${ev.emoji} ${ev.name}${extra}</b><span class="${cls}">${sec>=0?'+':'−'}${fmt(Math.abs(sec))}</span></div>`);
 }
