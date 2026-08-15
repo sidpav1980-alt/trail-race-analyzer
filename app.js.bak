@@ -2774,27 +2774,9 @@ function flatRaceAnchorForTarget(){
   const vo2=Number($('vo2max')?.value||52);
 
   const speedCal=vo2AdjustedFlatCalibration(ref,vo2);
+  const calibrationSpeed=Math.max(0.5,speedCal.speed);
 
-  // v0.0248: for short races the real flat/speed GPX is the primary anchor.
-  // If the target is essentially the same distance as the speed reference,
-  // use the actually recorded pace directly instead of allowing q75/q85 or
-  // VO2max to make the forecast faster than the reference performance.
-  const rawSpeed=Math.max(0.5,Number(ref.avgSpeed||0));
   const refKm=Math.max(5,Math.min(ref.dist,15));
-  const distanceRatio=targetKm/Math.max(0.1,refKm);
-  const sameShortDistance=targetKm<=15 && distanceRatio>=0.90 && distanceRatio<=1.10;
-
-  let calibrationSpeed=Math.max(0.5,speedCal.speed);
-  let shortAnchorMode='normal';
-  if(sameShortDistance){
-    calibrationSpeed=rawSpeed;
-    shortAnchorMode='raw-speed-file';
-  }else if(targetKm<=15){
-    // Nearby short distances still stay strongly tied to the real speed file.
-    calibrationSpeed=rawSpeed*0.80+calibrationSpeed*0.20;
-    shortAnchorMode='80%-raw-speed-file';
-  }
-
   const refSec=(refKm*1000)/calibrationSpeed;
   const targetSec=refSec*Math.pow(targetKm/refKm,exponent);
   const targetPaceSec=targetSec/Math.max(0.001,targetKm);
@@ -2807,8 +2789,7 @@ function flatRaceAnchorForTarget(){
     rawFilePaceSec:ref.elapsedSec/ref.dist,
     refPaceSec:refSec/refKm,
     exponent,targetKm,targetSec,targetPaceSec,targetSpeed,calibrationSpeed,
-    speedCalibration:speedCal,
-    shortAnchorMode
+    speedCalibration:speedCal
   };
 }
 function gradeOnlyFactor(grade){
@@ -3334,11 +3315,6 @@ function raceFormulaText(){
       + `доля VO₂max ${(sc.vo2Weight*100).toFixed(0)}%. `;
   }else{
     speedText=`Скоростная плоская GPX используется напрямую как скоростной якорь. `;
-  }
-  if(anchor.shortAnchorMode==='raw-speed-file'){
-    speedText+=`Для короткой дистанции, близкой к скоростному эталону, прогноз жёстко привязан к реально показанному темпу этого GPX. `;
-  }else if(anchor.shortAnchorMode==='80%-raw-speed-file'){
-    speedText+=`Для короткой дистанции 80% скоростного якоря берётся из фактически показанной скорости GPX и только 20% — из корректирующей модели. `;
   }
 
   return `Калибровка считается по фактическим данным трёх загруженных GPX. `
