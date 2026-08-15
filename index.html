@@ -15,6 +15,23 @@
 .quick-buy-hint{display:block!important;margin-top:7px;color:#55b9ff!important;font-size:12px!important}
 .quick-buy-card.quick-buy-ok .quick-buy-hint{color:#73d995!important}
 .simulation-race-title{font-size:1.05rem;font-weight:800;color:#7dd3fc;margin:0 0 8px;letter-spacing:.02em}
+
+.player-name-card input{
+  width:100%;
+  margin-top:8px;
+  box-sizing:border-box;
+  border:1px solid #294461;
+  border-radius:14px;
+  background:#081629;
+  color:#f5f7fb;
+  padding:12px 14px;
+  font:inherit;
+  font-size:18px;
+  outline:none;
+}
+.player-name-card input::placeholder{color:#7f90a8}
+.player-name-card input:focus{border-color:#39bdf3;box-shadow:0 0 0 2px rgba(57,189,243,.12)}
+
 </style>
 
 </head>
@@ -34,6 +51,11 @@
     <div><span>Пройдено</span><b id="completed">0 / 20</b><small>уровней</small></div>
     <div><span>Репутация</span><b id="rep">0</b><small>влияет на доход</small></div>
     <div><span>Победы</span><b id="wins">0</b><small>первых мест в гонках</small></div>
+    <div class="player-name-card">
+      <span>Спортсмен</span>
+      <input id="playerNameInput" type="text" maxlength="40" placeholder="Введите имя фамилию" autocomplete="name">
+      <small>имя и фамилия</small>
+    </div>
   </section>
 
   <section class="status-strip card">
@@ -156,7 +178,7 @@
         </div>
         <div class="race-leaders-card">
           <div class="race-leaders-head">
-            <b>🏆 Лидеры гонки</b>
+            <b>🏆 Лидеры гонки</b><span id="racePlayerName" style="display:block;margin-top:6px;font-size:14px;color:#91a5bd">Вы: <strong style="color:#eef5ff">Трейлраннер</strong></span>
             <span id="leadersRaceName">—</span>
           </div>
           <div id="raceLeaders" class="race-leaders-list"></div>

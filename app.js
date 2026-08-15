@@ -1,4 +1,4 @@
-const APP_VERSION='10.82';
+const APP_VERSION='10.84';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -71,14 +71,14 @@ function loadGame(){
     const x=JSON.parse(localStorage.getItem('trailArmageddonSave')||'null');
     if(x) return Object.assign({
       money:1500,xp:0,level:1,completed:0,rep:0,wins:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
-      durability:{},best:{},fatigue:0,lastFinishAt:0,restUntil:0,
+      durability:{},best:{},playerName:'',fatigue:0,lastFinishAt:0,restUntil:0,
       resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
       lampCharge:100,gearOwned:{}
     },x);
   }catch(e){}
   return {
     money:1500,xp:0,level:1,completed:0,rep:0,wins:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
-    durability:{},best:{},fatigue:0,lastFinishAt:0,restUntil:0,
+    durability:{},best:{},playerName:'',fatigue:0,lastFinishAt:0,restUntil:0,
     resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
     lampCharge:100,gearOwned:{}
   };
@@ -239,6 +239,7 @@ function ensureTraining(){
  if(!game.coachOwned.includes(0)) game.coachOwned.push(0);
  if(game.trainingUntil==null) game.trainingUntil=0;
  if(game.itra==null) game.itra=250;
+ if(game.playerName==null) game.playerName='';
 }
 function ensureResources(){
   if(!game.resources) game.resources={};
@@ -487,6 +488,12 @@ function renderPreStartRaceState(L){
  if($('condition')) $('condition').textContent='ГОТОВ';
 }
 
+
+const NAME_BAD_WORDS=['хуй','хуя','хуе','хуи','хуйн','пизд','пезд','еба','еби','ебу','ёб','бля','бляд','сука','сучк','мраз','мудак','долбоеб','долбоёб','гандон','пидор','пидар','залуп','шлюх'];
+function normName(v){return String(v||'').toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-я0-9]/gi,'');}
+function hasBadName(v){const n=normName(v);return NAME_BAD_WORDS.some(w=>n.includes(normName(w)));}
+function safePlayerName(){const n=String(game.playerName||'').trim();return n&&!hasBadName(n)?n:'Трейлраннер';}
+
 function render(){
  applyAppVersion();
  const raceShoppingLocked=!!(run&&run.running);
@@ -525,6 +532,8 @@ function render(){
  $('completed').textContent=`${game.completed} / 20`;
  $('rep').textContent=game.rep;
  $('wins').textContent=game.wins||0;
+ if($('racePlayerName')) $('racePlayerName').innerHTML='Вы: <strong style="color:#eef5ff">'+safePlayerName().replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))+'</strong>';
+ if($('playerNameInput') && document.activeElement!==$('playerNameInput')) $('playerNameInput').value=game.playerName||'';
  ensureResources();ensureTraining();
  const restMs=restRemainingMs();
  $('fatigueValue').textContent=Math.round(game.fatigue)+'%';
@@ -849,6 +858,17 @@ setInterval(()=>{
  }
  if($('startTrainingBtn')) renderTraining();
 },1000);
+$('playerNameInput')?.addEventListener('input',e=>{
+  const v=(e.target.value||'').slice(0,40);
+  if(hasBadName(v)){ e.target.setCustomValidity('Мат и оскорбительные слова запрещены'); e.target.reportValidity(); return; }
+  e.target.setCustomValidity(''); game.playerName=v; saveGame();
+});
+$('playerNameInput')?.addEventListener('change',e=>{
+  const v=(e.target.value||'').trim().slice(0,40);
+  if(hasBadName(v)){ e.target.setCustomValidity('Мат и оскорбительные слова запрещены'); e.target.reportValidity(); e.target.value=game.playerName||''; return; }
+  e.target.setCustomValidity(''); game.playerName=v; e.target.value=v; saveGame();
+});
+
 $('restBtn')?.addEventListener('click',()=>{
   if(run && run.running){ showGameError('Во время гонки отдых недоступен. Сначала завершите гонку.'); return; }
   if(isResting())return;
