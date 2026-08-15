@@ -161,3 +161,70 @@ footer{text-align:center;color:#65758b;padding:28px 0 60px}
 }
 .rest-fatigue span{display:block;color:#98a7bd;font-size:12px}
 .rest-fatigue b{display:block;font-size:24px;margin-top:2px;color:#fbbf24}
+
+.game-error-toast{
+ position:fixed;
+ left:16px;
+ right:16px;
+ bottom:88px;
+ z-index:99999;
+ padding:14px 16px;
+ border-radius:14px;
+ background:rgba(92,18,24,.96);
+ border:1px solid #ef4444;
+ color:#fecaca;
+ font-weight:700;
+ font-size:15px;
+ line-height:1.35;
+ box-shadow:0 12px 35px rgba(0,0,0,.42);
+ transform:translateY(24px);
+ opacity:0;
+ pointer-events:none;
+ transition:opacity .18s ease,transform .18s ease;
+}
+.game-error-toast.show{
+ opacity:1;
+ transform:translateY(0);
+}
+
+.help-btn{
+  border:1px solid #31506f;background:#0d1b2d;color:#dce8f7;
+  border-radius:999px;padding:10px 14px;font-weight:800;font-size:14px;
+  white-space:nowrap
+}
+.help-modal{
+  display:none;position:fixed;inset:0;z-index:100000;
+  background:rgba(0,7,16,.78);backdrop-filter:blur(5px);
+  padding:18px;overflow:auto
+}
+.help-modal.open{display:flex;align-items:flex-start;justify-content:center}
+.help-card{
+  width:min(620px,100%);margin:38px auto 110px;padding:20px;
+  border:1px solid #2b4565;border-radius:24px;background:#0b1728;
+  color:#eef5ff;box-shadow:0 24px 70px rgba(0,0,0,.55)
+}
+.help-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.help-head h2{font-size:30px;margin:4px 0 14px}
+.help-kicker{font-size:12px;letter-spacing:.18em;color:#43c5ff}
+.help-close{
+  width:44px;height:44px;border-radius:14px;border:1px solid #314963;
+  background:#101f33;color:#fff;font-size:20px
+}
+.help-section{
+  margin:10px 0;padding:14px;border:1px solid #233b58;border-radius:16px;
+  background:#0e1c30
+}
+.help-section b{font-size:17px}
+.help-section p{margin:7px 0 0;color:#aebed2;line-height:1.45}
+.help-focus{border-color:#2b9c66;background:#0d2825}
+.help-focus p{color:#d7f8e6}
+.help-ok{
+  width:100%;margin-top:10px;padding:15px;border:0;border-radius:15px;
+  background:#39bdf4;color:#06111d;font-size:18px;font-weight:900
+}
+@media(max-width:520px){
+  .help-card{margin-top:12px;padding:16px}
+  .help-head h2{font-size:26px}
+}
+
+.registration-required-note{color:#f6c66f;line-height:1.4;font-weight:700;margin:10px 0 16px}
