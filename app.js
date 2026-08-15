@@ -1,4 +1,4 @@
-const APP_VERSION='10.53';
+const APP_VERSION='10.54';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -294,24 +294,22 @@ function waterBottlesNeeded(L,w){
   return liters<=0?0:Math.ceil(liters/0.5);
 }
 function membraneRequiredLevel(L=levelData(),w=weatherForLevel()){
-  // Early-game balance:
-  // races 1–2: membrane never blocks the start;
-  // races 3–5: bad weather requires only basic membrane 1/7;
-  // from race 6 requirements scale with difficulty/distance/weather.
+  // Баланс ранних уровней:
+  // 1–2 уровень: мембранка не обязательна вообще.
+  // С 3 уровня при дожде/холоде нужна первая настоящая мембранка — ур. 2/7.
   const raceNo=game.current+1;
   if(raceNo<=2) return 0;
   if(!(w.rain||w.cold)) return 0;
-  if(raceNo<=5) return 1;
 
   let req=2;
-  if(L[5]>=3 || L[1]>=50) req=3;
-  if(L[5]>=4 || L[1]>=100) req=4;
-  if(L[5]>=5 || L[1]>=250) req=5;
-  if(L[1]>=500) req=6;
-  if(L[1]>=700) req=7;
-  if(w.name==='Ливень') req+=1;
-  if(w.cold && w.temp<=4) req+=1;
-  return Math.max(1,Math.min(7,req));
+  if(raceNo>=6 && (L[5]>=3 || L[1]>=50)) req=3;
+  if(raceNo>=6 && (L[5]>=4 || L[1]>=100)) req=4;
+  if(raceNo>=6 && (L[5]>=5 || L[1]>=250)) req=5;
+  if(raceNo>=6 && L[1]>=500) req=6;
+  if(raceNo>=6 && L[1]>=700) req=7;
+  if(raceNo>=6 && w.name==='Ливень') req+=1;
+  if(raceNo>=6 && w.cold && w.temp<=4) req+=1;
+  return Math.max(2,Math.min(7,req));
 }
 function membraneEquippedLevel(){
   return Math.max(1,Math.min(7,Number(game.gear.jacket||0)+1));
