@@ -1,4 +1,4 @@
-const APP_VERSION='10.87';
+const APP_VERSION='10.90';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -28,15 +28,15 @@ const GEAR={"shoes":[["Базовые кроссовки",0,1.0,65,0.0],["Trail 
 const CATEGORY_NAMES={shoes:'Кроссовки',pack:'Рюкзак / жилет',jacket:'Мембранка',lamp:'Фонарик',poles:'Палки',watch:'Часы',medkit:'Аптечка',hydration:'Вода'};
 const RESOURCE_CATALOG={
   waterBottles:{name:'Вода 0,5 л',price:20,unit:'бут.',desc:'Обязательна с 4 уровня. Расход зависит от дистанции, жары и солнца.'},
-  gels:{name:'Энергетический гель',price:30,unit:'шт.',desc:'Снижает голод и потерю темпа на длинной гонке.'},
-  batteries:{name:'Комплект батареек',price:65,unit:'компл.',desc:'Для фонарей 1–4 уровня. Один комплект ≈ 5 часов света.'},
+  gels:{name:'Энергетический гель',price:60,unit:'шт.',desc:'Снижает голод и потерю темпа на длинной гонке.'},
+  batteries:{name:'Комплект батареек',price:130,unit:'компл.',desc:'Для фонарей 1–4 уровня. Один комплект ≈ 5 часов света.'},
   bandage:{name:'Бинт',price:40,unit:'шт.',desc:'Сильные ссадины и растяжения.'},
   gauze:{name:'Марля',price:22,unit:'уп.',desc:'Кровь и глубокие царапины.'},
   peroxide:{name:'Перекись',price:35,unit:'фл.',desc:'Обработка ран.'},
   plaster:{name:'Пластырь',price:28,unit:'уп.',desc:'Мелкие порезы и мозоли.'},
   cream:{name:'Крем от натирания',price:60,unit:'тюб.',desc:'Снижает риск натираний.'},
-  accumulator:{name:'Сменный аккумулятор фонаря',price:450,unit:'шт.',desc:'Для фонарей уровней 5–7. Можно заменить разряженный аккумулятор прямо в гонке.'},
-  powerbank:{name:'Переносной powerbank',price:1125,unit:'шт.',desc:'Заряжает аккумулятор фонаря уровней 5–7.'}
+  accumulator:{name:'Сменный аккумулятор фонаря',price:900,unit:'шт.',desc:'Для фонарей уровней 5–7. Можно заменить разряженный аккумулятор прямо в гонке.'},
+  powerbank:{name:'Переносной powerbank',price:2250,unit:'шт.',desc:'Заряжает аккумулятор фонаря уровней 5–7.'}
 };
 const START_GEAR={shoes:0,pack:0,jacket:0,lamp:0,poles:0,watch:0,medkit:0,hydration:0};
 const $=id=>document.getElementById(id);
@@ -1248,7 +1248,7 @@ function createVirtualField(L,fieldSize,playerBaseSec){
     field.push({
       id:i,
       relative:Math.max(0.72,Math.min(1.34,relative)),
-      finishSec:Math.max(60,playerBaseSec*relative),
+      finishSec:Math.max(60,playerBaseSec*relative*1.20),
       dnf:false
     });
   }
