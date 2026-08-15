@@ -103,29 +103,7 @@ function updateProfileUi(){
   if($('profileNick')) $('profileNick').textContent=authUser?.nick||'—';
   if($('headerLogoutBtn')) $('headerLogoutBtn').style.display=authUser?'inline-flex':'none';
 }
-
-const AUTH_GATE_VERSION='10.11';
-
-async function enforceFreshLoginForRelease(){
-  const seen=localStorage.getItem('trailAuthGateVersion');
-  if(seen===AUTH_GATE_VERSION) return false;
-
-  // Invalidate any old server session from previous builds.
-  try{
-    await fetch('/api/logout',{method:'POST',credentials:'same-origin'});
-  }catch(e){}
-
-  authUser=null;
-  updateProfileUi();
-  localStorage.setItem('trailAuthGateVersion',AUTH_GATE_VERSION);
-  setAuthMode('login');
-  showAuth();
-  setAuthStatus('После обновления требуется повторный вход по нику и паролю.');
-  return true;
-}
-
 async function loadSession(){
-  if(await enforceFreshLoginForRelease()) return;
   authUser=null;
   updateProfileUi();
   showAuth();
@@ -182,7 +160,6 @@ async function submitAuth(e){
     if(!r.ok)throw new Error(d.error||'Ошибка входа');
 
     authUser=d.user||{nick};
-    localStorage.setItem('trailAuthGateVersion',AUTH_GATE_VERSION);
     if(d.progress&&typeof d.progress==='object') game=d.progress;
     localStorage.setItem('trailArmageddonSave',JSON.stringify(game));
     updateProfileUi();
@@ -1113,7 +1090,7 @@ loadSession();
     if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
   }
   document.addEventListener('click',function(e){
-    if(e.target.closest('#helpBtn')) openHelp();
+    if(e.target.closest('#helpBtn') || e.target.closest('#topHelpBtn') || e.target.closest('#navHelpBtn')) openHelp();
     if(e.target.closest('#helpClose') || e.target.closest('#helpOk')) closeHelp();
     if(e.target && e.target.id==='helpModal') closeHelp();
   });
