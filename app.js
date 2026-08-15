@@ -1,4 +1,4 @@
-const APP_VERSION='10.86';
+const APP_VERSION='10.87';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -433,14 +433,19 @@ function leaderKmForPosition(rank,L,playerKm,playerPos){
 
 function leaderKmFor(rank,L,playerKm){
  if(!run || !run.running) return 0;
+ let km=0;
  if(Array.isArray(run.virtualField) && run.virtualField.length){
    const sorted=[...run.virtualField]
+     .filter(c=>!c.dnf)
      .map(c=>({c,p:competitorProgressAt(c,run.elapsed,L)}))
      .sort((a,b)=>b.p-a.p);
    const row=sorted[Math.max(0,rank-1)];
-   return row ? Math.max(0,Math.min(L[1],row.p*L[1])) : 0;
+   km=row ? Math.max(0,Math.min(L[1],row.p*L[1])) : 0;
+ }else{
+   km=leaderKmForPosition(rank,L,playerKm,run.currentPosition||run.position||18);
  }
- return leaderKmForPosition(rank,L,playerKm,run.currentPosition||run.position||18);
+ // TOP-3 leaders are 20% slower than in the previous balance.
+ return Math.max(0,Math.min(L[1],km*0.80));
 }
 function renderRaceLeaders(playerKm=0){
  const box=$('raceLeaders'); if(!box)return;
@@ -486,6 +491,7 @@ function renderPreStartRaceState(L){
  if($('position')) $('position').textContent='—';
  if($('penalties')) $('penalties').textContent='+0:00';
  if($('condition')) $('condition').textContent='ГОТОВ';
+ if($('liveDnfStatus')) $('liveDnfStatus').textContent='🚫 Сошли: 0';
 }
 
 
@@ -1261,6 +1267,38 @@ function competitorProgressAt(c,elapsed,L){
   return p;
 }
 
+
+function updateLiveDnfs(){
+ if(!run || !run.running) return;
+ const points=Array.isArray(run.otherDnfPoints)?run.otherDnfPoints:[];
+ let count=0;
+ for(const p of points) if((run.p||0)>=p) count++;
+ if(count>Number(run.liveDnfCount||0)){
+   const newly=count-Number(run.liveDnfCount||0);
+   run.liveDnfCount=count;
+
+   // Remove approximately the same number of virtual competitors from the active field.
+   const active=(run.virtualField||[]).filter(c=>!c.dnf);
+   for(let i=0;i<newly && active.length;i++){
+     const idx=Math.floor(Math.random()*active.length);
+     active[idx].dnf=true;
+     active.splice(idx,1);
+   }
+
+   const el=$('eventLog');
+   if(el){
+     el.insertAdjacentHTML('afterbegin',
+       `<div class="event-row"><span>${Math.round((run.p||0)*100)}%</span><b>🚫 Сход участника</b><span>всего ${run.liveDnfCount}</span></div>`);
+   }
+ }
+
+ const box=$('liveDnfStatus');
+ if(box){
+   const total=Math.max(1,Number(run.fieldSize||0));
+   box.textContent=`🚫 Сошли: ${Number(run.liveDnfCount||0)} из ${total}`;
+ }
+}
+
 function updateRealisticPosition(){
   if(!run || !run.running || !Array.isArray(run.virtualField)) return;
   const L=levelData();
@@ -1470,6 +1508,11 @@ function startRace(){
  run.startedByUser=true;
  run.weatherDnfPlanned=Math.random()<run.weatherDnfRisk;
  run.otherDnfCount=simulateOtherDnfs(run.fieldSize,L,raceWeather);
+ run.liveDnfCount=0;
+ run.otherDnfPoints=Array.from({length:run.otherDnfCount},(_,i)=>{
+   const base=(i+1)/(run.otherDnfCount+1);
+   return Math.max(.06,Math.min(.97,base + (Math.random()-.5)*.12));
+ }).sort((a,b)=>a-b);
  if(game.current>=9){
    const rivalName=(run.raceLeaders && run.raceLeaders.length)
      ? run.raceLeaders[Math.floor(Math.random()*run.raceLeaders.length)]
@@ -1498,6 +1541,7 @@ function tick(ts){
    run.elapsed+=dt;
    run.p=Math.min(1,run.elapsed/total);
    fireEvents();
+   updateLiveDnfs();
    updateRealisticPosition();
    updateRun();
    renderRaceLeaders((run.p||0)*Number((run&&run.raceDistance)||L[1]||5));
@@ -1680,7 +1724,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
      const stronger=COACHES.findIndex((x,i)=>i>game.coach && x.maxDifficulty>=L[5]);
      if(stronger>=0) dnfCoachAdvice=`<br><br>💡 Рекомендация: сменить тренера на «${COACHES[stronger].name}» — текущий уровень подготовки ниже сложности гонки.`;
    }
-   const totalDnfs=Math.min(run.fieldSize,(run.otherDnfCount||0)+1);
+   const totalDnfs=Math.min(run.fieldSize,(run.liveDnfCount??run.otherDnfCount??0)+1);
    const dnfStats=`<br><br>🚫 Сошло с дистанции: ${totalDnfs} из ${run.fieldSize}.`;
    if(dnfReason==='freeze'){
      ov.innerHTML=`<div class="overlay-box"><div class="emoji">🥶</div><b>DNF · переохлаждение</b><span>Вы замёрзли до финиша.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
@@ -1762,7 +1806,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
    }
  }
 
- const totalDnfs=Math.min(run.fieldSize,run.otherDnfCount||0);
+ const totalDnfs=Math.min(run.fieldSize,run.liveDnfCount??run.otherDnfCount??0);
  ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br>🚫 Сошло с дистанции: ${totalDnfs} из ${run.fieldSize}<br>Тренированность: ${Math.round(game.fitness)}/100<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}${coachAdvice}</span></div>`;
  ov.classList.add('show');
  setTimeout(()=>{ov.classList.remove('show');render()},champ?7000:4200);
