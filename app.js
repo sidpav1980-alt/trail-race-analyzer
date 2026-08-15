@@ -1,4 +1,4 @@
-const APP_VERSION='10.71';
+const APP_VERSION='10.72';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -1395,10 +1395,15 @@ function startRace(){
  if(lightShortageHours>0) $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>🔦 Не хватает света: ${lightShortageHours} ч</b><span class="bad">+${fmt(lightPenaltySec)}</span></div>`);
  if(fatiguePenaltySec>0) $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>😫 Накопленная усталость ${Math.round(game.fatigue)}%</b><span class="bad">+${fmt(fatiguePenaltySec)}</span></div>`);
  $('startBtn').disabled=true;$('pauseBtn').disabled=false;
- lastTs=performance.now();timer=requestAnimationFrame(tick);
+ updateRun();
+ renderRaceLeaders(0);
+ drawTrack(0);
+ lastTs=performance.now();
+ timer=requestAnimationFrame(tick);
 }
 function tick(ts){
  if(!run||!run.running)return;
+ const L=levelData();
  // Визуальная скорость прохождения увеличена в 2 раза относительно предыдущей сборки; игровое финишное время не меняется.
  const dt=(ts-lastTs)/1000*Number($('speed').value||2);lastTs=ts;
  if(!run.paused && !run.eventPause){
@@ -1519,7 +1524,7 @@ function updateRun(){
  $('pace').textContent=fmt(total/L[1]).replace(':',' : ')+' /км';
 
  // Realistic live position from virtual competitors.
- const estimatedPos=updateRealisticPosition() || Math.max(1,run.currentPosition||run.position||1);
+ let estimatedPos=updateRealisticPosition() || Math.max(1,run.currentPosition||run.position||1);
 
  // Calculate leader progress using the candidate place itself, so the UI cannot say
  // "1st place" while one or more TOP-3 athletes are already shown as finished ahead.
