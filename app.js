@@ -1,4 +1,4 @@
-const APP_VERSION='10.79';
+const APP_VERSION='10.80';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -54,10 +54,10 @@ let run=null,timer=null,lastTs=0;
 
 const COACHES=[
  {name:'Без тренера',price:0,mult:1.00,maxDifficulty:1,trainingGain:1.0,desc:'Подготовка только к лёгким гонкам ★.'},
- {name:'Базовый тренер',price:8000,mult:1.25,maxDifficulty:2,trainingGain:1.5,desc:'Готовит к гонкам сложности до ★★.'},
- {name:'Трейл-тренер',price:25000,mult:1.55,maxDifficulty:3,trainingGain:2.2,desc:'Готовит к гонкам сложности до ★★★.'},
- {name:'Горный тренер',price:50000,mult:1.90,maxDifficulty:4,trainingGain:3.0,desc:'Готовит к гонкам сложности до ★★★★.'},
- {name:'Elite Coach',price:90000,mult:2.35,maxDifficulty:5,trainingGain:4.2,desc:'Готовит ко всем гонкам, включая ★★★★★.'}
+ {name:'Базовый тренер',price:2000,mult:1.25,maxDifficulty:2,trainingGain:1.5,desc:'Готовит к гонкам сложности до ★★.'},
+ {name:'Трейл-тренер',price:6250,mult:1.55,maxDifficulty:3,trainingGain:2.2,desc:'Готовит к гонкам сложности до ★★★.'},
+ {name:'Горный тренер',price:12500,mult:1.90,maxDifficulty:4,trainingGain:3.0,desc:'Готовит к гонкам сложности до ★★★★.'},
+ {name:'Elite Coach',price:22500,mult:2.35,maxDifficulty:5,trainingGain:4.2,desc:'Готовит ко всем гонкам, включая ★★★★★.'}
 ];
 const ELITE_RUNNERS=[
 {name:'Алексей Береснев',itra:905,country:'🇷🇺'},{name:'Антонина Юшина',itra:890,country:'🇷🇺'},
