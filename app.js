@@ -1528,16 +1528,19 @@ function drawTrack(p){
    ctx.font='13px sans-serif';
    ctx.fillText(`места 6–${Math.max(10,pos-1)}`,px+13,py+40);
  }
- // Top-3 leaders visible farther ahead whenever runner is not first.
+ // Top-3 leaders: position on the profile is tied to their actual race kilometres.
  if(pos>1){
-   const lx=Math.min(W-178,x+260),ly=ground-70;
+   const leaderKms=[1,2,3].map(rank=>leaderKmFor(rank,L,p*L[1]));
    const leaderColors=['#fbbf24','#cbd5e1','#d97706'];
+   const leaderXs=leaderKms.map(km=>65+(km/L[1])*(W-160));
+   const lx=leaderXs[0],ly=ground-70;
    for(let i=0;i<3;i++){
-     drawOpponent(ctx,lx+i*48,ly+i*5,.96,leaderColors[i],i+1);
+     // Each leader uses the same km→x scale as the player. Small vertical offsets keep icons readable.
+     drawOpponent(ctx,leaderXs[i],ly+i*5,.96,leaderColors[i],i+1);
    }
 
-   const leadKm=leaderKmFor(1,L,p*L[1]);
-   const lw=164,lh=52,lxBox=lx-14,lyBox=ly-92,r=12;
+   const leadKm=leaderKms[0];
+   const lw=164,lh=52,lxBox=Math.max(8,Math.min(W-lw-8,lx-14)),lyBox=ly-92,r=12;
    ctx.fillStyle='rgba(22,15,5,.95)';
    ctx.beginPath();
    ctx.roundRect(lxBox,lyBox,lw,lh,r);
