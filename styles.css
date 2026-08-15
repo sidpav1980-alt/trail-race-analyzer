@@ -134,3 +134,14 @@ footer{text-align:center;color:#65758b;padding:28px 0 60px}
 @media(max-width:720px){.status-strip{grid-template-columns:repeat(2,1fr)}}
 
 .tabs{grid-template-columns:repeat(6,1fr)}.leaderboard{display:grid;gap:6px}.leader-row{display:grid;grid-template-columns:34px 1fr 70px;gap:8px;padding:10px 12px;background:#091525;border:1px solid #20344f;border-radius:12px}.leader-row strong{text-align:right;color:#fbbf24}.player-row{border-color:#38bdf8;background:#0b2134}@media(max-width:720px){.tabs{grid-template-columns:repeat(3,1fr)}}
+
+.shop-category-tabs{
+  display:flex;gap:8px;overflow-x:auto;padding:4px 0 14px;margin-bottom:8px;
+  -webkit-overflow-scrolling:touch
+}
+.shop-cat-btn{
+  flex:0 0 auto;border:1px solid #2b4160;background:#0a1525;color:#a9b6ca;
+  border-radius:999px;padding:10px 14px;font-weight:800
+}
+.shop-cat-btn.active{background:#38bdf8;color:#06131d;border-color:#38bdf8}
+.coach-item{border-color:#314765}

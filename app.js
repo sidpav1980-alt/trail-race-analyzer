@@ -63,9 +63,9 @@ function setAuthMode(m){authMode=m;$('authLoginTab')?.classList.toggle('active',
 function showAuth(){$('authOverlay')?.classList.remove('hidden')} function hideAuth(){$('authOverlay')?.classList.add('hidden')}
 function updateProfileUi(){
   if($('profileBtn')){
-    $('profileBtn').textContent=authUser?`👤 ${authUser.nick}`:'👤 Вход';
+    $('profileBtn').textContent=authUser?`👤 ${(authUser?.nick||'Игрок')}`:'👤 Вход';
     $('profileBtn').classList.toggle('logged',!!authUser);
-    $('profileBtn').title=authUser?`Профиль: ${authUser.nick}`:'Войти в профиль';
+    $('profileBtn').title=authUser?`Профиль: ${(authUser?.nick||'Игрок')}`:'Войти в профиль';
   }
   if($('profileNick')) $('profileNick').textContent=authUser?.nick||'—';
   if($('headerLogoutBtn')) $('headerLogoutBtn').style.display=authUser?'inline-flex':'none';
@@ -75,27 +75,47 @@ async function loadSession(){
   catch(e){setAuthStatus('Сервер профилей недоступен.','error');showAuth()}
 }
 async function submitAuth(e){
-  e.preventDefault();const nick=String($('authNick')?.value||'').trim(),password=String($('authPassword')?.value||'');
-  if(nick.length<2||password.length<4){setAuthStatus('Ник от 2 символов, пароль от 4.','error');return}
-  const endpoint=authMode==='register'?'/api/register':'/api/login';setAuthStatus(authMode==='register'?'Создаю профиль…':'Выполняю вход…');$('authSubmitBtn').disabled=true;
+  e.preventDefault();
+  const nick=String($('authNick')?.value||'').trim();
+  const password=String($('authPassword')?.value||'');
+  if(nick.length<2||password.length<4){
+    setAuthStatus('Ник от 2 символов, пароль от 4.','error');
+    return;
+  }
+
+  const registering=authMode==='register';
+  const endpoint=registering?'/api/register':'/api/login';
+  setAuthStatus(registering?'Создаю профиль…':'Выполняю вход…');
+  if($('authSubmitBtn'))$('authSubmitBtn').disabled=true;
+
   try{
-    const r=await fetch(endpoint,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({nick,password})});
+    const r=await fetch(endpoint,{
+      method:'POST',
+      credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({nick,password})
+    });
     const d=await r.json().catch(()=>({}));
-    if(!r.ok) throw new Error(d.error||'Ошибка входа');
-    authUser=d.user;
+    if(!r.ok)throw new Error(d.error||'Ошибка входа');
+
+    authUser=d.user||{nick};
     if(d.progress&&typeof d.progress==='object') game=d.progress;
     localStorage.setItem('trailArmageddonSave',JSON.stringify(game));
     updateProfileUi();
-    if(authMode==='register'){
-      setAuthStatus(`✓ Профиль «${authUser.nick}» создан. Входим в игру…`,'ok');
-      if(!d.progress) await saveProgressCloud(false);
-      await new Promise(resolve=>setTimeout(resolve,1600));
+
+    if(registering){
+      setAuthStatus(`✓ Профиль «${authUser.nick||nick}» создан`,'ok');
+      await saveProgressCloud(false);
+      await new Promise(resolve=>setTimeout(resolve,1400));
     }
+
     hideAuth();
     render();
-    if(authMode!=='register' && !d.progress) await saveProgressCloud(false);
+  }catch(err){
+    setAuthStatus(err.message||String(err),'error');
+  }finally{
+    if($('authSubmitBtn'))$('authSubmitBtn').disabled=false;
   }
-  catch(err){setAuthStatus(err.message||String(err),'error')}finally{$('authSubmitBtn').disabled=false}
 }
 async function logout(){await saveProgressCloud(false);try{await fetch('/api/logout',{method:'POST',credentials:'same-origin'})}catch(e){}authUser=null;updateProfileUi();$('profilePanel')?.classList.remove('show');showAuth();setAuthStatus('Вы вышли. Войдите снова, чтобы восстановить прогресс.')}
 $('authLoginTab')?.addEventListener('click',()=>setAuthMode('login'));$('authRegisterTab')?.addEventListener('click',()=>setAuthMode('register'));$('authForm')?.addEventListener('submit',submitAuth);
@@ -251,23 +271,50 @@ function renderLevels(){
  });
  g.querySelectorAll('button[data-level]').forEach(b=>b.onclick=()=>{game.current=+b.dataset.level;saveGame();render();switchTab('race')});
 }
+let activeShopCategory='shoes';
 function renderShop(){
- const g=$('shopGrid');g.innerHTML='';
- Object.entries(GEAR).forEach(([cat,list])=>{
-   list.forEach((it,idx)=>{
-    if(idx===0)return;
-    const owned=game.gear[cat]===idx;
-    const d=document.createElement('div');d.className='shop-item';
-    d.innerHTML=`<h3>${CATEGORY_NAMES[cat]} · ур. ${idx+1}/7 · ${it[0]}</h3>
-    <div class="meta">Цена: <span class="money">${fmtMoney(it[1])}</span><br>Темп ×${it[2].toFixed(3)} · ресурс ${it[3]} ед.<br>Защита от поломки +${Math.round(it[4]*100)}%</div>
-    <button class="${owned?'secondary':'primary'}" ${owned||game.money<it[1]?'disabled':''} data-buy="${cat}:${idx}">${owned?'Надето':game.money<it[1]?'Не хватает ₽':'Купить и надеть'}</button>`;
-    g.appendChild(d);
-   });
+ const tabs=$('shopCategoryTabs'),g=$('shopGrid');
+ if(!tabs||!g)return;
+
+ const cats=Object.keys(GEAR);
+ if(!cats.includes(activeShopCategory)) activeShopCategory=cats[0];
+
+ tabs.innerHTML='';
+ cats.forEach(cat=>{
+   const b=document.createElement('button');
+   b.className='shop-cat-btn '+(cat===activeShopCategory?'active':'');
+   b.textContent=CATEGORY_NAMES[cat];
+   b.onclick=()=>{activeShopCategory=cat;renderShop()};
+   tabs.appendChild(b);
  });
+
+ g.innerHTML='';
+ const list=GEAR[activeShopCategory]||[];
+ list.forEach((it,idx)=>{
+   const owned=game.gear[activeShopCategory]===idx;
+   const d=document.createElement('div');
+   d.className='shop-item';
+   const lvl=idx+1;
+   d.innerHTML=`<h3>${CATEGORY_NAMES[activeShopCategory]} · ур. ${lvl}/7 · ${it[0]}</h3>
+     <div class="meta">
+       Цена: <span class="money">${fmtMoney(it[1])}</span><br>
+       Эффект: ${gearEffectText(activeShopCategory,idx,it)}<br>
+       Ресурс: ${it[3]} ед. · защита от поломки +${Math.round(it[4]*100)}%
+     </div>
+     <button class="${owned?'secondary':'primary'}" ${owned||game.money<it[1]?'disabled':''} data-buy="${activeShopCategory}:${idx}">
+       ${owned?'Надето':game.money<it[1]?'Не хватает ₽':'Купить и надеть'}
+     </button>`;
+   g.appendChild(d);
+ });
+
  g.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{
    const [cat,idxS]=b.dataset.buy.split(':'),idx=+idxS,it=GEAR[cat][idx];
    if(game.money<it[1])return;
-   game.money-=it[1];game.gear[cat]=idx;game.durability[durKey(cat)]=it[3];saveGame();render();
+   game.money-=it[1];
+   game.gear[cat]=idx;
+   game.durability[durKey(cat)]=it[3];
+   saveGame();
+   render();
  });
 }
 function gearEffectText(cat,idx,it){
@@ -369,12 +416,53 @@ $('restBtn')?.addEventListener('click',()=>{
 });
 
 function renderTraining(){
- if(!$('coachGrid'))return;ensureTraining();$('coachGrid').innerHTML='';
- COACHES.forEach((x,i)=>{let d=document.createElement('div');d.className='shop-item';let active=i===game.coach;d.innerHTML=`<h3>🏋️ ${x.name}</h3><div class="meta">${i?`Цена: ${fmtMoney(x.price)} · прокачка ×${x.mult}`:'Обычная прокачка ×1'}</div><button class="${active?'secondary':'primary'}" ${active?'disabled':''} data-coach="${i}">${active?'Активен':i>game.coach?'Нанять':'Выбрать'}</button>`;$('coachGrid').appendChild(d)});
- $('coachGrid').querySelectorAll('[data-coach]').forEach(b=>b.onclick=()=>{let i=+b.dataset.coach;if(i>game.coach){if(game.money<COACHES[i].price){alert('Не хватает рублей');return}game.money-=COACHES[i].price}game.coach=i;saveGame();render()});
- $('fitnessPanelValue').textContent=`${Math.round(game.fitness)} / 100`;$('fitnessPanelBar').style.width=`${game.fitness}%`;$('fitnessPanelText').textContent=`Бонус скорости около +${Math.round((game.fitness-1)*.152)}%. Тренер ускоряет рост после каждой гонки.`;
- let rows=[...ELITE_RUNNERS,{name:authUser?.nick||'Вы',itra:Math.round(game.itra),country:'🎮',player:true}].sort((a,b)=>b.itra-a.itra);
- $('itraLeaderboard').innerHTML=rows.map((r,i)=>`<div class="leader-row ${r.player?'player-row':''}"><b>${i+1}</b><span>${r.country} ${r.name}</span><strong>${r.itra}</strong></div>`).join('');
+ if(!$('coachGrid'))return;
+ ensureTraining();
+
+ $('coachGrid').innerHTML='';
+ COACHES.forEach((x,i)=>{
+   const d=document.createElement('div');
+   d.className='shop-item coach-item';
+   const purchased=i<=game.coach;
+   const active=i===game.coach;
+   d.innerHTML=`<h3>${i===0?'🧍':'🏋️'} ${x.name}</h3>
+     <div class="meta">
+       ${i===0?'Без дополнительных затрат.':`Цена: <span class="money">${fmtMoney(x.price)}</span>`}<br>
+       Скорость прокачки: ×${x.mult}
+     </div>
+     <button class="${active?'secondary':'primary'}" ${active?'disabled':''} data-coach="${i}">
+       ${active?'Активен':purchased?'Выбрать тренера':'Купить тренера'}
+     </button>`;
+   $('coachGrid').appendChild(d);
+ });
+
+ $('coachGrid').querySelectorAll('[data-coach]').forEach(b=>b.onclick=()=>{
+   const i=Number(b.dataset.coach);
+   const coach=COACHES[i];
+   if(i>game.coach){
+     if(game.money<coach.price){alert('Не хватает рублей на тренера.');return}
+     game.money-=coach.price;
+     game.coach=i;
+   }else{
+     game.coach=i;
+   }
+   saveGame();
+   render();
+ });
+
+ if($('fitnessPanelValue'))$('fitnessPanelValue').textContent=`${Math.round(game.fitness)} / 100`;
+ if($('fitnessPanelBar'))$('fitnessPanelBar').style.width=`${game.fitness}%`;
+ if($('fitnessPanelText'))$('fitnessPanelText').textContent=`Бонус скорости около +${Math.round((game.fitness-1)*0.152)}%. Текущий тренер: ${COACHES[game.coach]?.name||'Без тренера'}.`;
+
+ const playerName=(authUser&&authUser.nick)?authUser.nick:'Вы';
+ const rows=[...ELITE_RUNNERS,{name:playerName,itra:Math.round(game.itra),country:'🎮',player:true}]
+   .sort((a,b)=>b.itra-a.itra);
+
+ if($('itraLeaderboard')){
+   $('itraLeaderboard').innerHTML=rows.map((r,i)=>`<div class="leader-row ${r.player?'player-row':''}">
+     <b>${i+1}</b><span>${r.country} ${r.name}</span><strong>${r.itra}</strong>
+   </div>`).join('');
+ }
 }
 function totalRepairCost(){
  let s=0;Object.keys(GEAR).forEach(cat=>{const it=item(cat),cur=durability(cat);s+=(it[3]-cur)*Math.max(2,it[1]/it[3]*.28)});return Math.ceil(s);
