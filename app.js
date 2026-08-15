@@ -2016,10 +2016,13 @@ $('rosterLoadBtn').addEventListener('click',async ()=>{
     if(f.name.toLowerCase().endsWith('.csv')) rows=parseCSV(await f.text());
     else rows=await parseXlsxOffline(await f.arrayBuffer());
     p.value=75;state.roster=normalizeRoster(rows);renderRoster();p.value=100;
-    $('rosterStatus').textContent='✓ Готово: '+state.roster.length+' участников.';
+    $('rosterStatus').textContent='✓ Обычный стартовый список загружен: '+state.roster.length+' участников.';
+    activeItraRoster=false;
+    simpleRosterBackup=(state.roster||[]).map(r=>({...r,_raw:{...(r._raw||{})}}));
+    setItraRosterActiveUi(false);
     if($('itraLookupBtn')){
-      $('itraLookupBtn').disabled=state.roster.length===0;
-      setActionState('itraLookupBtn',state.roster.length?'ready':'idle');
+      $('itraLookupBtn').disabled=false;
+      setActionState('itraLookupBtn','ready');
     }
     if($('saveItraRosterBtn')){
       const hasPi=state.roster.some(r=>Number(r.pi)>0);
@@ -2027,7 +2030,7 @@ $('rosterLoadBtn').addEventListener('click',async ()=>{
       setActionState('saveItraRosterBtn',hasPi?'ready':'idle');
     }
     if($('itraLookupStatus')) $('itraLookupStatus').textContent=state.roster.length
-      ? `✓ Список загружен: ${state.roster.length}. Поиск ITRA будет идти пакетами максимум по 50 участников.`
+      ? `✓ Обычный список загружен: ${state.roster.length}. При необходимости ниже можно заменить его отдельным списком с баллами ITRA.`
       : 'В списке нет участников.';
     setActionState('rosterLoadBtn','success');setTimeout(()=>p.style.display='none',1000);
   }catch(err){p.style.display='none';$('rosterStatus').textContent='✕ '+(err.message||err);setActionState('rosterLoadBtn','error');}
@@ -2412,88 +2415,120 @@ function initOpenRouterKeyUI(){
 
 
 
-$('itraLookupBtn')?.addEventListener('click', async ()=>{
-  if(!state.roster.length){
-    $('itraLookupStatus').textContent='Сначала загрузите стартовый список.';
-    setActionState('itraLookupBtn','idle');
-    return;
+
+let simpleRosterBackup=null;
+let activeItraRoster=false;
+
+function updateItraForecastButton(){
+  const btn=$('saveItraRosterBtn');
+  if(!btn) return;
+  const ownPi=Number($('itraPi')?.value||0);
+  const usable=(state.roster||[]).filter(r=>Number(r.pi)>0).length;
+  btn.disabled=!(ownPi>0 && usable>0);
+  setActionState('saveItraRosterBtn',btn.disabled?'idle':'ready');
+
+  if($('saveItraRosterStatus') && btn.disabled){
+    $('saveItraRosterStatus').textContent=
+      usable<=0
+        ? 'Сначала загрузите список с баллами ITRA.'
+        : 'Введите свой ITRA PI, чтобы рассчитать прогноз.';
   }
+}
+
+function setItraRosterActiveUi(active,loaded=0,withPi=0){
+  activeItraRoster=!!active;
+  const ordinaryFile=$('rosterFile');
+  const ordinaryBtn=$('rosterLoadBtn');
+  const resetBtn=$('resetItraRosterBtn');
+  const notice=$('itraRosterActiveNotice');
+
+  if(active){
+    if(ordinaryFile) ordinaryFile.disabled=true;
+    if(ordinaryBtn) ordinaryBtn.disabled=true;
+    if(resetBtn) resetBtn.style.display='block';
+    if(notice){
+      notice.style.display='block';
+      notice.textContent=`✓ Список с баллами ITRA активен: ${withPi} из ${loaded} участников с PI. Обычный стартовый список отключён и в расчёте не используется.`;
+    }
+    if($('rosterStatus')){
+      $('rosterStatus').textContent='ℹ️ Обычный стартовый список временно отключён: используется загруженный список с ITRA.';
+    }
+  }else{
+    if(ordinaryFile) ordinaryFile.disabled=false;
+    if(ordinaryBtn) ordinaryBtn.disabled=!selectedRosterFile;
+    if(resetBtn) resetBtn.style.display='none';
+    if(notice) notice.style.display='none';
+    if($('rosterStatus')){
+      $('rosterStatus').textContent=selectedRosterFile
+        ? '2. Файл выбран. Нажмите кнопку загрузки.'
+        : '1. Выберите файл стартового списка.';
+    }
+  }
+  updateItraForecastButton();
+}
+
+$('itraLookupBtn')?.addEventListener('click',()=>{
+  $('itraRosterFile')?.click();
+});
+
+$('itraRosterFile')?.addEventListener('change',async e=>{
+  const f=e.currentTarget.files?.[0];
+  if(!f) return;
 
   const btn=$('itraLookupBtn');
   btn.disabled=true;
   setActionState('itraLookupBtn','working');
-
-  const allNames=state.roster.map(r=>r.athlete).filter(Boolean);
-  const batches=[];
-  for(let i=0;i<allNames.length;i+=50) batches.push(allNames.slice(i,i+50));
-
-  let foundTotal=0;
-  let processed=0;
-  let failedBatches=0;
+  if($('itraLookupStatus')) $('itraLookupStatus').textContent='⏳ Загружаю список с баллами ITRA…';
 
   try{
-    for(let bi=0;bi<batches.length;bi++){
-      const names=batches[bi];
-      $('itraLookupStatus').textContent=
-        `⏳ ITRA: пакет ${bi+1}/${batches.length} · участники ${processed+1}–${processed+names.length} из ${allNames.length}…`;
+    let rows=[];
+    if(f.name.toLowerCase().endsWith('.csv')) rows=parseCSV(await f.text());
+    else rows=await parseXlsxOffline(await f.arrayBuffer());
 
-      try{
-        const resp=await fetch('/api/itra-batch',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({names})
-        });
+    const normalized=normalizeRoster(rows);
+    const withPi=normalized.filter(r=>Number(r.pi)>0).length;
 
-        if(!resp.ok){
-          let detail='';
-          try{
-            const e=await resp.json();
-            detail=e.error||'';
-          }catch(e){}
-          throw new Error('HTTP '+resp.status+(detail?' · '+detail:''));
-        }
+    if(!normalized.length) throw new Error('В файле не найдено участников.');
+    if(!withPi) throw new Error('В файле не найдена колонка с баллами ITRA / PI.');
 
-        const data=await resp.json();
-        normalizeFordData(data);
-
-        (data.results||[]).forEach(x=>{
-          const key=String(x.name||'').trim().toLowerCase();
-          const r=state.roster.find(r=>String(r.athlete||'').trim().toLowerCase()===key);
-          if(r && Number(x.pi)>0){
-            r.pi=Number(x.pi);
-            foundTotal++;
-          }
-        });
-      }catch(batchErr){
-        failedBatches++;
-        console.warn('ITRA batch failed',bi+1,batchErr);
-      }
-
-      processed+=names.length;
-      renderRoster();
-
-      // Give Safari/UI a chance to repaint between batches.
-      await new Promise(resolve=>setTimeout(resolve,120));
+    if(!activeItraRoster){
+      simpleRosterBackup=(state.roster||[]).map(r=>({...r,_raw:{...(r._raw||{})}}));
     }
 
-    const missing=state.roster.filter(r=>!(Number(r.pi)>0)).length;
-    $('itraLookupStatus').textContent=
-      `✓ ITRA обработан пакетами по 50: найдено ${foundTotal}, без PI ${missing}, всего ${allNames.length}`
-      +(failedBatches?` · ошибок пакетов: ${failedBatches}`:'');
+    state.roster=normalized;
+    renderRoster();
+    setItraRosterActiveUi(true,normalized.length,withPi);
 
-    setActionState('itraLookupBtn',failedBatches===batches.length?'error':'success');
-
-    if($('saveItraRosterBtn')){
-      $('saveItraRosterBtn').disabled=false;
-      setActionState('saveItraRosterBtn','ready');
+    if($('itraLookupStatus')){
+      $('itraLookupStatus').textContent=`✓ Загружен ${f.name}: ${normalized.length} участников, PI найден у ${withPi}.`;
     }
+    btn.textContent='✓ Список с баллами ITRA активен';
+    setActionState('itraLookupBtn','success');
   }catch(err){
-    $('itraLookupStatus').textContent='✕ Ошибка ITRA: '+(err.message||String(err));
+    if($('itraLookupStatus')) $('itraLookupStatus').textContent='✕ '+(err.message||String(err));
     setActionState('itraLookupBtn','error');
   }finally{
     btn.disabled=false;
+    e.currentTarget.value='';
   }
 });
+
+$('resetItraRosterBtn')?.addEventListener('click',()=>{
+  if(simpleRosterBackup){
+    state.roster=simpleRosterBackup.map(r=>({...r,_raw:{...(r._raw||{})}}));
+    renderRoster();
+  }
+  activeItraRoster=false;
+  setItraRosterActiveUi(false);
+  if($('itraLookupBtn')){
+    $('itraLookupBtn').textContent='Загрузить список с баллами ITRA';
+    setActionState('itraLookupBtn','ready');
+  }
+  if($('itraLookupStatus')) $('itraLookupStatus').textContent='Список ITRA отключён. Снова используется обычный стартовый список.';
+});
+
+$('itraPi')?.addEventListener('input',updateItraForecastButton);
+
 
 
 function csvEscape(value){
@@ -2555,31 +2590,55 @@ function buildEnrichedRosterCsv(){
 }
 
 $('saveItraRosterBtn')?.addEventListener('click',()=>{
-  if(!state.roster.length){
-    if($('saveItraRosterStatus')) $('saveItraRosterStatus').textContent='Сначала загрузите стартовый список.';
+  const ownPi=Number($('itraPi')?.value||0);
+  const competitors=(state.roster||[])
+    .filter(r=>Number(r.pi)>0)
+    .map(r=>({...r}));
+
+  if(!(ownPi>0)){
+    if($('saveItraRosterStatus')) $('saveItraRosterStatus').textContent='Введите свой ITRA PI.';
+    updateItraForecastButton();
+    return;
+  }
+  if(!competitors.length){
+    if($('saveItraRosterStatus')) $('saveItraRosterStatus').textContent='Сначала загрузите список с баллами ITRA.';
+    updateItraForecastButton();
     return;
   }
 
-  const csv=buildEnrichedRosterCsv();
-  if(!csv) return;
+  const myName='Я · ITRA '+Math.round(ownPi);
+  const rows=[...competitors,{athlete:myName,gender:'',pi:ownPi,tech:0,end:0,form:0}];
+  const mc=monteCarlo(rows,myName);
+  const medianRank=mc?.rank || (1+competitors.filter(r=>Number(r.pi)>ownPi).length);
 
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  const stamp=new Date().toISOString().slice(0,10);
-  a.href=url;
-  a.download=`startlist_ITRA_${stamp}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),3000);
+  if($('podiumMetric')) $('podiumMetric').textContent=mc?(mc.pod*100).toFixed(1)+'%':'—';
+  if($('top10Metric')) $('top10Metric').textContent=mc?(mc.top10*100).toFixed(1)+'%':'—';
+  if($('top30Metric')) $('top30Metric').textContent=mc?(mc.top30*100).toFixed(1)+'%':'—';
+  if($('top50Metric')) $('top50Metric').textContent=mc?(mc.top50*100).toFixed(1)+'%':'—';
+  if($('winMetric')) $('winMetric').textContent=mc?(mc.win*100).toFixed(1)+'%':'—';
+  if($('rankMetric')) $('rankMetric').textContent=String(medianRank);
+  if($('finishMetric')){
+    $('finishMetric').textContent=state.raceForecast?.totalSec ? hms(state.raceForecast.totalSec) : 'по ITRA';
+  }
+
+  const ranked=[...competitors].sort((a,b)=>Number(b.pi)-Number(a.pi));
+  const rt=$('rivalsTable')?.querySelector('tbody');
+  if(rt){
+    rt.innerHTML='';
+    ranked.slice(0,10).forEach((r,i)=>{
+      rt.insertAdjacentHTML('beforeend',
+        `<tr><td>${i+1}</td><td>${r.athlete}</td><td>${r.pi||0}</td><td>${Number(r.pi||0).toFixed(0)}</td><td>${Number(r.pi)>ownPi?'выше PI':Math.abs(Number(r.pi)-ownPi)<=15?'рядом':'ниже PI'}</td></tr>`);
+    });
+  }
 
   if($('saveItraRosterStatus')){
-    $('saveItraRosterStatus').textContent='✓ Новый стартовый список с ITRA подготовлен для сохранения на iPhone.';
+    $('saveItraRosterStatus').textContent=
+      `✓ Прогноз рассчитан: медианное место ${medianRank} из ${rows.length}. Мой ITRA PI: ${Math.round(ownPi)}.`;
   }
   setActionState('saveItraRosterBtn','success');
-});
 
+  document.querySelector('[data-tab="result"]')?.click();
+});
 
 
 // ---------- Race forecast calibrated from a timed reference activity ----------
@@ -6449,14 +6508,14 @@ document.querySelectorAll('.tab').forEach(btn=>{
     }
   });
 });
-// v0.0260: the ITRA button now loads a roster that already contains ITRA PI.
+// v0.0261: the ITRA button now loads a roster that already contains ITRA PI.
 $('itraLookupBtn')?.addEventListener('click',(ev)=>{
   ev.preventDefault();
   ev.stopImmediatePropagation();
   $('rosterFile')?.click();
 },true);
 
-// v0.0260: calculate race placing from uploaded ITRA list + own PI.
+// v0.0261: calculate race placing from uploaded ITRA list + own PI.
 $('saveItraRosterBtn')?.addEventListener('click',(ev)=>{
   ev.preventDefault();
   ev.stopImmediatePropagation();
