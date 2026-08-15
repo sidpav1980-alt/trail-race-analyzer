@@ -1,4 +1,4 @@
-const APP_VERSION='10.63';
+const APP_VERSION='10.64';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -1229,6 +1229,8 @@ function startRace(){
    elapsed:0,penalty:fatiguePenaltySec+gelPenaltySec+lightPenaltySec+(raceWeather.sun>=80?Math.round((raceWeather.sun-70)*L[3]/1200):0)+Math.round(coachDifficultyGap*L[3]*0.04),
    events:buildEvents(L),fired:new Set(),
    position:Math.max(1,Math.round(12+L[5]*6-game.level/4+Math.random()*8)),
+   startPenalty:fatiguePenaltySec+gelPenaltySec+lightPenaltySec+(raceWeather.sun>=80?Math.round((raceWeather.sun-70)*L[3]/1200):0)+Math.round(coachDifficultyGap*L[3]*0.04),
+   positionDrift:0,
    condition:game.fatigue>=75?'сильная усталость':'нормально',
    gelShortage,lightShortageHours,
    fractureRisk:Math.min(.42, Math.max(0,(game.fatigue-55)/140) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08 : 0)),
@@ -1369,7 +1371,19 @@ function updateRun(){
  $('progressBar').style.width=(run.p*100)+'%';
  $('pace').textContent=fmt(total/L[1]).replace(':',' : ')+' /км';
 
- let estimatedPos=Math.max(1,Math.round(run.position-run.p*(game.level/15+Math.max(0,-run.penalty)/240)));
+ // Dynamic race position:
+ // progress/fitness can win places, while time added by race events loses places.
+ // Only penalties gained AFTER the start affect live overtakes; pre-start penalties
+ // are already reflected in the initial race position.
+ const livePenalty=(run.penalty||0)-(run.startPenalty||0);
+ const field=Math.max(20,run.fieldSize||50);
+ const progressGain=run.p*(2.2 + game.level/18 + Math.max(0,Number(game.fitness||0)-20)/28);
+ const bonusGain=Math.max(0,-livePenalty)/55;
+ const penaltyLoss=Math.max(0,livePenalty)/75;
+ const lateRaceGain=run.p>.55 ? (run.p-.55)*2.2 : 0;
+ let estimatedPos=Math.max(1,Math.min(field,
+   Math.round(run.position - progressGain - bonusGain - lateRaceGain + penaltyLoss)
+ ));
 
  // Calculate leader progress using the candidate place itself, so the UI cannot say
  // "1st place" while one or more TOP-3 athletes are already shown as finished ahead.
