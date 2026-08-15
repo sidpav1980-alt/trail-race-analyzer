@@ -1,4 +1,4 @@
-const APP_VERSION='10.64';
+const APP_VERSION='10.65';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
