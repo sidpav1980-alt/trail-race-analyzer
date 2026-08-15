@@ -1,6 +1,6 @@
 
 const LEVELS=[["Парковый трейл", 5, 80, 2040, 900, 1, "Лёгкий разогрев: дорожки, корни и первый подъём."], ["Лесная десятка", 10, 220, 4080, 1300, 1, "Первые камни, грязь и короткие технические спуски."], ["Грязевой полумарафон", 21, 600, 9300, 2200, 2, "Дождь, лужи, первые серьёзные штрафы за обувь."], ["Скальный забег", 25, 1100, 11400, 2800, 2, "Камни и острые спуски. Палки начинают приносить пользу."], ["Ночной трейл", 30, 900, 13500, 3500, 2, "Фонарик становится критичным."], ["Горный марафон", 42, 1900, 21600, 4700, 3, "Длинные подъёмы и первый серьёзный тест выносливости."], ["Хребет ветров", 50, 2300, 27000, 5600, 3, "Ветер и холод усиливают износ мембранки."], ["Ультра 60", 60, 2500, 32400, 6500, 3, "Четыре ПП, жара и длинные участки без воды."], ["Каменный лабиринт", 70, 3300, 39600, 7600, 3, "Камни ускоряют износ обуви и палок."], ["Северный шторм", 80, 3600, 46800, 9000, 4, "Дождь, ветер и холод. Дешёвая экипировка быстро сдаётся."], ["100 км классика", 100, 4300, 61200, 11000, 4, "Первый настоящий 100 км ультратрейл."], ["Высотная сотня", 110, 6000, 79200, 13500, 4, "Много набора и технический рельеф."], ["Дикий 130", 130, 5200, 90000, 15000, 4, "Длинные ночные часы и риск поломок."], ["200 км пустошь", 200, 6500, 151200, 21000, 4, "Жара, вода и питание становятся главным ресурсом."], ["Альпийский 250", 250, 12000, 208800, 27000, 5, "Очень высокий износ, долгие спуски, холодные ночи."], ["Трансгорный 300", 300, 15000, 259200, 33000, 5, "Экипировка среднего класса уже на пределе."], ["Дикий пояс 400", 400, 18000, 345600, 42000, 5, "Многосуточный забег: прочность вещей решает."], ["Край света 500", 500, 23000, 450000, 52000, 5, "Погода, сон и поломки начинают складываться."], ["Безумие 700", 700, 32000, 648000, 70000, 5, "Предфинальная гонка. Нужен высокий уровень трейлраннера."], ["АРМАГЕДДОН 1000", 1000, 50000, 1008000, 100000, 5, "Финал: 1000 км, 50 000 м+, ночь, жара, шторм и максимальный износ."]];
-const GEAR={"shoes": [["Базовые кроссовки", 0, 1.0, 65, 0.0], ["Trail Grip", 1800, 0.97, 110, 0.04], ["Mountain Pro", 5200, 0.94, 180, 0.08], ["Ultra Carbon", 12000, 0.91, 280, 0.12], ["Armageddon X", 30000, 0.88, 500, 0.18]], "jacket": [["Нет мембранки", 0, 1.0, 999, 0], ["Лёгкая мембранка", 1600, 0.99, 90, 0.03], ["Storm Shell", 4500, 0.98, 160, 0.06], ["Alpine Shield", 10000, 0.97, 260, 0.1], ["Armageddon Shell", 26000, 0.96, 480, 0.15]], "lamp": [["Простой фонарь", 0, 1.0, 70, 0.0], ["Night 400", 1400, 0.995, 120, 0.03], ["Night 800", 3800, 0.99, 200, 0.06], ["Ultra Beam", 9000, 0.985, 320, 0.1], ["Recharge Pro X", 22000, 0.98, 520, 0.14]], "pack": [["Старый рюкзак", 0, 1.0, 80, 0.0], ["Race Vest 5L", 1700, 0.99, 120, 0.03], ["Ultra Vest 12L", 4800, 0.98, 210, 0.06], ["Endurance Pack", 11000, 0.97, 330, 0.1], ["Armageddon Pack", 27000, 0.96, 550, 0.15]], "poles": [["Без палок", 0, 1.0, 999, 0.0], ["Алюминиевые палки", 1900, 0.985, 100, 0.04], ["Carbon Trek", 5200, 0.97, 180, 0.08], ["LEKI Ultra Carbon", 12000, 0.955, 300, 0.12], ["LEKI Armageddon", 29000, 0.94, 520, 0.18]], "hydration": [["Фляга 500 мл", 0, 1.0, 100, 0.0], ["2×Soft Flask", 1200, 0.99, 160, 0.03], ["Hydro Vest", 3600, 0.98, 250, 0.06], ["Ultra Hydro", 8500, 0.97, 380, 0.1], ["Armageddon Hydro", 21000, 0.96, 600, 0.15]], "watch": [["Нет часов", 0, 1.0, 999, 0.0], ["GPS Start", 900, 0.998, 180, 0.02], ["Trail GPS", 2800, 0.995, 280, 0.05], ["Endurance GPS", 7200, 0.99, 420, 0.08], ["Fenix Ultra", 18000, 0.985, 650, 0.12]], "medkit": [["Пустой слот", 0, 1.0, 999, 0.0], ["Мини-аптечка", 700, 0.999, 120, 0.03], ["Trail аптечка", 2100, 0.997, 220, 0.06], ["Ultra аптечка", 5200, 0.995, 360, 0.10], ["Armageddon Med", 13000, 0.99, 600, 0.15]]};
+const GEAR={"shoes":[["Базовые кроссовки",0,1.0,65,0.0],["Trail Grip",1800,0.97,110,0.04],["Mountain Pro",5200,0.94,180,0.08],["Ultra Carbon",12000,0.91,280,0.12],["Armageddon X",30000,0.88,500,0.18],["Hyper Trail Pro",52000,0.845,760,0.23],["Titanium Speed X",95000,0.81,1100,0.3]],"jacket":[["Нет мембранки",0,1.0,999,0],["Лёгкая мембранка",1600,0.99,90,0.03],["Storm Shell",4500,0.98,160,0.06],["Alpine Shield",10000,0.97,260,0.1],["Armageddon Shell",26000,0.96,480,0.15],["Expedition Shield",46000,0.945,760,0.21],["Titan Storm Armor",85000,0.93,1150,0.28]],"lamp":[["Простой фонарь",0,1.0,70,0.0],["Night 400",1400,0.995,120,0.03],["Night 800",3800,0.99,200,0.06],["Ultra Beam",9000,0.985,320,0.1],["Recharge Pro X",22000,0.98,520,0.14],["Recharge Ultra 2000",42000,0.965,780,0.22],["Night Reactor 3000",80000,0.95,1200,0.3]],"pack":[["Старый рюкзак",0,1.0,80,0.0],["Race Vest 5L",1700,0.99,120,0.03],["Ultra Vest 12L",4800,0.98,210,0.06],["Endurance Pack",11000,0.97,330,0.1],["Armageddon Pack",27000,0.96,550,0.15],["Expedition Vest 18L",47000,0.945,800,0.22],["Titan Ultra Pack",88000,0.93,1250,0.3]],"poles":[["Без палок",0,1.0,999,0.0],["Алюминиевые палки",1900,0.985,100,0.04],["Carbon Trek",5200,0.97,180,0.08],["LEKI Ultra Carbon",12000,0.955,300,0.12],["LEKI Armageddon",29000,0.94,520,0.18],["LEKI Vertical Pro",50000,0.915,780,0.24],["LEKI Titanium X",92000,0.89,1200,0.32]],"hydration":[["Фляга 500 мл",0,1.0,100,0.0],["2×Soft Flask",1200,0.99,160,0.03],["Hydro Vest",3600,0.98,250,0.06],["Ultra Hydro",8500,0.97,380,0.1],["Armageddon Hydro",21000,0.96,600,0.15],["Expedition Hydro",39000,0.945,850,0.22],["Titan Hydro System",76000,0.93,1300,0.3]],"watch":[["Нет часов",0,1.0,999,0.0],["GPS Start",900,0.998,180,0.02],["Trail GPS",2800,0.995,280,0.05],["Endurance GPS",7200,0.99,420,0.08],["Fenix Ultra",18000,0.985,650,0.12],["Fenix Expedition",38000,0.975,900,0.2],["Fenix Armageddon",72000,0.965,1400,0.28]],"medkit":[["Пустой слот",0,1.0,999,0.0],["Мини-аптечка",700,0.999,120,0.03],["Trail аптечка",2100,0.997,220,0.06],["Ultra аптечка",5200,0.995,360,0.1],["Armageddon Med",13000,0.99,600,0.15],["Expedition Med Pro",28000,0.985,900,0.22],["Trauma Armageddon Kit",55000,0.975,1400,0.3]]};
 const CATEGORY_NAMES={shoes:'Кроссовки',pack:'Рюкзак / жилет',jacket:'Мембранка',lamp:'Фонарик',poles:'Палки',watch:'Часы',medkit:'Аптечка',hydration:'Вода'};
 const RESOURCE_CATALOG={
   gels:{name:'Энергетический гель',price:120,unit:'шт.',desc:'Снижает голод и потерю темпа на длинной гонке.'},
@@ -10,7 +10,8 @@ const RESOURCE_CATALOG={
   peroxide:{name:'Перекись',price:140,unit:'фл.',desc:'Обработка ран.'},
   plaster:{name:'Пластырь',price:110,unit:'уп.',desc:'Мелкие порезы и мозоли.'},
   cream:{name:'Крем от натирания',price:240,unit:'тюб.',desc:'Снижает риск натираний.'},
-  powerbank:{name:'Переносной аккумулятор',price:4500,unit:'шт.',desc:'Заряжает фонарь 5 уровня в гонке.'}
+  accumulator:{name:'Сменный аккумулятор фонаря',price:1800,unit:'шт.',desc:'Для фонарей уровней 5–7. Можно заменить разряженный аккумулятор прямо в гонке.'},
+  powerbank:{name:'Переносной powerbank',price:4500,unit:'шт.',desc:'Заряжает аккумулятор фонаря уровней 5–7.'}
 };
 const START_GEAR={shoes:0,pack:0,jacket:0,lamp:0,poles:0,watch:0,medkit:0,hydration:0};
 const $=id=>document.getElementById(id);
@@ -24,14 +25,14 @@ function loadGame(){
     if(x) return Object.assign({
       money:1500,xp:0,level:1,completed:0,rep:0,current:0,gear:{...START_GEAR},
       durability:{},best:{},fatigue:0,lastFinishAt:0,restUntil:0,
-      resources:{gels:4,batteries:2,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
+      resources:{gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
       lampCharge:100
     },x);
   }catch(e){}
   return {
     money:1500,xp:0,level:1,completed:0,rep:0,current:0,gear:{...START_GEAR},
     durability:{},best:{},fatigue:0,lastFinishAt:0,restUntil:0,
-    resources:{gels:4,batteries:2,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
+    resources:{gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
     lampCharge:100
   };
 }
@@ -51,7 +52,15 @@ async function saveProgressCloud(showStatus=true){
 function setAuthStatus(t,k=''){if(!$('authStatus'))return;$('authStatus').textContent=t;$('authStatus').className='auth-status '+k}
 function setAuthMode(m){authMode=m;$('authLoginTab')?.classList.toggle('active',m==='login');$('authRegisterTab')?.classList.toggle('active',m==='register');if($('authSubmitBtn'))$('authSubmitBtn').textContent=m==='login'?'Войти':'Создать профиль';setAuthStatus(m==='login'?'Введите ник и пароль.':'Регистрация: ник и пароль. Максимум 50 игроков.')}
 function showAuth(){$('authOverlay')?.classList.remove('hidden')} function hideAuth(){$('authOverlay')?.classList.add('hidden')}
-function updateProfileUi(){if($('profileBtn')){$('profileBtn').textContent=authUser?'👤 '+authUser.nick:'👤 Вход';$('profileBtn').classList.toggle('logged',!!authUser)}if($('profileNick'))$('profileNick').textContent=authUser?.nick||'—'}
+function updateProfileUi(){
+  if($('profileBtn')){
+    $('profileBtn').textContent=authUser?`👤 ${authUser.nick}`:'👤 Вход';
+    $('profileBtn').classList.toggle('logged',!!authUser);
+    $('profileBtn').title=authUser?`Профиль: ${authUser.nick}`:'Войти в профиль';
+  }
+  if($('profileNick')) $('profileNick').textContent=authUser?.nick||'—';
+  if($('headerLogoutBtn')) $('headerLogoutBtn').style.display=authUser?'inline-flex':'none';
+}
 async function loadSession(){
   try{const r=await fetch('/api/me',{credentials:'same-origin'});if(!r.ok){showAuth();return}const d=await r.json();authUser=d.user||null;if(d.progress&&typeof d.progress==='object'){game=d.progress;localStorage.setItem('trailArmageddonSave',JSON.stringify(game))}updateProfileUi();hideAuth();render()}
   catch(e){setAuthStatus('Сервер профилей недоступен.','error');showAuth()}
@@ -60,18 +69,34 @@ async function submitAuth(e){
   e.preventDefault();const nick=String($('authNick')?.value||'').trim(),password=String($('authPassword')?.value||'');
   if(nick.length<2||password.length<4){setAuthStatus('Ник от 2 символов, пароль от 4.','error');return}
   const endpoint=authMode==='register'?'/api/register':'/api/login';setAuthStatus(authMode==='register'?'Создаю профиль…':'Выполняю вход…');$('authSubmitBtn').disabled=true;
-  try{const r=await fetch(endpoint,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({nick,password})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Ошибка входа');authUser=d.user;if(d.progress&&typeof d.progress==='object')game=d.progress;localStorage.setItem('trailArmageddonSave',JSON.stringify(game));updateProfileUi();hideAuth();render();if(!d.progress)await saveProgressCloud(false)}
+  try{
+    const r=await fetch(endpoint,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({nick,password})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error||'Ошибка входа');
+    authUser=d.user;
+    if(d.progress&&typeof d.progress==='object') game=d.progress;
+    localStorage.setItem('trailArmageddonSave',JSON.stringify(game));
+    updateProfileUi();
+    if(authMode==='register'){
+      setAuthStatus(`✓ Профиль «${authUser.nick}» создан. Входим в игру…`,'ok');
+      if(!d.progress) await saveProgressCloud(false);
+      await new Promise(resolve=>setTimeout(resolve,1600));
+    }
+    hideAuth();
+    render();
+    if(authMode!=='register' && !d.progress) await saveProgressCloud(false);
+  }
   catch(err){setAuthStatus(err.message||String(err),'error')}finally{$('authSubmitBtn').disabled=false}
 }
 async function logout(){await saveProgressCloud(false);try{await fetch('/api/logout',{method:'POST',credentials:'same-origin'})}catch(e){}authUser=null;updateProfileUi();$('profilePanel')?.classList.remove('show');showAuth();setAuthStatus('Вы вышли. Войдите снова, чтобы восстановить прогресс.')}
 $('authLoginTab')?.addEventListener('click',()=>setAuthMode('login'));$('authRegisterTab')?.addEventListener('click',()=>setAuthMode('register'));$('authForm')?.addEventListener('submit',submitAuth);
 $('profileBtn')?.addEventListener('click',()=>authUser?$('profilePanel')?.classList.add('show'):showAuth());$('closeProfileBtn')?.addEventListener('click',()=>$('profilePanel')?.classList.remove('show'));
-$('profilePanel')?.addEventListener('click',e=>{if(e.target===$('profilePanel'))$('profilePanel').classList.remove('show')});$('syncNowBtn')?.addEventListener('click',()=>saveProgressCloud(true));$('logoutBtn')?.addEventListener('click',logout);
+$('profilePanel')?.addEventListener('click',e=>{if(e.target===$('profilePanel'))$('profilePanel').classList.remove('show')});$('syncNowBtn')?.addEventListener('click',()=>saveProgressCloud(true));$('logoutBtn')?.addEventListener('click',logout);$('headerLogoutBtn')?.addEventListener('click',logout);
 
 
 function ensureResources(){
   if(!game.resources) game.resources={};
-  const defaults={gels:4,batteries:2,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0};
+  const defaults={gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0};
   Object.entries(defaults).forEach(([k,v])=>{if(game.resources[k]==null)game.resources[k]=v});
   if(game.fatigue==null)game.fatigue=0;
   if(game.restUntil==null)game.restUntil=0;
@@ -140,7 +165,7 @@ function render(){
  $('gelNeedText').textContent='на эту гонку нужно ≈ '+gelsNeeded(L);
  if(isRechargeableLamp()){
    $('lampPowerText').textContent='🔋 '+Math.round(game.lampCharge)+'%';
-   $('lampPowerSub').textContent=game.resources.powerbank>0?'powerbank есть':'без powerbank';
+   $('lampPowerSub').textContent=`сменных АКБ: ${game.resources.accumulator||0} · ${game.resources.powerbank>0?'powerbank есть':'без powerbank'}`;
  }else{
    $('lampPowerText').textContent='🔦 '+game.resources.batteries+' компл.';
    $('lampPowerSub').textContent='фонарь на батарейках';
@@ -174,7 +199,7 @@ function renderShop(){
     if(idx===0)return;
     const owned=game.gear[cat]===idx;
     const d=document.createElement('div');d.className='shop-item';
-    d.innerHTML=`<h3>${CATEGORY_NAMES[cat]} · ${it[0]}</h3>
+    d.innerHTML=`<h3>${CATEGORY_NAMES[cat]} · ур. ${idx+1}/7 · ${it[0]}</h3>
     <div class="meta">Цена: <span class="money">${fmtMoney(it[1])}</span><br>Темп ×${it[2].toFixed(3)} · ресурс ${it[3]} ед.<br>Защита от поломки +${Math.round(it[4]*100)}%</div>
     <button class="${owned?'secondary':'primary'}" ${owned||game.money<it[1]?'disabled':''} data-buy="${cat}:${idx}">${owned?'Надето':game.money<it[1]?'Не хватает ₽':'Купить и надеть'}</button>`;
     g.appendChild(d);
@@ -188,9 +213,9 @@ function renderShop(){
 }
 function gearEffectText(cat,idx,it){
   if(cat==='shoes') return idx===0?'базовая скорость':`скорость +${Math.round((1-it[2])*100)}%`;
-  if(cat==='poles') return idx>=3?`LEKI · скорость на подъёмах +${idx===4?6:3}%`:(idx===0?'без бонуса':'помощь на подъёмах');
+  if(cat==='poles') return idx>=3?`LEKI · скорость на подъёмах +${idx>=6?12:idx===5?9:idx===4?6:3}%`:(idx===0?'без бонуса':'помощь на подъёмах');
   if(cat==='jacket') return idx===0?'защита от дождя отсутствует':`защита от дождя · ур. ${idx+1}`;
-  if(cat==='lamp') return idx>=4?'аккумулятор + powerbank':'работает на батарейках';
+  if(cat==='lamp') return idx>=4?`аккумулятор · ур. ${idx+1} + сменный АКБ / powerbank`:'работает на батарейках';
   if(cat==='pack') return `перенос снаряжения · ур. ${idx+1}`;
   if(cat==='watch') return idx===0?'пустой слот · навигации нет':`GPS/навигация · ур. ${idx+1}`;
   if(cat==='medkit') return idx===0?'пустой слот · лечение только расходниками':`защита от травм · ур. ${idx+1}`;
@@ -204,11 +229,11 @@ function renderRaceGearSummary(){
    const idx=Number(game.gear[cat]||0),it=item(cat),cur=durability(cat),max=it[3];
    const pct=Math.max(0,Math.min(100,cur/max*100));
    const slot=document.createElement('div'); slot.className='race-gear-slot '+(pct<20?'gear-danger':pct<50?'gear-warn':'');
-   slot.innerHTML=`<div class="gear-slot-title"><b>${CATEGORY_NAMES[cat]}</b><span>ур. ${idx+1}/5</span></div>
+   slot.innerHTML=`<div class="gear-slot-title"><b>${CATEGORY_NAMES[cat]}</b><span>ур. ${idx+1}/7</span></div>
      <strong>${it[0]}</strong>
      <div class="gear-slot-effect">${gearEffectText(cat,idx,it)}</div>
      <div class="durability"><div style="width:${pct}%"></div></div>
-     <small>прочность ${Math.round(pct)}% · доступно уровней: 1–5</small>`;
+     <small>прочность ${Math.round(pct)}% · доступно уровней: 1–7</small>`;
    g.appendChild(slot);
  });
 }
@@ -248,9 +273,14 @@ function renderLampPower(){
  const idx=Number(game.gear.lamp),it=item('lamp');
  if(idx>=4){
    p.innerHTML=`<div class="gear-item"><h3>${it[0]} · аккумулятор</h3>
-   <div class="meta">Заряд: ${Math.round(game.lampCharge)}% · переносной аккумулятор: ${game.resources.powerbank>0?'есть':'нет'}</div>
+   <div class="meta">Заряд: ${Math.round(game.lampCharge)}% · сменных аккумуляторов: ${game.resources.accumulator||0} · powerbank: ${game.resources.powerbank>0?'есть':'нет'}</div>
    <div class="durability"><div style="width:${Math.max(0,Math.min(100,game.lampCharge))}%"></div></div>
+   <button id="swapLampBatteryBtn" class="secondary" ${(game.resources.accumulator||0)<=0||game.lampCharge>=100?'disabled':''}>🔋 Поставить заряженный аккумулятор</button>
    <button id="chargeLampBtn" class="secondary" ${game.resources.powerbank<=0||game.lampCharge>=100?'disabled':''}>⚡ Зарядить от powerbank</button></div>`;
+   $('swapLampBatteryBtn')?.addEventListener('click',()=>{
+     if((game.resources.accumulator||0)<=0)return;
+     useResource('accumulator',1);game.lampCharge=100;saveGame();render();
+   });
    $('chargeLampBtn')?.addEventListener('click',()=>{
      if(game.resources.powerbank<=0)return;
      game.lampCharge=100;saveGame();render();
@@ -380,19 +410,7 @@ function startRace(){
    switchTab('resources');return;
  }
 
- // Обязательная проверка экипировки перед каждым стартом.
- if(!$('startBtn').dataset.checked){
-   const problems=[];
-   Object.keys(GEAR).forEach(cat=>{ if(durability(cat)<=0) problems.push(CATEGORY_NAMES[cat]+' сломана'); });
-   if(game.gear.shoes===0) problems.push('кроссовки уровня 1 — базовые');
-   const msg='ПРОВЕРКА ЭКИПИРОВКИ\n\n'+Object.keys(GEAR).map(cat=>'✓ '+CATEGORY_NAMES[cat]+': '+item(cat)[0]+' · '+Math.round(durability(cat))+'% ресурса').join('\n')+'\n\nАптечка: '+medkitScore()+'/5 · Гели: '+game.resources.gels+(problems.length?'\n\n⚠️ '+problems.join(' · '):'\n\n✅ К старту готов.');
-   alert(msg+'\n\nНажмите «Старт» ещё раз для запуска гонки.');
-   $('startBtn').dataset.checked='1';
-   return;
- }
- $('startBtn').dataset.checked='';
-
- const needGels=gelsNeeded(L);
+  const needGels=gelsNeeded(L);
  const lampHours=lampHoursNeeded(L);
  let warnings=[];
 
@@ -432,7 +450,10 @@ function startRace(){
      }else{
        let deficit=chargeNeed-game.lampCharge;
        game.lampCharge=0;
-       if(game.resources.powerbank>0){
+       if((game.resources.accumulator||0)>0){
+         useResource('accumulator',1);
+         game.lampCharge=Math.max(0,100-deficit);
+       }else if(game.resources.powerbank>0){
          game.lampCharge=Math.max(0,100-deficit);
        }else{
          lightShortageHours=Math.ceil(deficit/12);

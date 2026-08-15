@@ -124,3 +124,8 @@ footer{text-align:center;color:#65758b;padding:28px 0 60px}
 .profile-card{position:relative;width:min(360px,100%);background:#0d1a2c;border:1px solid #2b4160;border-radius:20px;padding:20px;display:grid;gap:12px;box-shadow:0 25px 70px rgba(0,0,0,.5)}
 .profile-close{position:absolute;right:12px;top:8px;border:0;background:transparent;color:#fff;font-size:30px}
 .profile-nick{font-size:24px;font-weight:900;color:#38bdf8}.profile-sync{color:#91a2bb}
+
+.header-logout{
+  border:1px solid #7f1d1d;background:#35131a;color:#fecaca;
+  border-radius:999px;padding:7px 10px;font-weight:800
+}
