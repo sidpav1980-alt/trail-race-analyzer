@@ -281,13 +281,23 @@ function weatherForLevel(){
 }
 function waterLitersNeeded(L,w){
   if(game.current<3) return 0; // mandatory only after level 3
-  const hours=Math.max(0.5,L[3]/3600);
-  let liters=0.45*hours;
-  liters*=1 + (w.sun/100)*0.55;
-  if(w.temp>=28) liters*=1.35;
-  if(w.temp<=8) liters*=0.82;
-  liters=Math.max(1.0,liters);
-  return Math.min(30,liters);
+  // Water means the realistic START/CARRY reserve between aid stations,
+  // not enough water for the entire race from start to finish.
+  const km=Number(L[1]||0);
+  let liters;
+  if(km<=25) liters=1.0;
+  else if(km<=42) liters=1.5;
+  else if(km<=60) liters=2.0;
+  else if(km<=100) liters=2.5;
+  else if(km<=130) liters=3.0;
+  else liters=3.5;
+
+  // Weather changes the carried reserve moderately, without making
+  // multi-day races require tens of litres at the start.
+  if(w.temp>=28 || w.sun>=85) liters+=0.5;
+  if(w.temp<=8 && !w.rain) liters-=0.5;
+  if(w.rain && w.temp<=8) liters=Math.max(liters,1.5);
+  return Math.max(1.0,Math.min(4.0,liters));
 }
 function waterBottlesNeeded(L,w){
   const liters=waterLitersNeeded(L,w);
