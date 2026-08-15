@@ -84,26 +84,14 @@ function loadGame(){
     lampCharge:100
   };
 }
-let authUser=null,authMode='login',cloudSaveTimer=null,cloudSaving=false;
-function saveGame(){localStorage.setItem('trailArmageddonSave',JSON.stringify(game));scheduleCloudSave();}
-function scheduleCloudSave(){if(!authUser)return;clearTimeout(cloudSaveTimer);cloudSaveTimer=setTimeout(()=>saveProgressCloud(false),450);}
-async function saveProgressCloud(showStatus=true){
-  if(!authUser||cloudSaving)return false;cloudSaving=true;
-  try{
-    const r=await fetch('/api/progress',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({progress:game})});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    if(showStatus&&$('profileSync'))$('profileSync').textContent='✓ Прогресс сохранён';
-    return true;
-  }catch(e){if($('profileSync'))$('profileSync').textContent='⚠️ Ошибка синхронизации';return false;}
-  finally{cloudSaving=false}
-}
+let authUser={id:'local',nick:'Вы'},authMode='local',cloudSaveTimer=null,cloudSaving=false;
+function saveGame(){localStorage.setItem('trailArmageddonSave',JSON.stringify(game));}
+function scheduleCloudSave(){return;}
+async function saveProgressCloud(showStatus=true){return true;}
 function setAuthStatus(t,k=''){if(!$('authStatus'))return;$('authStatus').textContent=t;$('authStatus').className='auth-status '+k}
 function setAuthMode(m){authMode=m;$('authLoginTab')?.classList.toggle('active',m==='login');$('authRegisterTab')?.classList.toggle('active',m==='register');if($('authSubmitBtn'))$('authSubmitBtn').textContent=m==='login'?'Войти':'Создать профиль';setAuthStatus(m==='login'?'Введите ник и пароль.':'Регистрация: ник и пароль. Максимум 50 игроков.')}
-function showAuth(){$('authOverlay')?.classList.remove('hidden')}
-function hideAuth(){
-  if(!authUser){showAuth();return}
-  $('authOverlay')?.classList.add('hidden')
-}
+function showAuth(){return;}
+function hideAuth(){return;}
 function updateProfileUi(){
   if($('profileBtn')){
     $('profileBtn').textContent=authUser?`👤 ${(authUser?.nick||'Игрок')}`:'👤 Вход';
@@ -420,10 +408,6 @@ function durability(cat){
 function setDur(cat,v){game.durability[durKey(cat)]=Math.max(0,v)}
 
 function render(){
- if(!authUser && document.documentElement.classList.contains('auth-required')){
-   showAuth();
-   return;
- }
  keepEquippedGear();
  const L=levelData();
  $('runnerLevel').textContent=game.level;
@@ -736,7 +720,7 @@ function renderTraining(){
  }
 }
 $('startTrainingBtn')?.addEventListener('click',()=>{
-  if(!authUser){showAuth();setAuthStatus('Сначала зарегистрируйтесь или войдите.','error');return}
+  
   ensureTraining();
   if(trainingActive()) return;
   game.trainingUntil=Date.now()+5*60*1000;
@@ -860,7 +844,7 @@ function showStartRequirementsError(title,items=[]){
 }
 function startRace(){
  clearStartRequirementsError();
- if(!authUser){showAuth();setAuthStatus('Сначала зарегистрируйтесь или войдите.','error');return}
+ 
 
  if(run && run.running)return;
  ensureResources();
@@ -1293,10 +1277,7 @@ function drawTrack(p){
  ctx.fillStyle='#fff';ctx.font='22px sans-serif';ctx.fillText(`${(p*L[1]).toFixed(1)} км`,Math.max(10,x-35),ground+48);
 }
 
-setAuthMode('register');
-showAuth();
 render();
-loadSession();
 
 (function(){
   function openHelp(){

@@ -1,5 +1,5 @@
 <!doctype html>
-<html class="auth-required" lang="ru">
+<html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -9,41 +9,13 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div id="authOverlay" class="auth-overlay">
-  <div class="auth-card">
-    <div class="auth-logo">🏔️</div>
-    <h2>Trail Runner: Armageddon</h2>
-    <p class="muted">Для игры нужен профиль. Новый игрок должен сначала зарегистрироваться: придумайте ник и пароль.</p>
-    <div class="auth-tabs">
-      <button id="authLoginTab" class="auth-tab active" type="button">Вход</button>
-      <button id="authRegisterTab" class="auth-tab" type="button">Регистрация</button>
-    </div>
-    <form id="authForm">
-      <label class="auth-field"><span>Ник</span><input id="authNick" type="text" minlength="2" maxlength="24" autocomplete="username" required></label>
-      <label class="auth-field"><span>Пароль</span><input id="authPassword" type="password" minlength="4" maxlength="72" autocomplete="current-password" required></label>
-      <button id="authSubmitBtn" class="primary auth-submit" type="submit">Войти</button>
-    </form>
-    <div id="authStatus" class="auth-status">До 50 игроков.</div>
-  </div>
-</div>
-<div id="profilePanel" class="profile-panel">
-  <div class="profile-card">
-    <button id="closeProfileBtn" class="profile-close" type="button">×</button>
-    <h2>Профиль игрока</h2>
-    <div id="profileNick" class="profile-nick">—</div>
-    <div id="profileSync" class="profile-sync">Прогресс синхронизирован</div>
-    <button id="syncNowBtn" class="secondary" type="button">☁️ Сохранить прогресс</button>
-    <button id="helpBtn" class="help-btn" type="button">❓ Помощь</button>
-<button id="logoutBtn" class="danger" type="button">Выйти</button>
-  </div>
-</div>
 <div class="app">
   <header class="topbar">
     <div>
       <div class="eyebrow">TRAIL RUNNER RPG</div>
       <h1>Гонка → Экипировка → Армагеддон</h1>
     </div>
-    <div class="topbar-account"><button id="topHelpBtn" class="help-btn top-help-btn" type="button">❓ Помощь</button><button id="profileBtn" class="profile-chip" type="button">👤 Вход</button><button id="headerLogoutBtn" class="header-logout" type="button" style="display:none">Выйти</button><div class="version">v10.23</div>
+    <div class="topbar-account"><button id="topHelpBtn" class="help-btn top-help-btn" type="button">❓ Помощь</button><div class="version">v10.24</div>
   </div></header>
 
   <section class="hud card">
@@ -258,7 +230,8 @@
       </div>
     </section></main>
 
-  <footer>Trail Runner: Armageddon v10.23 · игровая симуляция · 2026</footer>
+  <div class="card simulation-disclaimer" style="margin-top:16px;line-height:1.5;font-size:.92rem;opacity:.9">ℹ️ Игра является симуляцией. Броды, погода, питание, состояние покрытия, самочувствие и другие факторы могут существенно повлиять на фактический результат. Расчёты носят исключительно информационно-ознакомительный характер, не являются гарантией результата или рекомендацией к действию. Автор не несёт ответственности за решения, принятые на основании расчётов игры.</div>
+  <footer>Trail Runner: Armageddon v10.24 · игровая симуляция · 2026</footer>
 </div>
 <script src="app.js"></script>
 
