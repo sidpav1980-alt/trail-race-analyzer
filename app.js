@@ -1,4 +1,4 @@
-const APP_VERSION='10.50';
+const APP_VERSION='10.51';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -294,16 +294,24 @@ function waterBottlesNeeded(L,w){
   return liters<=0?0:Math.ceil(liters/0.5);
 }
 function membraneRequiredLevel(L=levelData(),w=weatherForLevel()){
-  // Item index 0 = no membrane, therefore visible equipment level starts at 1/7.
-  // Race 4 in cold heavy rain requires at least the light membrane (ур. 2/7).
-  if(!(w.rain||w.cold)) return 1;
+  // Early-game balance:
+  // races 1–2: membrane never blocks the start;
+  // races 3–5: bad weather requires only basic membrane 1/7;
+  // from race 6 requirements scale with difficulty/distance/weather.
+  const raceNo=game.current+1;
+  if(raceNo<=2) return 0;
+  if(!(w.rain||w.cold)) return 0;
+  if(raceNo<=5) return 1;
+
   let req=2;
   if(L[5]>=3 || L[1]>=50) req=3;
   if(L[5]>=4 || L[1]>=100) req=4;
   if(L[5]>=5 || L[1]>=250) req=5;
   if(L[1]>=500) req=6;
   if(L[1]>=700) req=7;
-  return Math.max(2,Math.min(7,req));
+  if(w.name==='Ливень') req+=1;
+  if(w.cold && w.temp<=4) req+=1;
+  return Math.max(1,Math.min(7,req));
 }
 function membraneEquippedLevel(){
   return Math.max(1,Math.min(7,Number(game.gear.jacket||0)+1));
@@ -561,7 +569,7 @@ function render(){
  if($('weatherText')) $('weatherText').textContent=`${raceWeather.emoji} ${raceWeather.name}`;
  if($('weatherSub')){
    const reqMem=membraneRequiredLevel(L,raceWeather);
-   $('weatherSub').textContent=`${raceWeather.temp}°C${(raceWeather.rain||raceWeather.cold)?` · нужна мембранка ур. ${reqMem}/7+`:''}`;
+   $('weatherSub').textContent=`${raceWeather.temp}°C${reqMem>0?` · нужна мембранка ур. ${reqMem}/7+`:(raceWeather.rain||raceWeather.cold?' · мембранка не обязательна на этом уровне':'')}`;
  }
  if($('sunText')) $('sunText').textContent=`${raceWeather.sun}%`;
  if($('sunSub')) $('sunSub').textContent=raceWeather.sun>=80?'высокий расход воды':raceWeather.sun>=45?'средний расход воды':'низкий расход воды';
@@ -1062,7 +1070,7 @@ function startRace(){
  if(raceWeather.rain || raceWeather.cold){
    const requiredMembrane=membraneRequiredLevel(L,raceWeather);
    const equippedMembrane=membraneEquippedLevel();
-   if(!hasMembrane(requiredMembrane)){
+   if(requiredMembrane>0 && !hasMembrane(requiredMembrane)){
      const equippedName=GEAR.jacket[Number(game.gear.jacket||0)]?.[0]||'Нет мембранки';
      $('raceResourceWarning').textContent='';
      showStartRequirementsError('Не подходит экипировка для этой гонки',[
@@ -1262,8 +1270,10 @@ function fireEvents(){
        sec+=240;extra=' · травма без полноценной аптечки';
      }
    }else if(ev.cat){
-     if(ev.cat==='jacket' && (weatherForLevel().rain||weatherForLevel().cold) &&
-        !hasMembrane(membraneRequiredLevel(levelData(),weatherForLevel()))){
+     const currentMembraneReq=membraneRequiredLevel(levelData(),weatherForLevel());
+     if(ev.cat==='jacket' && currentMembraneReq>0 &&
+        (weatherForLevel().rain||weatherForLevel().cold) &&
+        !hasMembrane(currentMembraneReq)){
        run.dnf=true;run.condition='переохлаждение';
        showEvent({emoji:'🥶',name:'Переохлаждение'},0,` · нужна мембранка ур. ${membraneRequiredLevel(levelData(),weatherForLevel())}/7+ → DNF`);
        setTimeout(()=>finishRace(true,'freeze'),1200);
