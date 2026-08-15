@@ -279,12 +279,32 @@ function buildEvents(L){
   ['🦟','Атака насекомых',75,null],
   ['🩹','Ссадина',90,'medkit'],
   ['🦶','Натёр ногу',120,'cream'],
-  ['🤕','Падение',180,'injury']
+  ['🤕','Падение',180,'injury'],
+  ['😅','Слишком быстро на старте',120,null],
+  ['👟','Развязался шнурок',60,'shoes'],
+  ['🚰','Очередь за водой на ПП',180,'hydration'],
+  ['💧','Брод пройден идеально',-120,null],
+  ['💦','Тяжёлый брод',150,'shoes'],
+  ['🍌','Банан на ПП зашёл идеально',-60,null],
+  ['🎵','Музыка на ПП придала сил',-75,null],
+  ['😫','Накрыла усталость',300,null],
+  ['🤢','Гель не зашёл',120,null],
+  ['🍯','Гель сработал идеально',-90,null],
+  ['🌬️','Попутный ветер',-120,null],
+  ['💨','Сильный встречный ветер',180,null],
+  ['☀️','Стало жарко',120,'hydration'],
+  ['❄️','Резко похолодало',120,'jacket'],
+  ['🧦','Камешек в кроссовке',75,'shoes'],
+  ['🪵','Перепрыгнул поваленное дерево',-30,null],
+  ['🧠','Идеально разложил силы',-150,null]
  ];
  const ev=[];
  for(let i=0;i<n;i++){
    const p=.08+(i+1)/(n+1)*.84;
-   const x=pool[Math.floor(Math.random()*pool.length)];
+   let x=pool[Math.floor(Math.random()*pool.length)];
+   // Стартовые события только в первой половине; очередь за водой — только на условном ПП.
+   if(x[1]==='Слишком быстро на старте' && p>.5) x=pool[0];
+   if(x[1]==='Очередь за водой на ПП') p=Math.min(.9, Math.max(.25, Math.round(p*4)/4));
    ev.push({p,...{emoji:x[0],name:x[1],sec:x[2],cat:x[3]}});
  }
  return ev.sort((a,b)=>a.p-b.p);
@@ -298,6 +318,18 @@ function startRace(){
    $('preRaceNote').textContent='😴 Вы отдыхаете. До следующего старта: '+fmtRest(restRemainingMs());
    switchTab('resources');return;
  }
+
+ // Обязательная проверка экипировки перед каждым стартом.
+ if(!$('startBtn').dataset.checked){
+   const problems=[];
+   Object.keys(GEAR).forEach(cat=>{ if(durability(cat)<=0) problems.push(CATEGORY_NAMES[cat]+' сломана'); });
+   if(game.gear.shoes===0) problems.push('кроссовки уровня 1 — базовые');
+   const msg='ПРОВЕРКА ЭКИПИРОВКИ\n\n'+Object.keys(GEAR).map(cat=>'✓ '+CATEGORY_NAMES[cat]+': '+item(cat)[0]+' · '+Math.round(durability(cat))+'% ресурса').join('\n')+'\n\nАптечка: '+medkitScore()+'/5 · Гели: '+game.resources.gels+(problems.length?'\n\n⚠️ '+problems.join(' · '):'\n\n✅ К старту готов.');
+   alert(msg+'\n\nНажмите «Старт» ещё раз для запуска гонки.');
+   $('startBtn').dataset.checked='1';
+   return;
+ }
+ $('startBtn').dataset.checked='';
 
  const needGels=gelsNeeded(L);
  const lampHours=lampHoursNeeded(L);
