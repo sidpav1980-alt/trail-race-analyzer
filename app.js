@@ -3,6 +3,7 @@ const LEVELS=[["Парковый трейл", 5, 80, 2040, 900, 1, "Лёгкий
 const GEAR={"shoes":[["Базовые кроссовки",0,1.0,65,0.0],["Trail Grip",1800,0.97,110,0.04],["Mountain Pro",5200,0.94,180,0.08],["Ultra Carbon",12000,0.91,280,0.12],["Armageddon X",30000,0.88,500,0.18],["Hyper Trail Pro",52000,0.845,760,0.23],["Titanium Speed X",95000,0.81,1100,0.3]],"jacket":[["Нет мембранки",0,1.0,999,0],["Лёгкая мембранка",1600,0.99,90,0.03],["Storm Shell",4500,0.98,160,0.06],["Alpine Shield",10000,0.97,260,0.1],["Armageddon Shell",26000,0.96,480,0.15],["Expedition Shield",46000,0.945,760,0.21],["Titan Storm Armor",85000,0.93,1150,0.28]],"lamp":[["Простой фонарь",0,1.0,70,0.0],["Night 400",1400,0.995,120,0.03],["Night 800",3800,0.99,200,0.06],["Ultra Beam",9000,0.985,320,0.1],["Recharge Pro X",22000,0.98,520,0.14],["Recharge Ultra 2000",42000,0.965,780,0.22],["Night Reactor 3000",80000,0.95,1200,0.3]],"pack":[["Старый рюкзак",0,1.0,80,0.0],["Race Vest 5L",1700,0.99,120,0.03],["Ultra Vest 12L",4800,0.98,210,0.06],["Endurance Pack",11000,0.97,330,0.1],["Armageddon Pack",27000,0.96,550,0.15],["Expedition Vest 18L",47000,0.945,800,0.22],["Titan Ultra Pack",88000,0.93,1250,0.3]],"poles":[["Без палок",0,1.0,999,0.0],["Алюминиевые палки",1900,0.985,100,0.04],["Carbon Trek",5200,0.97,180,0.08],["LEKI Ultra Carbon",12000,0.955,300,0.12],["LEKI Armageddon",29000,0.94,520,0.18],["LEKI Vertical Pro",50000,0.915,780,0.24],["LEKI Titanium X",92000,0.89,1200,0.32]],"hydration":[["Фляга 500 мл",0,1.0,100,0.0],["2×Soft Flask",1200,0.99,160,0.03],["Hydro Vest",3600,0.98,250,0.06],["Ultra Hydro",8500,0.97,380,0.1],["Armageddon Hydro",21000,0.96,600,0.15],["Expedition Hydro",39000,0.945,850,0.22],["Titan Hydro System",76000,0.93,1300,0.3]],"watch":[["Нет часов",0,1.0,999,0.0],["GPS Start",900,0.998,180,0.02],["Trail GPS",2800,0.995,280,0.05],["Endurance GPS",7200,0.99,420,0.08],["Fenix Ultra",18000,0.985,650,0.12],["Fenix Expedition",38000,0.975,900,0.2],["Fenix Armageddon",72000,0.965,1400,0.28]],"medkit":[["Пустой слот",0,1.0,999,0.0],["Мини-аптечка",700,0.999,120,0.03],["Trail аптечка",2100,0.997,220,0.06],["Ultra аптечка",5200,0.995,360,0.1],["Armageddon Med",13000,0.99,600,0.15],["Expedition Med Pro",28000,0.985,900,0.22],["Trauma Armageddon Kit",55000,0.975,1400,0.3]]};
 const CATEGORY_NAMES={shoes:'Кроссовки',pack:'Рюкзак / жилет',jacket:'Мембранка',lamp:'Фонарик',poles:'Палки',watch:'Часы',medkit:'Аптечка',hydration:'Вода'};
 const RESOURCE_CATALOG={
+  waterBottles:{name:'Вода 0,5 л',price:80,unit:'бут.',desc:'Обязательна с 4 уровня. Расход зависит от дистанции, жары и солнца.'},
   gels:{name:'Энергетический гель',price:120,unit:'шт.',desc:'Снижает голод и потерю темпа на длинной гонке.'},
   batteries:{name:'Комплект батареек',price:260,unit:'компл.',desc:'Для фонарей 1–4 уровня. Один комплект ≈ 5 часов света.'},
   bandage:{name:'Бинт',price:160,unit:'шт.',desc:'Сильные ссадины и растяжения.'},
@@ -25,14 +26,14 @@ function loadGame(){
     if(x) return Object.assign({
       money:1500,xp:0,level:1,completed:0,rep:0,current:0,gear:{...START_GEAR},
       durability:{},best:{},fatigue:0,lastFinishAt:0,restUntil:0,
-      resources:{gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
+      resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
       lampCharge:100
     },x);
   }catch(e){}
   return {
     money:1500,xp:0,level:1,completed:0,rep:0,current:0,gear:{...START_GEAR},
     durability:{},best:{},fatigue:0,lastFinishAt:0,restUntil:0,
-    resources:{gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
+    resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
     lampCharge:100
   };
 }
@@ -96,7 +97,7 @@ $('profilePanel')?.addEventListener('click',e=>{if(e.target===$('profilePanel'))
 
 function ensureResources(){
   if(!game.resources) game.resources={};
-  const defaults={gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0};
+  const defaults={waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0};
   Object.entries(defaults).forEach(([k,v])=>{if(game.resources[k]==null)game.resources[k]=v});
   if(game.fatigue==null)game.fatigue=0;
   if(game.restUntil==null)game.restUntil=0;
@@ -110,8 +111,45 @@ function fmtRest(ms){
   return `${m}:${String(r).padStart(2,'0')}`;
 }
 function gelsNeeded(L){
-  // Approx. one gel per 45 min, but capped so the game remains manageable.
   return Math.max(1,Math.min(80,Math.ceil(L[3]/2700)));
+}
+function weatherForLevel(){
+  // Stable for a selected race until that race is changed/reloaded.
+  if(!game.weatherByLevel) game.weatherByLevel={};
+  const key=String(game.current);
+  if(game.weatherByLevel[key]) return game.weatherByLevel[key];
+
+  const pool=[
+    {name:'Ясно',emoji:'☀️',temp:24,sun:85,rain:false,cold:false},
+    {name:'Переменная облачность',emoji:'🌤️',temp:19,sun:55,rain:false,cold:false},
+    {name:'Облачно',emoji:'☁️',temp:14,sun:25,rain:false,cold:false},
+    {name:'Дождь',emoji:'🌧️',temp:9,sun:10,rain:true,cold:true},
+    {name:'Ливень',emoji:'⛈️',temp:6,sun:5,rain:true,cold:true},
+    {name:'Холодный ветер',emoji:'💨',temp:4,sun:20,rain:false,cold:true},
+    {name:'Жара',emoji:'🥵',temp:31,sun:100,rain:false,cold:false}
+  ];
+  // Higher levels slightly more likely to have bad weather.
+  let idx=Math.floor(Math.random()*pool.length);
+  if(game.current>=8 && Math.random()<0.35) idx=3+Math.floor(Math.random()*3);
+  game.weatherByLevel[key]={...pool[idx]};
+  return game.weatherByLevel[key];
+}
+function waterLitersNeeded(L,w){
+  if(game.current<3) return 0; // mandatory only after level 3
+  const hours=Math.max(0.5,L[3]/3600);
+  let liters=0.45*hours;
+  liters*=1 + (w.sun/100)*0.55;
+  if(w.temp>=28) liters*=1.35;
+  if(w.temp<=8) liters*=0.82;
+  liters=Math.max(1.0,liters);
+  return Math.min(30,liters);
+}
+function waterBottlesNeeded(L,w){
+  const liters=waterLitersNeeded(L,w);
+  return liters<=0?0:Math.ceil(liters/0.5);
+}
+function hasMembrane(){
+  return Number(game.gear.jacket||0)>0 && durability('jacket')>0;
 }
 function isRechargeableLamp(){return Number(game.gear.lamp)>=4}
 function lampHoursNeeded(L){
@@ -171,6 +209,13 @@ function render(){
    $('lampPowerSub').textContent='фонарь на батарейках';
  }
  $('medkitSummary').textContent=medkitScore()+'/5';
+ const raceWeather=weatherForLevel();
+ if($('weatherText')) $('weatherText').textContent=`${raceWeather.emoji} ${raceWeather.name}`;
+ if($('weatherSub')) $('weatherSub').textContent=`${raceWeather.temp}°C${raceWeather.rain?' · мембранка обязательна':''}`;
+ if($('sunText')) $('sunText').textContent=`${raceWeather.sun}%`;
+ if($('sunSub')) $('sunSub').textContent=raceWeather.sun>=80?'высокий расход воды':raceWeather.sun>=45?'средний расход воды':'низкий расход воды';
+ const bottlesNeed=waterBottlesNeeded(L,raceWeather);
+ if($('raceWaterNeed')) $('raceWaterNeed').textContent=game.current<3?'не требуется':`${bottlesNeed} × 0,5 л`;
  $('raceTitle').textContent=`${game.current+1}. ${L[0]}`;
  $('raceDistance').textContent=L[1]+' км';
  $('raceGain').textContent=L[2]+' м';
@@ -412,7 +457,23 @@ function startRace(){
 
   const needGels=gelsNeeded(L);
  const lampHours=lampHoursNeeded(L);
+ const raceWeather=weatherForLevel();
+ const needWater=waterBottlesNeeded(L,raceWeather);
  let warnings=[];
+
+ // Water becomes mandatory starting with level 4.
+ if(game.current>=3 && (game.resources.waterBottles||0)<needWater){
+   $('raceResourceWarning').textContent=`⛔ Нельзя стартовать: воды ${(game.resources.waterBottles||0)}/${needWater} бутылок по 0,5 л. Докупите воду.`;
+   switchTab('resources');
+   return;
+ }
+
+ // In cold/rainy weather membrane is mandatory; otherwise the runner freezes before finish.
+ if((raceWeather.rain || raceWeather.cold) && !hasMembrane()){
+   $('raceResourceWarning').textContent=`⛔ ${raceWeather.emoji} ${raceWeather.name}, ${raceWeather.temp}°C. Без мембранки вы замёрзнете до финиша. Старт запрещён.`;
+   switchTab('shop');
+   return;
+ }
 
  if(game.resources.gels<needGels) warnings.push(`гелей ${game.resources.gels}/${needGels}`);
  if(lampHours>0){
@@ -433,6 +494,12 @@ function startRace(){
 
  if(game.level<Math.max(1,game.current*3-2)){
    $('preRaceNote').textContent=`⚠️ Рекомендуемый уровень трейлраннера: ${Math.max(1,game.current*3-2)}. Можно стартовать, но будет сложнее.`;
+ }
+
+ // Reserve mandatory water for this race.
+ if(game.current>=3 && needWater>0){
+   useResource('waterBottles',needWater);
+   $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>💧 Вода взята: ${needWater} × 0,5 л · солнце ${raceWeather.sun}%</b><span class="neutral">обязательно</span></div>`);
  }
 
  // Consume gels gradually through the race, but reserve the planned amount here.
@@ -473,9 +540,17 @@ function startRace(){
  const gelPenaltySec=Math.round(gelShortage*Math.min(420,120+L[5]*45));
  const lightPenaltySec=Math.round(lightShortageHours*600);
 
+ // Weather consequences while racing.
+ if(raceWeather.sun>=80){
+   const hotPenalty=Math.round(Math.max(0,raceWeather.sun-70)*L[3]/1200);
+   if(hotPenalty>0){
+     $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>☀️ Солнце ${raceWeather.sun}% · вода расходуется быстрее</b><span class="bad">+${fmt(hotPenalty)}</span></div>`);
+   }
+ }
+
  run={
    running:true,paused:false,p:0,base:L[3]*gearTimeFactor(),
-   elapsed:0,penalty:fatiguePenaltySec+gelPenaltySec+lightPenaltySec,
+   elapsed:0,penalty:fatiguePenaltySec+gelPenaltySec+lightPenaltySec+(raceWeather.sun>=80?Math.round((raceWeather.sun-70)*L[3]/1200):0),
    events:buildEvents(L),fired:new Set(),
    position:Math.max(1,Math.round(12+L[5]*6-game.level/4+Math.random()*8)),
    condition:game.fatigue>=75?'сильная усталость':'нормально',
@@ -535,7 +610,7 @@ function fireEvents(){
      if(fracture){
        run.dnf=true;run.condition='перелом ноги';
        showEvent({emoji:'🦴',name:'Перелом ноги'},0,' · DNF');
-       setTimeout(()=>finishRace(true),1200);
+       setTimeout(()=>finishRace(true,'fracture'),1200);
        return;
      }else if(game.resources.gauze>0 && game.resources.bandage>0){
        useResource('gauze');useResource('bandage');sec=Math.round(sec*.3);
@@ -545,6 +620,12 @@ function fireEvents(){
        sec+=240;extra=' · травма без полноценной аптечки';
      }
    }else if(ev.cat){
+     if(ev.cat==='jacket' && (weatherForLevel().rain||weatherForLevel().cold) && !hasMembrane()){
+       run.dnf=true;run.condition='переохлаждение';
+       showEvent({emoji:'🥶',name:'Переохлаждение'},0,' · без мембранки → DNF');
+       setTimeout(()=>finishRace(true,'freeze'),1200);
+       return;
+     }
      const broken=Math.random()<equipmentPenaltyChance(ev.cat,levelData()[5],levelData()[1]);
      const it=item(ev.cat),cur=durability(ev.cat);
      if(cur<=0||broken){
@@ -585,7 +666,7 @@ function updateRun(){
  $('condition').textContent=run.condition;
  drawTrack(run.p);
 }
-function finishRace(forceDnf=false){
+function finishRace(forceDnf=false,dnfReason='fracture'){
  if(!run||!run.running)return;
  run.running=false;cancelAnimationFrame(timer);$('pauseBtn').disabled=true;$('startBtn').disabled=false;
  const L=levelData();
@@ -595,7 +676,11 @@ function finishRace(forceDnf=false){
    game.lastFinishAt=Date.now();
    saveGame();
    const ov=$('finishOverlay');
-   ov.innerHTML=`<div class="overlay-box"><div class="emoji">🦴</div><b>DNF · перелом ноги</b><span>Слишком высокая нагрузка и мало отдыха. Отдохните 5 минут перед новой попыткой.</span></div>`;
+   if(dnfReason==='freeze'){
+     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🥶</div><b>DNF · переохлаждение</b><span>Вы вышли на холод/дождь без рабочей мембранки и замёрзли до финиша.</span></div>`;
+   }else{
+     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🦴</div><b>DNF · перелом ноги</b><span>Слишком высокая нагрузка и мало отдыха. Отдохните 5 минут перед новой попыткой.</span></div>`;
+   }
    ov.classList.add('show');
    setTimeout(()=>{ov.classList.remove('show');render();switchTab('resources')},5000);
    return;

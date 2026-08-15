@@ -41,7 +41,7 @@
       <div class="eyebrow">TRAIL RUNNER RPG</div>
       <h1>Гонка → Экипировка → Армагеддон</h1>
     </div>
-    <div class="topbar-account"><button id="profileBtn" class="profile-chip" type="button">👤 Вход</button><button id="headerLogoutBtn" class="header-logout" type="button" style="display:none">Выйти</button><div class="version">v8.0</div>
+    <div class="topbar-account"><button id="profileBtn" class="profile-chip" type="button">👤 Вход</button><button id="headerLogoutBtn" class="header-logout" type="button" style="display:none">Выйти</button><div class="version">v9.0</div>
   </div></header>
 
   <section class="hud card">
@@ -73,6 +73,16 @@
       <b id="medkitSummary">—</b>
       <small>бинт · марля · перекись · пластырь · крем</small>
     </div>
+    <div>
+      <span>Погода гонки</span>
+      <b id="weatherText">—</b>
+      <small id="weatherSub">—</small>
+    </div>
+    <div>
+      <span>Солнце</span>
+      <b id="sunText">—</b>
+      <small id="sunSub">влияет на расход воды</small>
+    </div>
   </section>
   <main>
     <section id="race" class="panel active game-main">
@@ -89,6 +99,7 @@
           <div><span>Набор</span><b id="raceGain">80 м</b></div>
           <div><span>Целевое время</span><b id="raceTarget">0:34:00</b></div>
           <div><span>Награда</span><b id="raceReward">до ₽ 900</b></div>
+          <div><span>Вода на старт</span><b id="raceWaterNeed">не требуется</b></div>
         </div>
         <p id="raceDesc" class="muted"></p>
       </div>
@@ -186,7 +197,7 @@
       <details id="resources" class="game-drawer"><summary>🍯 Расходники, аптечка и отдых</summary><div class="drawer-body">
       <div class="card">
         <h2>Расходники и аптечка</h2>
-        <p class="muted">Гели, батарейки и содержимое аптечки расходуются в гонках. На длинных стартах запас лучше брать заранее.</p>
+        <p class="muted">Вода, гели, батарейки и содержимое аптечки расходуются в гонках. На длинных стартах запас лучше брать заранее.</p>
         <div id="resourceGrid" class="shop-grid"></div>
       </div>
 
@@ -206,7 +217,7 @@
     </section>
   </main>
 
-  <footer>Trail Runner: Armageddon v8.0 · игровая симуляция · 2026</footer>
+  <footer>Trail Runner: Armageddon v9.0 · игровая симуляция · 2026</footer>
 </div>
 <script src="app.js"></script>
 </body>
