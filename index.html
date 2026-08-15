@@ -14,7 +14,7 @@
       <div class="eyebrow">TRAIL RUNNER RPG</div>
       <h1>Гонка → Экипировка → Армагеддон</h1>
     </div>
-    <div class="version">v2.0</div>
+    <div class="version">v5.0</div>
   </header>
 
   <section class="hud card">
@@ -47,17 +47,8 @@
       <small>бинт · марля · перекись · пластырь · крем</small>
     </div>
   </section>
-
-  <nav class="tabs">
-    <button class="tab active" data-tab="race">Гонка</button>
-    <button class="tab" data-tab="levels">20 уровней</button>
-    <button class="tab" data-tab="shop">Магазин</button>
-    <button class="tab" data-tab="gear">Экипировка</button>
-    <button class="tab" data-tab="resources">Расходники</button>
-  </nav>
-
   <main>
-    <section id="race" class="panel active">
+    <section id="race" class="panel active game-main">
       <div class="card level-card">
         <div class="row between">
           <div>
@@ -75,14 +66,25 @@
         <p id="raceDesc" class="muted"></p>
       </div>
 
+      <div class="card race-equipment-card">
+        <div class="row between equipment-head">
+          <div>
+            <h2>Текущая экипировка</h2>
+            <p class="muted">Что надето сейчас и какие слоты вообще доступны. В каждом слоте — 5 уровней.</p>
+          </div>
+          <button id="scrollShopBtn" class="secondary compact-btn">🛒 Купить / сменить</button>
+        </div>
+        <div id="raceGearSummary" class="race-gear-summary"></div>
+      </div>
+
       <div class="card sim-card">
         <div class="row between">
           <h2>Симуляция гонки</h2>
           <select id="speed">
-            <option value="40">40×</option>
             <option value="60">60×</option>
-            <option value="80" selected>80×</option>
-            <option value="100">100×</option>
+            <option value="90">90×</option>
+            <option value="120" selected>120×</option>
+            <option value="150">150×</option>
           </select>
         </div>
 
@@ -122,7 +124,8 @@
       </div>
     </section>
 
-    <section id="levels" class="panel">
+    <section class="game-tools">
+      <details id="levels" class="game-drawer"><summary>🏆 20 уровней кампании</summary><div class="drawer-body">
       <div class="card">
         <div class="row between">
           <div>
@@ -133,17 +136,15 @@
         </div>
         <div id="levelsGrid" class="levels-grid"></div>
       </div>
-    </section>
-
-    <section id="shop" class="panel">
+    </div></details>
+      <details id="shop" class="game-drawer"><summary>🛒 Магазин экипировки</summary><div class="drawer-body">
       <div class="card">
         <h2>Магазин экипировки</h2>
         <p class="muted">Дорогие вещи дают бонусы и медленнее ломаются. Покупка заменяет текущую вещь той же категории.</p>
         <div id="shopGrid" class="shop-grid"></div>
       </div>
-    </section>
-
-    <section id="gear" class="panel">
+    </div></details>
+      <details id="gear" class="game-drawer"><summary>🎒 Подробно: экипировка и ремонт</summary><div class="drawer-body">
       <div class="card">
         <div class="row between">
           <div>
@@ -154,9 +155,8 @@
         </div>
         <div id="gearGrid" class="gear-grid"></div>
       </div>
-    </section>
-
-    <section id="resources" class="panel">
+    </div></details>
+      <details id="resources" class="game-drawer"><summary>🍯 Расходники, аптечка и отдых</summary><div class="drawer-body">
       <div class="card">
         <h2>Расходники и аптечка</h2>
         <p class="muted">Гели, батарейки и содержимое аптечки расходуются в гонках. На длинных стартах запас лучше брать заранее.</p>
@@ -175,10 +175,11 @@
         <button id="restBtn" class="primary">😴 Отдыхать 5 минут</button>
         <div id="restStatus" class="notice">Если усталость высокая, отдохните 5 реальных минут.</div>
       </div>
+    </div></details>
     </section>
   </main>
 
-  <footer>Trail Runner: Armageddon v3 · отдельная игровая симуляция · 2026</footer>
+  <footer>Trail Runner: Armageddon v5 · игровая симуляция · 2026</footer>
 </div>
 <script src="app.js"></script>
 </body>
