@@ -1,4 +1,14 @@
 
+function purchasesLockedDuringRace(){
+  try{
+    if(state && state.race && state.race.running){
+      showGameError('Во время гонки покупки запрещены. Дождитесь финиша или завершите гонку.');
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+
 function enforceRegisteredLogin(){
   try{
     const u = (typeof authUser !== 'undefined') ? authUser : null;
@@ -245,8 +255,25 @@ function waterBottlesNeeded(L,w){
   const liters=waterLitersNeeded(L,w);
   return liters<=0?0:Math.ceil(liters/0.5);
 }
-function hasMembrane(){
-  return Number(game.gear.jacket||0)>0 && durability('jacket')>0;
+function membraneRequiredLevel(L=levelData(),w=weatherForLevel()){
+  // Item index 0 = no membrane, therefore visible equipment level starts at 1/7.
+  // Race 4 in cold heavy rain requires at least the light membrane (ур. 2/7).
+  if(!(w.rain||w.cold)) return 1;
+  let req=2;
+  if(L[5]>=3 || L[1]>=50) req=3;
+  if(L[5]>=4 || L[1]>=100) req=4;
+  if(L[5]>=5 || L[1]>=250) req=5;
+  if(L[1]>=500) req=6;
+  if(L[1]>=700) req=7;
+  return Math.max(2,Math.min(7,req));
+}
+function membraneEquippedLevel(){
+  return Math.max(1,Math.min(7,Number(game.gear.jacket||0)+1));
+}
+function hasMembrane(requiredLevel=2){
+  return membraneEquippedLevel()>=requiredLevel &&
+         Number(game.gear.jacket||0)>0 &&
+         durability('jacket')>0;
 }
 function isRechargeableLamp(){return Number(game.gear.lamp)>=4}
 function lampHoursNeeded(L){
@@ -284,6 +311,7 @@ function durability(cat){
 function setDur(cat,v){game.durability[durKey(cat)]=Math.max(0,v)}
 
 function render(){
+ keepEquippedGear();
  const L=levelData();
  $('runnerLevel').textContent=game.level;
  $('xpText').textContent=game.level>=100?'MAX':`${game.xp} / ${xpNeeded(game.level)} XP`;
@@ -313,7 +341,10 @@ function render(){
  if($('itraRankText'))$('itraRankText').textContent=`место в базе: ${ELITE_RUNNERS.filter(r=>r.itra>game.itra).length+1}`;
  const raceWeather=weatherForLevel();
  if($('weatherText')) $('weatherText').textContent=`${raceWeather.emoji} ${raceWeather.name}`;
- if($('weatherSub')) $('weatherSub').textContent=`${raceWeather.temp}°C${raceWeather.rain?' · мембранка обязательна':''}`;
+ if($('weatherSub')){
+   const reqMem=membraneRequiredLevel(L,raceWeather);
+   $('weatherSub').textContent=`${raceWeather.temp}°C${(raceWeather.rain||raceWeather.cold)?` · нужна мембранка ур. ${reqMem}/7+`:''}`;
+ }
  if($('sunText')) $('sunText').textContent=`${raceWeather.sun}%`;
  if($('sunSub')) $('sunSub').textContent=raceWeather.sun>=80?'высокий расход воды':raceWeather.sun>=45?'средний расход воды':'низкий расход воды';
  const bottlesNeed=waterBottlesNeeded(L,raceWeather);
@@ -369,8 +400,8 @@ function renderShop(){
        Эффект: ${gearEffectText(activeShopCategory,idx,it)}<br>
        Ресурс: ${it[3]} ед. · защита от поломки +${Math.round(it[4]*100)}%
      </div>
-     <button class="${owned?'secondary':'primary'}" ${owned||game.money<it[1]?'disabled':''} data-buy="${activeShopCategory}:${idx}">
-       ${owned?'Надето':game.money<it[1]?'Не хватает ₽':'Купить и надеть'}
+     <button class="${owned?'secondary equipped-btn':'primary'}" ${owned||game.money<it[1]?'disabled':''} data-buy="${activeShopCategory}:${idx}">
+       ${owned?(durability(activeShopCategory)<=0?'✓ Надето · сломано':'✓ Надето'):game.money<it[1]?'Не хватает ₽':'Купить и надеть'}
      </button>`;
    g.appendChild(d);
  });
@@ -404,6 +435,7 @@ function renderRaceGearSummary(){
    const pct=Math.max(0,Math.min(100,cur/max*100));
    const slot=document.createElement('div'); slot.className='race-gear-slot '+(pct<20?'gear-danger':pct<50?'gear-warn':'');
    slot.innerHTML=`<div class="gear-slot-title"><b>${CATEGORY_NAMES[cat]}</b><span>ур. ${idx+1}/7</span></div>
+     <div class="equipped-line"><span class="equipped-badge">${cur<=0?'НАДЕТО · СЛОМАНО':'НАДЕТО'}</span></div>
      <strong>${it[0]}</strong>
      <div class="gear-slot-effect">${gearEffectText(cat,idx,it)}</div>
      <div class="durability"><div style="width:${pct}%"></div></div>
@@ -417,8 +449,10 @@ function renderGear(){
  Object.keys(GEAR).forEach(cat=>{
   const it=item(cat),cur=durability(cat),max=it[3],pct=Math.max(0,Math.min(100,cur/max*100));
   const d=document.createElement('div');d.className='gear-item';
-  d.innerHTML=`<h3>${CATEGORY_NAMES[cat]} · ${it[0]}</h3><div class="meta">Прочность ${Math.round(cur)} / ${max}</div>
-  <div class="durability"><div style="width:${pct}%"></div></div><div class="meta">${pct<20?'⚠️ высокий риск поломки':pct<50?'изношено':'состояние нормальное'}</div>`;
+  d.innerHTML=`<h3>${CATEGORY_NAMES[cat]} · ${it[0]}</h3>
+  <div class="equipped-line"><span class="equipped-badge">${cur<=0?'НАДЕТО · СЛОМАНО':'НАДЕТО'}</span></div>
+  <div class="meta">Прочность ${Math.round(cur)} / ${max}</div>
+  <div class="durability"><div style="width:${pct}%"></div></div><div class="meta">${pct<=0?'❌ сломано, но остаётся надето':pct<20?'⚠️ высокий риск поломки':pct<50?'изношено':'состояние нормальное'}</div>`;
   g.appendChild(d);
  });
 }
@@ -605,6 +639,13 @@ function switchTab(id){
 }
 $('scrollShopBtn')?.addEventListener('click',()=>switchTab('shop'));
 
+function keepEquippedGear(){
+  // Сломанная вещь остаётся выбранной/надетой, пока игрок сам не купит и не наденет другую.
+  if(!game.gear) game.gear={...START_GEAR};
+  Object.keys(START_GEAR).forEach(cat=>{
+    if(game.gear[cat]==null) game.gear[cat]=START_GEAR[cat];
+  });
+}
 function gearTimeFactor(){
  let f=1;
  Object.keys(GEAR).forEach(cat=>{
@@ -706,11 +747,19 @@ function startRace(){
    return;
  }
 
- // In cold/rainy weather membrane is mandatory; otherwise the runner freezes before finish.
- if((raceWeather.rain || raceWeather.cold) && !hasMembrane()){
-   $('raceResourceWarning').textContent=`⛔ ${raceWeather.emoji} ${raceWeather.name}, ${raceWeather.temp}°C. Без мембранки вы замёрзнете до финиша. Старт запрещён.`;
-   switchTab('shop');
-   return;
+ // In cold/rainy weather the required membrane level rises with race difficulty.
+ if(raceWeather.rain || raceWeather.cold){
+   const requiredMembrane=membraneRequiredLevel(L,raceWeather);
+   const equippedMembrane=membraneEquippedLevel();
+   if(!hasMembrane(requiredMembrane)){
+     const equippedName=GEAR.jacket[Number(game.gear.jacket||0)]?.[0]||'Нет мембранки';
+     $('raceResourceWarning').textContent=
+       `⛔ ${raceWeather.emoji} ${raceWeather.name}, ${raceWeather.temp}°C. Для гонки ${game.current+1} нужна мембранка ур. ${requiredMembrane}/7 или выше. Сейчас надета: ${equippedName} · ур. ${equippedMembrane}/7. Старт запрещён.`;
+     activeShopCategory='jacket';
+     switchTab('shop');
+     renderShop();
+     return;
+   }
  }
 
  if(game.resources.gels<needGels) warnings.push(`гелей ${game.resources.gels}/${needGels}`);
@@ -865,9 +914,10 @@ function fireEvents(){
        sec+=240;extra=' · травма без полноценной аптечки';
      }
    }else if(ev.cat){
-     if(ev.cat==='jacket' && (weatherForLevel().rain||weatherForLevel().cold) && !hasMembrane()){
+     if(ev.cat==='jacket' && (weatherForLevel().rain||weatherForLevel().cold) &&
+        !hasMembrane(membraneRequiredLevel(levelData(),weatherForLevel()))){
        run.dnf=true;run.condition='переохлаждение';
-       showEvent({emoji:'🥶',name:'Переохлаждение'},0,' · без мембранки → DNF');
+       showEvent({emoji:'🥶',name:'Переохлаждение'},0,` · нужна мембранка ур. ${membraneRequiredLevel(levelData(),weatherForLevel())}/7+ → DNF`);
        setTimeout(()=>finishRace(true,'freeze'),1200);
        return;
      }
@@ -1095,3 +1145,13 @@ loadSession();
     if(e.target && e.target.id==='helpModal') closeHelp();
   });
 })();
+
+document.addEventListener('click', function(e){
+  const b=e.target.closest('button');
+  if(!b) return;
+  const txt=(b.textContent||'').trim().toLowerCase();
+  if((txt==='купить' || txt.includes('купить тренера')) && purchasesLockedDuringRace()){
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }
+}, true);

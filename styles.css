@@ -278,3 +278,13 @@ footer{text-align:center;color:#65758b;padding:28px 0 60px}
  border-radius:14px;padding:11px 14px;font-weight:800
 }
 .floating-help{position:fixed;right:14px;bottom:92px;z-index:9000}
+
+.mem-required-hint{color:#fde68a;font-weight:700}
+
+.equipped-line{margin:7px 0}
+.equipped-badge{
+ display:inline-block;padding:5px 9px;border-radius:999px;
+ background:#123a2a;border:1px solid #22c55e;color:#86efac;
+ font-size:12px;font-weight:900;letter-spacing:.04em
+}
+.equipped-btn{color:#86efac!important;border-color:#22c55e!important}
