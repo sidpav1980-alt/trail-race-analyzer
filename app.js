@@ -1,4 +1,4 @@
-const APP_VERSION='10.70';
+const APP_VERSION='10.66';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -281,23 +281,13 @@ function weatherForLevel(){
 }
 function waterLitersNeeded(L,w){
   if(game.current<3) return 0; // mandatory only after level 3
-  // Water means the realistic START/CARRY reserve between aid stations,
-  // not enough water for the entire race from start to finish.
-  const km=Number(L[1]||0);
-  let liters;
-  if(km<=25) liters=1.0;
-  else if(km<=42) liters=1.5;
-  else if(km<=60) liters=2.0;
-  else if(km<=100) liters=2.5;
-  else if(km<=130) liters=3.0;
-  else liters=3.5;
-
-  // Weather changes the carried reserve moderately, without making
-  // multi-day races require tens of litres at the start.
-  if(w.temp>=28 || w.sun>=85) liters+=0.5;
-  if(w.temp<=8 && !w.rain) liters-=0.5;
-  if(w.rain && w.temp<=8) liters=Math.max(liters,1.5);
-  return Math.max(1.0,Math.min(4.0,liters));
+  const hours=Math.max(0.5,L[3]/3600);
+  let liters=0.45*hours;
+  liters*=1 + (w.sun/100)*0.55;
+  if(w.temp>=28) liters*=1.35;
+  if(w.temp<=8) liters*=0.82;
+  liters=Math.max(1.0,liters);
+  return Math.min(30,liters);
 }
 function waterBottlesNeeded(L,w){
   const liters=waterLitersNeeded(L,w);
@@ -432,13 +422,6 @@ function leaderKmForPosition(rank,L,playerKm,playerPos){
 
 function leaderKmFor(rank,L,playerKm){
  if(!run || !run.running) return 0;
- if(Array.isArray(run.virtualField) && run.virtualField.length){
-   const sorted=[...run.virtualField]
-     .map(c=>({c,p:competitorProgressAt(c,run.elapsed,L)}))
-     .sort((a,b)=>b.p-a.p);
-   const row=sorted[Math.max(0,rank-1)];
-   return row ? Math.max(0,Math.min(L[1],row.p*L[1])) : 0;
- }
  return leaderKmForPosition(rank,L,playerKm,run.currentPosition||run.position||18);
 }
 function renderRaceLeaders(playerKm=0){
@@ -1118,84 +1101,6 @@ function simulateOtherDnfs(fieldSize,L,w){
  return n;
 }
 
-
-function seededNoise01(seed){
-  // deterministic pseudo-random 0..1 for this race/competitor
-  const x=Math.sin(seed*12.9898+78.233)*43758.5453;
-  return x-Math.floor(x);
-}
-
-function createVirtualField(L,fieldSize,playerBaseSec){
-  const n=Math.max(20,Math.min(124,fieldSize||50));
-  const strength=Math.max(0,Math.min(1,
-    (Number(game.fitness||0)/100)*0.48 +
-    (Number(game.level||1)/100)*0.18 +
-    ((COACHES[game.coach]||COACHES[0]).mult-1)*0.18 +
-    (game.rep||0)/500*0.08 +
-    (game.itra||250)/1000*0.08
-  ));
-
-  const field=[];
-  for(let i=0;i<n-1;i++){
-    const q=(i+0.5)/(n-1); // 0 strongest -> 1 weakest
-    const seed=(game.current+1)*1000+(game.completed||0)*37+i*17+(game.level||1)*13;
-    const noise=(seededNoise01(seed)-0.5)*0.10;
-
-    // Strongest runners are clearly faster; the middle pack stays close enough
-    // that +/- race events can cause natural overtakes.
-    let relative=0.82 + q*0.42 + noise;
-
-    // Harder races attract a slightly stronger field.
-    relative-=Math.max(0,L[5]-2)*0.012;
-
-    // Player strength shifts the expected field relation, but not enough to
-    // create huge unrealistic jumps.
-    relative+=strength*0.05;
-
-    field.push({
-      id:i,
-      relative:Math.max(0.72,Math.min(1.34,relative)),
-      finishSec:Math.max(60,playerBaseSec*relative),
-      dnf:false
-    });
-  }
-  return field.sort((a,b)=>a.finishSec-b.finishSec);
-}
-
-function competitorProgressAt(c,elapsed,L){
-  if(!c || c.dnf) return 0;
-  const total=Math.max(60,c.finishSec);
-  let p=Math.max(0,Math.min(1,elapsed/total));
-
-  // Small stable pacing variation: competitors do not run like robots,
-  // but the wiggle is intentionally mild to avoid position flicker.
-  const wave=Math.sin((elapsed/180)+(c.id%7))*0.004;
-  p=Math.max(0,Math.min(1,p+wave));
-  return p;
-}
-
-function updateRealisticPosition(){
-  if(!run || !run.running || !Array.isArray(run.virtualField)) return;
-  const L=levelData();
-  const playerProgress=Math.max(0,Math.min(1,run.p||0));
-
-  let ahead=0;
-  for(const c of run.virtualField){
-    const cp=competitorProgressAt(c,run.elapsed,L);
-    if(cp > playerProgress + 0.0015) ahead++;
-  }
-  const raw=Math.max(1,Math.min(run.fieldSize||50,ahead+1));
-
-  // Smooth movement to prevent absurd 10-place jumps in a single frame.
-  const prev=Math.max(1,Number(run.currentPosition||run.position||raw));
-  const maxStep=2;
-  const delta=raw-prev;
-  const next=prev + Math.max(-maxStep,Math.min(maxStep,delta));
-
-  run.currentPosition=Math.round(next);
-  return run.currentPosition;
-}
-
 function startRace(){
  if(trainingActive()){
    const left=trainingCountdownText();
@@ -1355,8 +1260,6 @@ function startRace(){
    weatherDnfTriggered:false,
    weatherDnfAt:.35+Math.random()*.55,
    weatherDnfReason:raceWeather.temp>=30?'heat':((raceWeather.rain||raceWeather.cold)?'weather':'other'),
-   virtualField:[],
-   raceDistance:Number(L[1]||5),
    fieldSize:Math.min(250,Math.max(35,Math.round(42+L[5]*18+L[1]*.55))),
    otherDnfCount:0,
    raceLeaders:createLeadersForAttempt(game.current),
@@ -1370,18 +1273,6 @@ function startRace(){
    fractureRisk:Math.min(.42, Math.max(0,(game.fatigue-55)/140) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08 : 0)),
    dnf:false
  };
- run.virtualField=createVirtualField(L,run.fieldSize,Math.max(60,run.base+run.penalty));
- // Initial live position is derived from the same virtual field model.
- run.p=0;
- run.elapsed=0;
- run.currentPosition=1 + run.virtualField.filter(c=>competitorProgressAt(c,0,L)>0).length;
- // Start around the expected field location from player strength rather than always first.
- const expectedStart=Math.max(1,Math.min(run.fieldSize,
-   Math.round((run.fieldSize||50)*(0.30 + L[5]*0.055 - (game.fitness||0)/420 - game.level/500))
- ));
- run.position=expectedStart;
- run.currentPosition=expectedStart;
-
  run.startedByUser=true;
  run.weatherDnfPlanned=Math.random()<run.weatherDnfRisk;
  run.otherDnfCount=simulateOtherDnfs(run.fieldSize,L,raceWeather);
@@ -1408,7 +1299,6 @@ function tick(ts){
    run.elapsed+=dt;
    run.p=Math.min(1,run.elapsed/total);
    fireEvents();
-   updateRealisticPosition();
    updateRun();
  }
  if(!run.dnf && run.weatherDnfPlanned && !run.weatherDnfTriggered && run.p>=run.weatherDnfAt){
@@ -1518,8 +1408,19 @@ function updateRun(){
  $('progressBar').style.width=(run.p*100)+'%';
  $('pace').textContent=fmt(total/L[1]).replace(':',' : ')+' /км';
 
- // Realistic live position from virtual competitors.
- const estimatedPos=updateRealisticPosition() || Math.max(1,run.currentPosition||run.position||1);
+ // Dynamic race position:
+ // progress/fitness can win places, while time added by race events loses places.
+ // Only penalties gained AFTER the start affect live overtakes; pre-start penalties
+ // are already reflected in the initial race position.
+ const livePenalty=(run.penalty||0)-(run.startPenalty||0);
+ const field=Math.max(20,run.fieldSize||50);
+ const progressGain=run.p*(2.2 + game.level/18 + Math.max(0,Number(game.fitness||0)-20)/28);
+ const bonusGain=Math.max(0,-livePenalty)/55;
+ const penaltyLoss=Math.max(0,livePenalty)/75;
+ const lateRaceGain=run.p>.55 ? (run.p-.55)*2.2 : 0;
+ let estimatedPos=Math.max(1,Math.min(field,
+   Math.round(run.position - progressGain - bonusGain - lateRaceGain + penaltyLoss)
+ ));
 
  // Calculate leader progress using the candidate place itself, so the UI cannot say
  // "1st place" while one or more TOP-3 athletes are already shown as finished ahead.
@@ -1578,15 +1479,12 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
   if(before>0&&after<=0)breaks.push(CATEGORY_NAMES[cat]);
  });
 
- updateRealisticPosition();
  const final=Math.max(1,run.base+run.penalty);
  const ratio=L[3]/final;
-
- // Финальная позиция должна продолжать живую позицию на трассе.
- // Раньше здесь место пересчитывалось заново со случайностью, поэтому, например,
- // 23-е место на 50.0 км могло внезапно превратиться в 1-е в окне финиша.
- let pos=Math.max(1,Math.min(run.fieldSize||50,Math.round(Number(run.currentPosition||run.position||1))));
- run.currentPosition=pos;
+ let pos=Math.max(1,Math.round(12+L[5]*6-game.level/3-ratio*10+Math.random()*8));
+ // Финальное место является источником истины: виртуальные позиции TOP-3 согласованы с ним.
+ if(ratio>=1.03)pos=Math.max(1,pos-5);
+ if(ratio>=1.08)pos=1;
 
  const quality=Math.max(.45,Math.min(1.55,ratio));
  let reward=Math.round(L[4]*Math.max(.35,Math.min(1.55,.55+quality*.55))*(pos===1?1.35:pos<=3?1.18:1));
@@ -1816,7 +1714,7 @@ function drawTrack(p){
  if(pos>1){
    const ly=ground-70;
    for(let i=0;i<3;i++){
-     drawOpponent(ctx,leaderXs[i],ly+i* Number((run&&run.raceDistance)||L[1]||5),.96,leaderColors[i],i+1);
+     drawOpponent(ctx,leaderXs[i],ly+i*5,.96,leaderColors[i],i+1);
    }
 
    const leadKm=leaderKms[0];
