@@ -347,25 +347,41 @@ function randomFio(seed){
  if(!female && last.endsWith('а')) last=last.slice(0,-1);
  return `${first} ${last}`;
 }
-function leadersForRace(raceIndex=game.current){
- // Уровни 1–15: один топовый ITRA-лидер + два соперника со случайными ФИО.
- // Уровни 16–20: вся тройка — топовые трейлраннеры.
- if(raceIndex>=15){
-   const n=TOP_ITRA_LEADERS.length;
-   const offset=((raceIndex-15)*3)%n;
-   return [
-     TOP_ITRA_LEADERS[offset],
-     TOP_ITRA_LEADERS[(offset+1)%n],
-     TOP_ITRA_LEADERS[(offset+2)%n]
-   ];
+function shuffledCopy(arr){
+ const a=[...arr];
+ for(let i=a.length-1;i>0;i--){
+   const j=Math.floor(Math.random()*(i+1));
+   [a[i],a[j]]=[a[j],a[i]];
  }
- const top=TOP_ITRA_LEADERS[raceIndex%TOP_ITRA_LEADERS.length];
- let a=randomFio(raceIndex*31+101), b=randomFio(raceIndex*47+207);
- if(a===b) b=randomFio(raceIndex*53+311);
- return [top,a,b];
+ return a;
+}
+
+function createLeadersForAttempt(raceIndex=game.current){
+ // 1–9: один случайный атлет из TOP ITRA + два новых случайных соперника.
+ if(raceIndex<9){
+   const top=TOP_ITRA_LEADERS[Math.floor(Math.random()*TOP_ITRA_LEADERS.length)];
+   let a=randomFio(Math.floor(Math.random()*1000000));
+   let b=randomFio(Math.floor(Math.random()*1000000));
+   let guard=0;
+   while((b===a || b===top) && guard++<20){
+     b=randomFio(Math.floor(Math.random()*1000000));
+   }
+   return [top,a,b];
+ }
+ // С 10 уровня: каждый новый старт получает новую тройку из TOP ITRA.
+ return shuffledCopy(TOP_ITRA_LEADERS).slice(0,3);
+}
+
+function leadersForRace(raceIndex=game.current){
+ // Во время конкретной попытки состав фиксирован, чтобы не менялся на каждом кадре.
+ if(run && Array.isArray(run.raceLeaders) && run.raceLeaders.length===3){
+   return run.raceLeaders;
+ }
+ // До старта показываем только неизвестных; реальные имена создаются в момент старта.
+ return ['Неизвестный участник','Неизвестный участник','Неизвестный участник'];
 }
 function visibleLeaderName(name){
- return (run && run.running) ? name : 'Неизвестный участник';
+ return (run && run.running && run.startedByUser===true) ? name : 'Неизвестный участник';
 }
 
 function leaderKmFor(rank,L,playerKm){
@@ -423,6 +439,22 @@ function render(){
    shopJump.title=raceShoppingLocked?'Покупки недоступны до финиша':'Купить / сменить экипировку';
  }
  keepEquippedGear();
+
+ const repairBtn=$('repairAllBtn');
+ if(repairBtn){
+   const repairCost=totalRepairCost();
+   const raceLocked=!!(run&&run.running);
+   repairBtn.textContent=repairCost>0 ? `🔧 Починить всё — ${fmtMoney(repairCost)}` : '✅ Всё исправно';
+   repairBtn.disabled=raceLocked || repairCost<=0 || game.money<repairCost;
+   repairBtn.title=raceLocked
+     ? 'Во время гонки ремонт недоступен'
+     : repairCost<=0
+       ? 'Экипировка полностью исправна'
+       : game.money<repairCost
+         ? `Не хватает рублей. Нужно ${fmtMoney(repairCost)}`
+         : `Полностью восстановить надетую экипировку за ${fmtMoney(repairCost)}`;
+ }
+
  const L=levelData();
  $('runnerLevel').textContent=game.level;
  $('xpText').textContent=game.level>=100?'MAX':`${game.xp} / ${xpNeeded(game.level)} XP`;
@@ -705,7 +737,7 @@ function renderTraining(){
        ${coach.desc}<br>
        Уровень подготовки: <b>${stars}</b><br>
        Прокачка за финиш: ×${coach.mult}<br>
-       Тренировка 5 мин: +${coach.trainingGain.toFixed(1)} к тренированности<br>
+       Тренировка 1 мин: +${coach.trainingGain.toFixed(1)} к тренированности<br>
        ${i===0?'Бесплатно':`Цена: <span class="money">${fmtMoney(coach.price)}</span>`}
      </div>
      <button class="${active?'secondary':'primary'}" ${active?'disabled':''} data-coach="${i}">
@@ -747,10 +779,10 @@ function renderTraining(){
      status.textContent=`До окончания тренировки: ${mm}:${String(ss).padStart(2,'0')}`;
    }else{
      btn.disabled=false;
-     btn.textContent='▶ Начать тренировку на 5 минут';
+     btn.textContent='▶ Начать тренировку на 1 минуту';
      status.textContent=completedGain>0
        ? `✓ Тренировка завершена: +${completedGain.toFixed(1)} к тренированности.`
-       : `5 минут реального времени → +${coach.trainingGain.toFixed(1)} к тренированности.`;
+       : `1 минуту реального времени → +${coach.trainingGain.toFixed(1)} к тренированности.`;
    }
  }
 
@@ -777,9 +809,14 @@ function totalRepairCost(){
  let s=0;Object.keys(GEAR).forEach(cat=>{const it=item(cat),cur=durability(cat);s+=(it[3]-cur)*Math.max(2,it[1]/it[3]*.28)});return Math.ceil(s);
 }
 $('repairAllBtn').onclick=()=>{
- const cost=totalRepairCost(); if(cost<=0)return;
- if(game.money<cost){showGameError('Не хватает рублей. Нужно '+fmtMoney(cost));return}
- game.money-=cost;Object.keys(GEAR).forEach(cat=>setDur(cat,item(cat)[3]));saveGame();render();
+  if(run&&run.running){showGameError('Во время гонки ремонт недоступен');return}
+  const cost=totalRepairCost();
+  if(cost<=0){showGameError('Экипировка уже полностью исправна');return}
+  if(game.money<cost){showGameError('Не хватает рублей. Нужно '+fmtMoney(cost));return}
+  game.money-=cost;
+  Object.keys(GEAR).forEach(cat=>setDur(cat,item(cat)[3]));
+  saveGame();
+  render();
 };
 
 function switchTab(id){
@@ -1033,7 +1070,8 @@ function startRace(){
  }
 
  run={
-   running:true,paused:false,p:0,base:L[3]*gearTimeFactor(),
+   running:true,startedByUser:true,paused:false,p:0,base:L[3]*gearTimeFactor(),
+   raceLeaders:createLeadersForAttempt(game.current),
    elapsed:0,penalty:fatiguePenaltySec+gelPenaltySec+lightPenaltySec+(raceWeather.sun>=80?Math.round((raceWeather.sun-70)*L[3]/1200):0)+Math.round(coachDifficultyGap*L[3]*0.04),
    events:buildEvents(L),fired:new Set(),
    position:Math.max(1,Math.round(12+L[5]*6-game.level/4+Math.random()*8)),
@@ -1042,10 +1080,12 @@ function startRace(){
    fractureRisk:Math.min(.42, Math.max(0,(game.fatigue-55)/140) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08 : 0)),
    dnf:false
  };
- if(game.current>=10){
-   const pool=ELITE_RUNNERS.slice(0,Math.min(ELITE_RUNNERS.length,Math.max(2,game.current-8)));
-   const rival=pool[Math.floor(Math.random()*pool.length)];
-   run.events.push({p:.68+Math.random()*.18,emoji:'🏆',name:`Борьба с лидером: ${rival.name}`,sec:Math.round(35+Math.random()*90),cat:null});
+ run.startedByUser=true;
+ if(game.current>=9){
+   const rivalName=(run.raceLeaders && run.raceLeaders.length)
+     ? run.raceLeaders[Math.floor(Math.random()*run.raceLeaders.length)]
+     : TOP_ITRA_LEADERS[Math.floor(Math.random()*TOP_ITRA_LEADERS.length)];
+   run.events.push({p:.68+Math.random()*.18,emoji:'🏆',name:`Борьба с лидером: ${rivalName}`,sec:Math.round(35+Math.random()*90),cat:null});
    run.events.sort((a,b)=>a.p-b.p);
  }
  $('eventLog').innerHTML='';
