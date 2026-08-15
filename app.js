@@ -20,7 +20,13 @@ const $=id=>document.getElementById(id);
 let game=loadGame();
 let run=null,timer=null,lastTs=0;
 
-const COACHES=[{name:'Без тренера',price:0,mult:1},{name:'Тренер клуба',price:8000,mult:1.35},{name:'Трейл-тренер',price:25000,mult:1.7},{name:'Elite Coach',price:70000,mult:2.2}];
+const COACHES=[
+ {name:'Без тренера',price:0,mult:1.00,maxDifficulty:1,trainingGain:1.0,desc:'Подготовка только к лёгким гонкам ★.'},
+ {name:'Базовый тренер',price:8000,mult:1.25,maxDifficulty:2,trainingGain:1.5,desc:'Готовит к гонкам сложности до ★★.'},
+ {name:'Трейл-тренер',price:25000,mult:1.55,maxDifficulty:3,trainingGain:2.2,desc:'Готовит к гонкам сложности до ★★★.'},
+ {name:'Горный тренер',price:50000,mult:1.90,maxDifficulty:4,trainingGain:3.0,desc:'Готовит к гонкам сложности до ★★★★.'},
+ {name:'Elite Coach',price:90000,mult:2.35,maxDifficulty:5,trainingGain:4.2,desc:'Готовит ко всем гонкам, включая ★★★★★.'}
+];
 const ELITE_RUNNERS=[
 {name:'Алексей Береснев',itra:905,country:'🇷🇺'},{name:'Антонина Юшина',itra:890,country:'🇷🇺'},
 {name:'Алексей Толстенко',itra:865,country:'🇷🇺'},{name:'Константин Иванов',itra:850,country:'🇷🇺'},
@@ -32,14 +38,14 @@ function loadGame(){
   try{
     const x=JSON.parse(localStorage.getItem('trailArmageddonSave')||'null');
     if(x) return Object.assign({
-      money:1500,xp:0,level:1,completed:0,rep:0,current:0,fitness:1,coach:0,itra:250,gear:{...START_GEAR},
+      money:1500,xp:0,level:1,completed:0,rep:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
       durability:{},best:{},fatigue:0,lastFinishAt:0,restUntil:0,
       resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
       lampCharge:100
     },x);
   }catch(e){}
   return {
-    money:1500,xp:0,level:1,completed:0,rep:0,current:0,fitness:1,coach:0,itra:250,gear:{...START_GEAR},
+    money:1500,xp:0,level:1,completed:0,rep:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
     durability:{},best:{},fatigue:0,lastFinishAt:0,restUntil:0,
     resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
     lampCharge:100
@@ -123,7 +129,14 @@ $('profileBtn')?.addEventListener('click',()=>authUser?$('profilePanel')?.classL
 $('profilePanel')?.addEventListener('click',e=>{if(e.target===$('profilePanel'))$('profilePanel').classList.remove('show')});$('syncNowBtn')?.addEventListener('click',()=>saveProgressCloud(true));$('logoutBtn')?.addEventListener('click',logout);$('headerLogoutBtn')?.addEventListener('click',logout);
 
 
-function ensureTraining(){if(game.fitness==null)game.fitness=Math.max(1,game.level||1);if(game.coach==null)game.coach=0;if(game.itra==null)game.itra=250;}
+function ensureTraining(){
+ if(game.fitness==null) game.fitness=Math.max(1,Math.min(100,game.level||1));
+ if(game.coach==null) game.coach=0;
+ if(!Array.isArray(game.coachOwned)) game.coachOwned=[0];
+ if(!game.coachOwned.includes(0)) game.coachOwned.push(0);
+ if(game.trainingUntil==null) game.trainingUntil=0;
+ if(game.itra==null) game.itra=250;
+}
 function ensureResources(){
   if(!game.resources) game.resources={};
   const defaults={waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0};
@@ -399,6 +412,7 @@ function renderLampPower(){
 
 function updateRestUi(){
  const b=$('restBtn'),s=$('restStatus');if(!b||!s)return;
+ if($('restFatigueValue')) $('restFatigueValue').textContent=Math.round(game.fatigue||0)+'%';
  const ms=restRemainingMs();
  if(ms>0){
    b.disabled=true;b.textContent='😴 Отдых идёт…';
@@ -415,23 +429,47 @@ $('restBtn')?.addEventListener('click',()=>{
   game.restUntil=Date.now()+5*60*1000;saveGame();updateRestUi();
 });
 
-function renderTraining(){
- if(!$('coachGrid'))return;
+function trainingRemainingMs(){return Math.max(0,(game.trainingUntil||0)-Date.now())}
+function trainingActive(){return trainingRemainingMs()>0}
+function finishTrainingIfReady(){
  ensureTraining();
+ if(game.trainingUntil && game.trainingUntil<=Date.now()){
+   const coach=COACHES[game.coach]||COACHES[0];
+   const gain=coach.trainingGain;
+   game.fitness=Math.min(100,game.fitness+gain);
+   game.trainingUntil=0;
+   saveGame();
+   return true;
+ }
+ return false;
+}
+function coachSupportsCurrentRace(){
+ const coach=COACHES[game.coach]||COACHES[0];
+ const diff=levelData()[5];
+ return coach.maxDifficulty>=diff;
+}
+function renderTraining(){
+ if(!$('coachGrid')) return;
+ ensureTraining();
+ const completedGain=finishTrainingIfReady();
 
  $('coachGrid').innerHTML='';
- COACHES.forEach((x,i)=>{
+ COACHES.forEach((coach,i)=>{
    const d=document.createElement('div');
    d.className='shop-item coach-item';
-   const purchased=i<=game.coach;
+   const owned=game.coachOwned.includes(i);
    const active=i===game.coach;
-   d.innerHTML=`<h3>${i===0?'🧍':'🏋️'} ${x.name}</h3>
+   const stars='★'.repeat(coach.maxDifficulty)+'☆'.repeat(5-coach.maxDifficulty);
+   d.innerHTML=`<h3>${i===0?'🧍':'🏋️'} ${coach.name}</h3>
      <div class="meta">
-       ${i===0?'Без дополнительных затрат.':`Цена: <span class="money">${fmtMoney(x.price)}</span>`}<br>
-       Скорость прокачки: ×${x.mult}
+       ${coach.desc}<br>
+       Уровень подготовки: <b>${stars}</b><br>
+       Прокачка за финиш: ×${coach.mult}<br>
+       Тренировка 5 мин: +${coach.trainingGain.toFixed(1)} к тренированности<br>
+       ${i===0?'Бесплатно':`Цена: <span class="money">${fmtMoney(coach.price)}</span>`}
      </div>
      <button class="${active?'secondary':'primary'}" ${active?'disabled':''} data-coach="${i}">
-       ${active?'Активен':purchased?'Выбрать тренера':'Купить тренера'}
+       ${active?'Активен':owned?'Выбрать тренера':'Купить тренера'}
      </button>`;
    $('coachGrid').appendChild(d);
  });
@@ -439,31 +477,61 @@ function renderTraining(){
  $('coachGrid').querySelectorAll('[data-coach]').forEach(b=>b.onclick=()=>{
    const i=Number(b.dataset.coach);
    const coach=COACHES[i];
-   if(i>game.coach){
+   if(!game.coachOwned.includes(i)){
      if(game.money<coach.price){alert('Не хватает рублей на тренера.');return}
      game.money-=coach.price;
-     game.coach=i;
-   }else{
-     game.coach=i;
+     game.coachOwned.push(i);
    }
+   game.coach=i;
    saveGame();
    render();
  });
 
- if($('fitnessPanelValue'))$('fitnessPanelValue').textContent=`${Math.round(game.fitness)} / 100`;
- if($('fitnessPanelBar'))$('fitnessPanelBar').style.width=`${game.fitness}%`;
- if($('fitnessPanelText'))$('fitnessPanelText').textContent=`Бонус скорости около +${Math.round((game.fitness-1)*0.152)}%. Текущий тренер: ${COACHES[game.coach]?.name||'Без тренера'}.`;
+ if($('fitnessPanelValue')) $('fitnessPanelValue').textContent=`${Math.round(game.fitness)} / 100`;
+ if($('fitnessPanelBar')) $('fitnessPanelBar').style.width=`${game.fitness}%`;
+
+ const coach=COACHES[game.coach]||COACHES[0];
+ if($('fitnessPanelText')){
+   $('fitnessPanelText').textContent=
+     `Тренированность растёт и за прохождение гонок. Текущий тренер: ${coach.name}. Подготовка до ${'★'.repeat(coach.maxDifficulty)}.`;
+ }
+
+ const btn=$('startTrainingBtn');
+ const status=$('trainingStatus');
+ if(btn&&status){
+   const ms=trainingRemainingMs();
+   if(ms>0){
+     btn.disabled=true;
+     btn.textContent='🏃 Тренировка идёт…';
+     const s=Math.ceil(ms/1000), mm=Math.floor(s/60), ss=s%60;
+     status.textContent=`До окончания тренировки: ${mm}:${String(ss).padStart(2,'0')}`;
+   }else{
+     btn.disabled=false;
+     btn.textContent='▶ Начать тренировку на 5 минут';
+     status.textContent=completedGain>0
+       ? `✓ Тренировка завершена: +${completedGain.toFixed(1)} к тренированности.`
+       : `5 минут реального времени → +${coach.trainingGain.toFixed(1)} к тренированности.`;
+   }
+ }
 
  const playerName=(authUser&&authUser.nick)?authUser.nick:'Вы';
  const rows=[...ELITE_RUNNERS,{name:playerName,itra:Math.round(game.itra),country:'🎮',player:true}]
    .sort((a,b)=>b.itra-a.itra);
-
  if($('itraLeaderboard')){
    $('itraLeaderboard').innerHTML=rows.map((r,i)=>`<div class="leader-row ${r.player?'player-row':''}">
      <b>${i+1}</b><span>${r.country} ${r.name}</span><strong>${r.itra}</strong>
    </div>`).join('');
  }
 }
+$('startTrainingBtn')?.addEventListener('click',()=>{
+  ensureTraining();
+  if(trainingActive()) return;
+  game.trainingUntil=Date.now()+5*60*1000;
+  saveGame();
+  renderTraining();
+});
+setInterval(()=>{if($('startTrainingBtn'))renderTraining()},1000);
+
 function totalRepairCost(){
  let s=0;Object.keys(GEAR).forEach(cat=>{const it=item(cat),cur=durability(cat);s+=(it[3]-cur)*Math.max(2,it[1]/it[3]*.28)});return Math.ceil(s);
 }
@@ -567,6 +635,8 @@ function startRace(){
 
   const needGels=gelsNeeded(L);
  const lampHours=lampHoursNeeded(L);
+ const activeCoach=COACHES[game.coach]||COACHES[0];
+ const coachDifficultyGap=Math.max(0,L[5]-activeCoach.maxDifficulty);
  const raceWeather=weatherForLevel();
  const needWater=waterBottlesNeeded(L,raceWeather);
  let warnings=[];
@@ -597,6 +667,7 @@ function startRace(){
  }
  if(medkitScore()<3) warnings.push('аптечка неполная');
  if(game.fatigue>=70) warnings.push(`усталость ${Math.round(game.fatigue)}%`);
+ if(coachDifficultyGap>0) warnings.push(`тренер слабее сложности гонки на ${coachDifficultyGap} ур.`);
 
  $('raceResourceWarning').textContent=warnings.length
    ? '⚠️ Риски перед стартом: '+warnings.join(' · ')
@@ -660,7 +731,7 @@ function startRace(){
 
  run={
    running:true,paused:false,p:0,base:L[3]*gearTimeFactor(),
-   elapsed:0,penalty:fatiguePenaltySec+gelPenaltySec+lightPenaltySec+(raceWeather.sun>=80?Math.round((raceWeather.sun-70)*L[3]/1200):0),
+   elapsed:0,penalty:fatiguePenaltySec+gelPenaltySec+lightPenaltySec+(raceWeather.sun>=80?Math.round((raceWeather.sun-70)*L[3]/1200):0)+Math.round(coachDifficultyGap*L[3]*0.04),
    events:buildEvents(L),fired:new Set(),
    position:Math.max(1,Math.round(12+L[5]*6-game.level/4+Math.random()*8)),
    condition:game.fatigue>=75?'сильная усталость':'нормально',
@@ -820,7 +891,14 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  const xp=Math.round(35+L[5]*18+L[1]/8+(pos===1?45:pos<=3?25:0));
 
  game.money+=reward;addXp(xp);game.rep+=pos===1?8:pos<=3?5:pos<=10?2:1;
- ensureTraining();const cm=COACHES[game.coach]?.mult||1;const fg=Math.max(.25,(1.15+L[5]*.28+(pos===1?.8:pos<=3?.4:0))*cm*(1-game.fitness/135));game.fitness=Math.min(100,game.fitness+fg);game.itra=Math.min(950,Math.max(200,game.itra+Math.max(1,Math.round((ratio-.72)*22+L[5]*1.4+(pos===1?7:pos<=3?4:0)))));
+ ensureTraining();
+ const coach=COACHES[game.coach]||COACHES[0];
+ const finishBase=1.0 + L[5]*0.35 + Math.min(2.0,L[1]/180);
+ const placeBonus=pos===1?1.2:pos<=3?0.7:pos<=10?0.3:0;
+ const fitnessGain=Math.max(0.4,(finishBase+placeBonus)*coach.mult*(1-game.fitness/140));
+ game.fitness=Math.min(100,game.fitness+fitnessGain);
+ const itraGain=Math.max(1,Math.round((ratio-.72)*22 + L[5]*1.4 + (pos===1?7:pos<=3?4:0)));
+ game.itra=Math.min(950,Math.max(200,game.itra+itraGain));
  if(game.best[game.current]==null||final<game.best[game.current])game.best[game.current]=final;
 
  // Fatigue: long races and quick repeats accumulate it heavily.
@@ -837,7 +915,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
 
  const champ=game.completed>=20;
  const ov=$('finishOverlay');
- ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}</span></div>`;
+ ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br>Тренированность: ${Math.round(game.fitness)}/100<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}</span></div>`;
  ov.classList.add('show');
  setTimeout(()=>{ov.classList.remove('show');render()},champ?7000:4200);
 }

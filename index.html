@@ -41,7 +41,7 @@
       <div class="eyebrow">TRAIL RUNNER RPG</div>
       <h1>Гонка → Экипировка → Армагеддон</h1>
     </div>
-    <div class="topbar-account"><button id="profileBtn" class="profile-chip" type="button">👤 Вход</button><button id="headerLogoutBtn" class="header-logout" type="button" style="display:none">Выйти</button><div class="version">v10.1</div>
+    <div class="topbar-account"><button id="profileBtn" class="profile-chip" type="button">👤 Вход</button><button id="headerLogoutBtn" class="header-logout" type="button" style="display:none">Выйти</button><div class="version">v10.4</div>
   </div></header>
 
   <section class="hud card">
@@ -84,6 +84,21 @@
   </section>
   <main>
     <section id="race" class="panel active game-main">
+      <div class="card rest-card">
+        <div class="row between">
+          <div>
+            <h2>😴 Отдых</h2>
+            <p class="muted">Если усталость высокая, отдохните 5 минут реального времени перед следующей гонкой.</p>
+          </div>
+          <div class="rest-fatigue">
+            <span>Усталость</span>
+            <b id="restFatigueValue">0%</b>
+          </div>
+        </div>
+        <button id="restBtn" class="primary">😴 Отдыхать 5 минут</button>
+        <div id="restStatus" class="notice">Можно стартовать.</div>
+      </div>
+
       <div class="card level-card">
         <div class="row between">
           <div>
@@ -205,17 +220,35 @@
         <div id="lampPowerPanel" class="gear-grid"></div>
       </div>
 
-      <div class="card">
-        <h2>Отдых</h2>
-        <p class="muted">Частые старты накапливают усталость. При высокой усталости растёт риск травмы и перелома ноги. Перелом = DNF.</p>
-        <button id="restBtn" class="primary">😴 Отдыхать 5 минут</button>
-        <div id="restStatus" class="notice">Если усталость высокая, отдохните 5 реальных минут.</div>
-      </div>
+      
     </div></details>
     </section>
-  <section id="training" class="panel"><div class="card"><h2>🏋️ Купить тренера</h2><p class="muted">Тренированность 1–100 влияет на скорость. Чем выше уровень тренера, тем быстрее растёт тренированность после финиша.</p><div id="coachGrid" class="shop-grid"></div></div><div class="card"><h2>📈 Тренированность</h2><b id="fitnessPanelValue">1 / 100</b><div class="durability"><div id="fitnessPanelBar"></div></div><p id="fitnessPanelText" class="muted"></p></div><div class="card"><h2>🏆 ITRA-лига игры</h2><p class="muted">Известные российские трейлраннеры используются как элитные соперники. Баллы в игровой таблице — игровые для баланса.</p><div id="itraLeaderboard" class="leaderboard"></div></div></section></main>
+  <section id="training" class="panel">
+      <div class="card">
+        <h2>🏋️ Купить тренера</h2>
+        <p class="muted">Тренеры отличаются уровнем подготовки к сложности гонок. Чем сильнее тренер — тем более сложные гонки он помогает проходить и тем быстрее растёт тренированность.</p>
+        <div id="coachGrid" class="shop-grid"></div>
+      </div>
 
-  <footer>Trail Runner: Armageddon v10.1 · игровая симуляция · 2026</footer>
+      <div class="card">
+        <h2>📈 Тренировка</h2>
+        <div class="big-training">
+          <b id="fitnessPanelValue">1 / 100</b>
+          <div class="durability"><div id="fitnessPanelBar"></div></div>
+        </div>
+        <p id="fitnessPanelText" class="muted"></p>
+        <button id="startTrainingBtn" class="primary">▶ Начать тренировку на 5 минут</button>
+        <div id="trainingStatus" class="notice">Одна тренировка длится 5 минут реального времени.</div>
+      </div>
+
+      <div class="card">
+        <h2>🏆 ITRA-лига игры</h2>
+        <p class="muted">Известные российские трейлраннеры используются как элитные соперники. Баллы в игровой таблице — игровые для баланса.</p>
+        <div id="itraLeaderboard" class="leaderboard"></div>
+      </div>
+    </section></main>
+
+  <footer>Trail Runner: Armageddon v10.4 · игровая симуляция · 2026</footer>
 </div>
 <script src="app.js"></script>
 </body>
