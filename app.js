@@ -475,6 +475,18 @@ function applyAppVersion(){
  if($('footerVersion')) $('footerVersion').textContent=v;
 }
 
+
+function renderPreStartRaceState(L){
+ if(run && run.running) return;
+ if($('progressKm')) $('progressKm').textContent=`0.0 / ${Number(L[1]).toFixed(1)} км`;
+ if($('clock')) $('clock').textContent='0:00:00';
+ if($('progressBar')) $('progressBar').style.width='0%';
+ if($('pace')) $('pace').textContent=fmt(Math.max(1,L[3])/Math.max(1,L[1])).replace(':',' : ')+' /км';
+ if($('position')) $('position').textContent='—';
+ if($('penalties')) $('penalties').textContent='+0:00';
+ if($('condition')) $('condition').textContent='ГОТОВ';
+}
+
 function render(){
  applyAppVersion();
  const raceShoppingLocked=!!(run&&run.running);
@@ -608,6 +620,7 @@ function render(){
  }
  $('difficultyBadge').textContent='★'.repeat(L[5])+'☆'.repeat(5-L[5]);
  $('raceDesc').textContent=L[6];
+ renderPreStartRaceState(L);
  renderLevels();renderShop();renderGear();renderRaceGearSummary();renderResources();renderLampPower();updateRestUi();updateRaceStartTrainingLock();renderRaceLeaders(0);drawTrack(0);
 }
 function renderLevels(){
