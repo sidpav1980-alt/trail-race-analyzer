@@ -1,4 +1,4 @@
-const APP_VERSION='10.68';
+const APP_VERSION='10.70';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -1356,6 +1356,7 @@ function startRace(){
    weatherDnfAt:.35+Math.random()*.55,
    weatherDnfReason:raceWeather.temp>=30?'heat':((raceWeather.rain||raceWeather.cold)?'weather':'other'),
    virtualField:[],
+   raceDistance:Number(L[1]||5),
    fieldSize:Math.min(250,Math.max(35,Math.round(42+L[5]*18+L[1]*.55))),
    otherDnfCount:0,
    raceLeaders:createLeadersForAttempt(game.current),
@@ -1815,7 +1816,7 @@ function drawTrack(p){
  if(pos>1){
    const ly=ground-70;
    for(let i=0;i<3;i++){
-     drawOpponent(ctx,leaderXs[i],ly+i*5,.96,leaderColors[i],i+1);
+     drawOpponent(ctx,leaderXs[i],ly+i* Number((run&&run.raceDistance)||L[1]||5),.96,leaderColors[i],i+1);
    }
 
    const leadKm=leaderKms[0];
