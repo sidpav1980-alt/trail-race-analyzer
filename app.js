@@ -1,4 +1,4 @@
-const APP_VERSION='10.65';
+const APP_VERSION='10.66';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -591,7 +591,7 @@ function render(){
  }
  $('difficultyBadge').textContent='★'.repeat(L[5])+'☆'.repeat(5-L[5]);
  $('raceDesc').textContent=L[6];
- renderLevels();renderShop();renderGear();renderRaceGearSummary();renderResources();renderLampPower();updateRestUi();renderRaceLeaders(0);drawTrack(0);
+ renderLevels();renderShop();renderGear();renderRaceGearSummary();renderResources();renderLampPower();updateRestUi();updateRaceStartTrainingLock();renderRaceLeaders(0);drawTrack(0);
 }
 function renderLevels(){
  const g=$('levelsGrid');g.innerHTML='';
@@ -790,6 +790,36 @@ $('restBtn')?.addEventListener('click',()=>{
 
 function trainingRemainingMs(){return Math.max(0,(game.trainingUntil||0)-Date.now())}
 function trainingActive(){return trainingRemainingMs()>0}
+function trainingCountdownText(){
+ const ms=trainingRemainingMs();
+ const s=Math.ceil(ms/1000),m=Math.floor(s/60),r=s%60;
+ return `${m}:${String(r).padStart(2,'0')}`;
+}
+function updateRaceStartTrainingLock(){
+ const b=$('startBtn');
+ if(!b)return;
+ if(run&&run.running){
+   b.disabled=true;
+   return;
+ }
+ if(trainingActive()){
+   b.disabled=true;
+   b.textContent=`🏃 Тренировка ${trainingCountdownText()}`;
+   const el=$('startRequirementsError');
+   if(el){
+     el.innerHTML=`<b>🏃 Идёт тренировка</b><ul><li>Старт гонки будет доступен через ${trainingCountdownText()}.</li></ul>`;
+     el.style.display='block';
+   }
+ }else{
+   b.disabled=isResting();
+   b.textContent='▶ Старт';
+   const el=$('startRequirementsError');
+   if(el && /Идёт тренировка/.test(el.textContent||'')){
+     el.style.display='none';
+     el.innerHTML='';
+   }
+ }
+}
 function finishTrainingIfReady(){
  ensureTraining();
  if(game.trainingUntil && game.trainingUntil<=Date.now()){
@@ -911,8 +941,12 @@ $('startTrainingBtn')?.addEventListener('click',()=>{
   game.trainingUntil=Date.now()+60*1000;
   saveGame();
   renderTraining();
+  updateRaceStartTrainingLock();
 });
-setInterval(()=>{if($('startTrainingBtn')){renderTraining(); if($('startBtn')) $('startBtn').disabled = trainingActive() || isResting() || (run&&run.running);}},1000);
+setInterval(()=>{
+ if($('startTrainingBtn')) renderTraining();
+ updateRaceStartTrainingLock();
+},1000);
 
 function totalRepairCost(){
  let s=0;Object.keys(GEAR).forEach(cat=>{const it=item(cat),cur=durability(cat);s+=(it[3]-cur)*Math.max(2,it[1]/it[3]*.28)});return Math.ceil(s);
@@ -1069,7 +1103,10 @@ function simulateOtherDnfs(fieldSize,L,w){
 
 function startRace(){
  if(trainingActive()){
-   showGameError('Во время тренировки старт гонки недоступен. Дождитесь окончания тренировки.');
+   const left=trainingCountdownText();
+   showStartRequirementsError('🏃 Идёт тренировка',[`Старт гонки будет доступен через ${left}.`]);
+   showGameError(`Сначала закончите тренировку. Осталось ${left}.`);
+   updateRaceStartTrainingLock();
    renderTraining();
    return;
  }
