@@ -1,4 +1,4 @@
-const APP_VERSION='10.57';
+const APP_VERSION='10.58';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -784,6 +784,11 @@ function coachSupportsCurrentRace(){
  return coach.maxDifficulty>=diff;
 }
 function renderTraining(){
+ if($('trainingBtn')){
+   $('trainingBtn').disabled = isResting() || trainingActive();
+   $('trainingBtn').title = isResting() ? 'Во время отдыха тренировка недоступна' : '';
+ }
+
  if(!$('coachGrid')) return;
  ensureTraining();
  const completedGain=finishTrainingIfReady();
@@ -1582,7 +1587,7 @@ function drawTrack(p){
  if(pos>6){
    const thirdKm=Math.max(playerKm,leaderKms[2]);
    const gap=Math.max(0,thirdKm-playerKm);
-   let groupKm=playerKm + gap*.52;
+   let groupKm=playerKm + gap*.38;
    groupKm=Math.min(groupKm,Math.max(playerKm,thirdKm-L[1]*.006));
    groupKm=Math.max(playerKm,Math.min(L[1],groupKm));
 
