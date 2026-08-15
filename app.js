@@ -35,7 +35,39 @@ function loadGame(){
     lampCharge:100
   };
 }
-function saveGame(){localStorage.setItem('trailArmageddonSave',JSON.stringify(game));}
+let authUser=null,authMode='login',cloudSaveTimer=null,cloudSaving=false;
+function saveGame(){localStorage.setItem('trailArmageddonSave',JSON.stringify(game));scheduleCloudSave();}
+function scheduleCloudSave(){if(!authUser)return;clearTimeout(cloudSaveTimer);cloudSaveTimer=setTimeout(()=>saveProgressCloud(false),450);}
+async function saveProgressCloud(showStatus=true){
+  if(!authUser||cloudSaving)return false;cloudSaving=true;
+  try{
+    const r=await fetch('/api/progress',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({progress:game})});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    if(showStatus&&$('profileSync'))$('profileSync').textContent='✓ Прогресс сохранён';
+    return true;
+  }catch(e){if($('profileSync'))$('profileSync').textContent='⚠️ Ошибка синхронизации';return false;}
+  finally{cloudSaving=false}
+}
+function setAuthStatus(t,k=''){if(!$('authStatus'))return;$('authStatus').textContent=t;$('authStatus').className='auth-status '+k}
+function setAuthMode(m){authMode=m;$('authLoginTab')?.classList.toggle('active',m==='login');$('authRegisterTab')?.classList.toggle('active',m==='register');if($('authSubmitBtn'))$('authSubmitBtn').textContent=m==='login'?'Войти':'Создать профиль';setAuthStatus(m==='login'?'Введите ник и пароль.':'Регистрация: ник и пароль. Максимум 50 игроков.')}
+function showAuth(){$('authOverlay')?.classList.remove('hidden')} function hideAuth(){$('authOverlay')?.classList.add('hidden')}
+function updateProfileUi(){if($('profileBtn')){$('profileBtn').textContent=authUser?'👤 '+authUser.nick:'👤 Вход';$('profileBtn').classList.toggle('logged',!!authUser)}if($('profileNick'))$('profileNick').textContent=authUser?.nick||'—'}
+async function loadSession(){
+  try{const r=await fetch('/api/me',{credentials:'same-origin'});if(!r.ok){showAuth();return}const d=await r.json();authUser=d.user||null;if(d.progress&&typeof d.progress==='object'){game=d.progress;localStorage.setItem('trailArmageddonSave',JSON.stringify(game))}updateProfileUi();hideAuth();render()}
+  catch(e){setAuthStatus('Сервер профилей недоступен.','error');showAuth()}
+}
+async function submitAuth(e){
+  e.preventDefault();const nick=String($('authNick')?.value||'').trim(),password=String($('authPassword')?.value||'');
+  if(nick.length<2||password.length<4){setAuthStatus('Ник от 2 символов, пароль от 4.','error');return}
+  const endpoint=authMode==='register'?'/api/register':'/api/login';setAuthStatus(authMode==='register'?'Создаю профиль…':'Выполняю вход…');$('authSubmitBtn').disabled=true;
+  try{const r=await fetch(endpoint,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({nick,password})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Ошибка входа');authUser=d.user;if(d.progress&&typeof d.progress==='object')game=d.progress;localStorage.setItem('trailArmageddonSave',JSON.stringify(game));updateProfileUi();hideAuth();render();if(!d.progress)await saveProgressCloud(false)}
+  catch(err){setAuthStatus(err.message||String(err),'error')}finally{$('authSubmitBtn').disabled=false}
+}
+async function logout(){await saveProgressCloud(false);try{await fetch('/api/logout',{method:'POST',credentials:'same-origin'})}catch(e){}authUser=null;updateProfileUi();$('profilePanel')?.classList.remove('show');showAuth();setAuthStatus('Вы вышли. Войдите снова, чтобы восстановить прогресс.')}
+$('authLoginTab')?.addEventListener('click',()=>setAuthMode('login'));$('authRegisterTab')?.addEventListener('click',()=>setAuthMode('register'));$('authForm')?.addEventListener('submit',submitAuth);
+$('profileBtn')?.addEventListener('click',()=>authUser?$('profilePanel')?.classList.add('show'):showAuth());$('closeProfileBtn')?.addEventListener('click',()=>$('profilePanel')?.classList.remove('show'));
+$('profilePanel')?.addEventListener('click',e=>{if(e.target===$('profilePanel'))$('profilePanel').classList.remove('show')});$('syncNowBtn')?.addEventListener('click',()=>saveProgressCloud(true));$('logoutBtn')?.addEventListener('click',logout);
+
 
 function ensureResources(){
   if(!game.resources) game.resources={};
@@ -657,4 +689,6 @@ function drawTrack(p){
  ctx.fillStyle='#fff';ctx.font='22px sans-serif';ctx.fillText(`${(p*L[1]).toFixed(1)} км`,Math.max(10,x-35),ground+48);
 }
 
+setAuthMode('login');
 render();
+loadSession();

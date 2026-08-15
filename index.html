@@ -8,14 +8,41 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<div id="authOverlay" class="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo">🏔️</div>
+    <h2>Trail Runner: Armageddon</h2>
+    <p class="muted">Войдите в профиль, чтобы восстанавливать свой прогресс на другом телефоне или браузере.</p>
+    <div class="auth-tabs">
+      <button id="authLoginTab" class="auth-tab active" type="button">Вход</button>
+      <button id="authRegisterTab" class="auth-tab" type="button">Регистрация</button>
+    </div>
+    <form id="authForm">
+      <label class="auth-field"><span>Ник</span><input id="authNick" type="text" minlength="2" maxlength="24" autocomplete="username" required></label>
+      <label class="auth-field"><span>Пароль</span><input id="authPassword" type="password" minlength="4" maxlength="72" autocomplete="current-password" required></label>
+      <button id="authSubmitBtn" class="primary auth-submit" type="submit">Войти</button>
+    </form>
+    <div id="authStatus" class="auth-status">До 50 игроков.</div>
+  </div>
+</div>
+<div id="profilePanel" class="profile-panel">
+  <div class="profile-card">
+    <button id="closeProfileBtn" class="profile-close" type="button">×</button>
+    <h2>Профиль игрока</h2>
+    <div id="profileNick" class="profile-nick">—</div>
+    <div id="profileSync" class="profile-sync">Прогресс синхронизирован</div>
+    <button id="syncNowBtn" class="secondary" type="button">☁️ Сохранить прогресс</button>
+    <button id="logoutBtn" class="danger" type="button">Выйти</button>
+  </div>
+</div>
 <div class="app">
   <header class="topbar">
     <div>
       <div class="eyebrow">TRAIL RUNNER RPG</div>
       <h1>Гонка → Экипировка → Армагеддон</h1>
     </div>
-    <div class="version">v5.0</div>
-  </header>
+    <div class="topbar-account"><button id="profileBtn" class="profile-chip" type="button">👤 Вход</button><div class="version">v6.0</div>
+  </div></header>
 
   <section class="hud card">
     <div><span>Уровень трейлраннера</span><b id="runnerLevel">1</b><small id="xpText">0 / 100 XP</small></div>
@@ -179,7 +206,7 @@
     </section>
   </main>
 
-  <footer>Trail Runner: Armageddon v5 · игровая симуляция · 2026</footer>
+  <footer>Trail Runner: Armageddon v6.0 · игровая симуляция · 2026</footer>
 </div>
 <script src="app.js"></script>
 </body>

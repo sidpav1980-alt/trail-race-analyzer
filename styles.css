@@ -104,3 +104,23 @@ footer{text-align:center;color:#65758b;padding:28px 0 60px}
  .race-gear-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
  .equipment-head{display:block}.compact-btn{margin-top:8px;width:100%}
 }
+
+.topbar-account{display:flex;align-items:center;gap:8px}
+.profile-chip{border:1px solid #345070;background:#0e1b2e;color:#e8f2ff;border-radius:999px;padding:7px 12px;font-weight:800}
+.profile-chip.logged{border-color:#22c55e;color:#86efac}
+.auth-overlay{position:fixed;inset:0;z-index:99999;background:rgba(2,8,18,.95);display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(10px)}
+.auth-overlay.hidden{display:none}
+.auth-card{width:min(440px,100%);background:#0d1a2c;border:1px solid #2b4160;border-radius:24px;padding:24px;box-shadow:0 30px 90px rgba(0,0,0,.55)}
+.auth-logo{text-align:center;font-size:48px}.auth-card h2{text-align:center}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:18px 0}
+.auth-tab{border:1px solid #324967;background:#0a1525;color:#9fb0c7;border-radius:12px;padding:12px;font-weight:800}
+.auth-tab.active{background:#38bdf8;color:#06131d;border-color:#38bdf8}
+.auth-field{display:grid;gap:6px;margin:12px 0;color:#a9b6ca}
+.auth-field input{width:100%;border:1px solid #2b4160;background:#071221;color:#fff;border-radius:13px;padding:14px;font-size:17px}
+.auth-submit{width:100%;margin-top:8px}
+.auth-status{min-height:22px;margin-top:12px;color:#8fa1b8;font-size:14px}.auth-status.error{color:#fca5a5}.auth-status.ok{color:#86efac}
+.profile-panel{position:fixed;inset:0;z-index:99998;background:rgba(2,8,18,.70);display:none;align-items:flex-start;justify-content:flex-end;padding:72px 16px 16px}
+.profile-panel.show{display:flex}
+.profile-card{position:relative;width:min(360px,100%);background:#0d1a2c;border:1px solid #2b4160;border-radius:20px;padding:20px;display:grid;gap:12px;box-shadow:0 25px 70px rgba(0,0,0,.5)}
+.profile-close{position:absolute;right:12px;top:8px;border:0;background:transparent;color:#fff;font-size:30px}
+.profile-nick{font-size:24px;font-weight:900;color:#38bdf8}.profile-sync{color:#91a2bb}
