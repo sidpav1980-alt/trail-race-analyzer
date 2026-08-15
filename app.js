@@ -1,4 +1,4 @@
-const APP_VERSION='10.90';
+const APP_VERSION='10.91';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -433,19 +433,9 @@ function leaderKmForPosition(rank,L,playerKm,playerPos){
 
 function leaderKmFor(rank,L,playerKm){
  if(!run || !run.running) return 0;
- let km=0;
- if(Array.isArray(run.virtualField) && run.virtualField.length){
-   const sorted=[...run.virtualField]
-     .filter(c=>!c.dnf)
-     .map(c=>({c,p:competitorProgressAt(c,run.elapsed,L)}))
-     .sort((a,b)=>b.p-a.p);
-   const row=sorted[Math.max(0,rank-1)];
-   km=row ? Math.max(0,Math.min(L[1],row.p*L[1])) : 0;
- }else{
-   km=leaderKmForPosition(rank,L,playerKm,run.currentPosition||run.position||18);
- }
- // TOP-3 leaders are 20% slower than in the previous balance.
- return Math.max(0,Math.min(L[1],km*0.80));
+ const rows=currentRaceStandings().filter(r=>!r.player);
+ const row=rows[Math.max(0,rank-1)];
+ return row ? Math.max(0,Math.min(L[1],row.km)) : 0;
 }
 function renderRaceLeaders(playerKm=0){
  const box=$('raceLeaders'); if(!box)return;
@@ -1299,26 +1289,42 @@ function updateLiveDnfs(){
  }
 }
 
-function updateRealisticPosition(){
-  if(!run || !run.running || !Array.isArray(run.virtualField)) return;
+function currentRaceStandings(){
+  if(!run || !run.running) return [];
   const L=levelData();
-  const playerProgress=Math.max(0,Math.min(1,run.p||0));
+  const dist=Number(L[1]||0);
+  const playerKm=Math.max(0,Math.min(dist,(run.p||0)*dist));
 
-  let ahead=0;
-  for(const c of run.virtualField){
-    const cp=competitorProgressAt(c,run.elapsed,L);
-    if(cp > playerProgress + 0.0015) ahead++;
-  }
-  const raw=Math.max(1,Math.min(run.fieldSize||50,ahead+1));
+  const rows=(run.virtualField||[])
+    .filter(c=>!c.dnf)
+    .map(c=>({
+      id:c.id,
+      player:false,
+      km:Math.max(0,Math.min(dist,competitorProgressAt(c,run.elapsed,L)*dist))
+    }));
 
-  // Smooth movement to prevent absurd 10-place jumps in a single frame.
-  const prev=Math.max(1,Number(run.currentPosition||run.position||raw));
-  const maxStep=2;
-  const delta=raw-prev;
-  const next=prev + Math.max(-maxStep,Math.min(maxStep,delta));
+  rows.push({id:'player',player:true,km:playerKm});
 
-  run.currentPosition=Math.round(next);
-  return run.currentPosition;
+  // One and only source of truth for place/order:
+  // whoever is farther along the course is ahead.
+  rows.sort((a,b)=>{
+    if(Math.abs(b.km-a.km)>0.0001) return b.km-a.km;
+    if(a.player&&!b.player) return -1;
+    if(!a.player&&b.player) return 1;
+    return String(a.id).localeCompare(String(b.id));
+  });
+  return rows;
+}
+
+function updateRealisticPosition(){
+  if(!run || !run.running) return;
+  const rows=currentRaceStandings();
+  const idx=rows.findIndex(r=>r.player);
+  const place=idx>=0?idx+1:1;
+
+  run.currentPosition=place;
+  run.position=place;
+  return place;
 }
 
 function startRace(){
@@ -1754,7 +1760,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  // Финальная позиция должна продолжать живую позицию на трассе.
  // Раньше здесь место пересчитывалось заново со случайностью, поэтому, например,
  // 23-е место на 50.0 км могло внезапно превратиться в 1-е в окне финиша.
- let pos=Math.max(1,Math.min(run.fieldSize||50,Math.round(Number(run.lastPositionBeforeFinish||run.currentPosition||run.position||1))));
+ let pos=Math.max(1,Math.min(run.fieldSize||50,Math.round(Number(run.currentPosition||run.position||1))));
  run.currentPosition=pos;
  if($('position')) $('position').textContent=pos;
 
