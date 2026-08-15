@@ -1,4 +1,4 @@
-const APP_VERSION='10.73';
+const APP_VERSION='10.75';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -27,16 +27,16 @@ const LEVELS=[["Парковый трейл", 5, 80, 2040, 900, 1, "Лёгкий
 const GEAR={"shoes":[["Базовые кроссовки",0,1.0,65,0.0],["Trail Grip",1800,0.97,110,0.04],["Mountain Pro",5200,0.94,180,0.08],["Ultra Carbon",12000,0.91,280,0.12],["Armageddon X",30000,0.88,500,0.18],["Hyper Trail Pro",52000,0.845,760,0.23],["Titanium Speed X",95000,0.81,1100,0.3]],"jacket":[["Нет мембранки",0,1.0,999,0],["Лёгкая мембранка",1600,0.99,90,0.03],["Storm Shell",4500,0.98,160,0.06],["Alpine Shield",10000,0.97,260,0.1],["Armageddon Shell",26000,0.96,480,0.15],["Expedition Shield",46000,0.945,760,0.21],["Titan Storm Armor",85000,0.93,1150,0.28]],"lamp":[["Простой фонарь",0,1.0,70,0.0],["Night 400",1400,0.995,120,0.03],["Night 800",3800,0.99,200,0.06],["Ultra Beam",9000,0.985,320,0.1],["Recharge Pro X",22000,0.98,520,0.14],["Recharge Ultra 2000",42000,0.965,780,0.22],["Night Reactor 3000",80000,0.95,1200,0.3]],"pack":[["Старый рюкзак",0,1.0,80,0.0],["Race Vest 5L",1700,0.99,120,0.03],["Ultra Vest 12L",4800,0.98,210,0.06],["Endurance Pack",11000,0.97,330,0.1],["Armageddon Pack",27000,0.96,550,0.15],["Expedition Vest 18L",47000,0.945,800,0.22],["Titan Ultra Pack",88000,0.93,1250,0.3]],"poles":[["Без палок",0,1.0,999,0.0],["Алюминиевые палки",1900,0.985,100,0.04],["Carbon Trek",5200,0.97,180,0.08],["LEKI Ultra Carbon",12000,0.955,300,0.12],["LEKI Armageddon",29000,0.94,520,0.18],["LEKI Vertical Pro",50000,0.915,780,0.24],["LEKI Titanium X",92000,0.89,1200,0.32]],"hydration":[["Фляга 500 мл",0,1.0,100,0.0],["2×Soft Flask",1200,0.99,160,0.03],["Hydro Vest",3600,0.98,250,0.06],["Ultra Hydro",8500,0.97,380,0.1],["Armageddon Hydro",21000,0.96,600,0.15],["Expedition Hydro",39000,0.945,850,0.22],["Titan Hydro System",76000,0.93,1300,0.3]],"watch":[["Нет часов",0,1.0,999,0.0],["GPS Start",900,0.998,180,0.02],["Trail GPS",2800,0.995,280,0.05],["Endurance GPS",7200,0.99,420,0.08],["Fenix Ultra",18000,0.985,650,0.12],["Fenix Expedition",38000,0.975,900,0.2],["Fenix Armageddon",72000,0.965,1400,0.28]],"medkit":[["Пустой слот",0,1.0,999,0.0],["Мини-аптечка",700,0.999,120,0.03],["Trail аптечка",2100,0.997,220,0.06],["Ultra аптечка",5200,0.995,360,0.1],["Armageddon Med",13000,0.99,600,0.15],["Expedition Med Pro",28000,0.985,900,0.22],["Trauma Armageddon Kit",55000,0.975,1400,0.3]]};
 const CATEGORY_NAMES={shoes:'Кроссовки',pack:'Рюкзак / жилет',jacket:'Мембранка',lamp:'Фонарик',poles:'Палки',watch:'Часы',medkit:'Аптечка',hydration:'Вода'};
 const RESOURCE_CATALOG={
-  waterBottles:{name:'Вода 0,5 л',price:80,unit:'бут.',desc:'Обязательна с 4 уровня. Расход зависит от дистанции, жары и солнца.'},
-  gels:{name:'Энергетический гель',price:120,unit:'шт.',desc:'Снижает голод и потерю темпа на длинной гонке.'},
-  batteries:{name:'Комплект батареек',price:260,unit:'компл.',desc:'Для фонарей 1–4 уровня. Один комплект ≈ 5 часов света.'},
-  bandage:{name:'Бинт',price:160,unit:'шт.',desc:'Сильные ссадины и растяжения.'},
-  gauze:{name:'Марля',price:90,unit:'уп.',desc:'Кровь и глубокие царапины.'},
-  peroxide:{name:'Перекись',price:140,unit:'фл.',desc:'Обработка ран.'},
-  plaster:{name:'Пластырь',price:110,unit:'уп.',desc:'Мелкие порезы и мозоли.'},
-  cream:{name:'Крем от натирания',price:240,unit:'тюб.',desc:'Снижает риск натираний.'},
-  accumulator:{name:'Сменный аккумулятор фонаря',price:1800,unit:'шт.',desc:'Для фонарей уровней 5–7. Можно заменить разряженный аккумулятор прямо в гонке.'},
-  powerbank:{name:'Переносной powerbank',price:4500,unit:'шт.',desc:'Заряжает аккумулятор фонаря уровней 5–7.'}
+  waterBottles:{name:'Вода 0,5 л',price:40,unit:'бут.',desc:'Обязательна с 4 уровня. Расход зависит от дистанции, жары и солнца.'},
+  gels:{name:'Энергетический гель',price:60,unit:'шт.',desc:'Снижает голод и потерю темпа на длинной гонке.'},
+  batteries:{name:'Комплект батареек',price:130,unit:'компл.',desc:'Для фонарей 1–4 уровня. Один комплект ≈ 5 часов света.'},
+  bandage:{name:'Бинт',price:80,unit:'шт.',desc:'Сильные ссадины и растяжения.'},
+  gauze:{name:'Марля',price:45,unit:'уп.',desc:'Кровь и глубокие царапины.'},
+  peroxide:{name:'Перекись',price:70,unit:'фл.',desc:'Обработка ран.'},
+  plaster:{name:'Пластырь',price:55,unit:'уп.',desc:'Мелкие порезы и мозоли.'},
+  cream:{name:'Крем от натирания',price:120,unit:'тюб.',desc:'Снижает риск натираний.'},
+  accumulator:{name:'Сменный аккумулятор фонаря',price:900,unit:'шт.',desc:'Для фонарей уровней 5–7. Можно заменить разряженный аккумулятор прямо в гонке.'},
+  powerbank:{name:'Переносной powerbank',price:2250,unit:'шт.',desc:'Заряжает аккумулятор фонаря уровней 5–7.'}
 };
 const START_GEAR={shoes:0,pack:0,jacket:0,lamp:0,poles:0,watch:0,medkit:0,hydration:0};
 const $=id=>document.getElementById(id);
@@ -1558,6 +1558,7 @@ function updateRun(){
    estimatedPos=Math.max(estimatedPos,leadersFinished+1);
  }
 
+ if(km < L[1]-0.001) run.lastPositionBeforeFinish=estimatedPos;
  run.currentPosition=estimatedPos;
  $('position').textContent=estimatedPos;
  $('penalties').textContent=(run.penalty>=0?'+':'−')+fmt(Math.abs(run.penalty));
@@ -1614,8 +1615,9 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  // Финальная позиция должна продолжать живую позицию на трассе.
  // Раньше здесь место пересчитывалось заново со случайностью, поэтому, например,
  // 23-е место на 50.0 км могло внезапно превратиться в 1-е в окне финиша.
- let pos=Math.max(1,Math.min(run.fieldSize||50,Math.round(Number(run.currentPosition||run.position||1))));
+ let pos=Math.max(1,Math.min(run.fieldSize||50,Math.round(Number(run.lastPositionBeforeFinish||run.currentPosition||run.position||1))));
  run.currentPosition=pos;
+ if($('position')) $('position').textContent=pos;
 
  const quality=Math.max(.45,Math.min(1.55,ratio));
  let reward=Math.round(L[4]*Math.max(.35,Math.min(1.55,.55+quality*.55))*(pos===1?1.35:pos<=3?1.18:1));
