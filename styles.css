@@ -132,3 +132,5 @@ footer{text-align:center;color:#65758b;padding:28px 0 60px}
 
 .status-strip{grid-template-columns:repeat(3,1fr)}
 @media(max-width:720px){.status-strip{grid-template-columns:repeat(2,1fr)}}
+
+.tabs{grid-template-columns:repeat(6,1fr)}.leaderboard{display:grid;gap:6px}.leader-row{display:grid;grid-template-columns:34px 1fr 70px;gap:8px;padding:10px 12px;background:#091525;border:1px solid #20344f;border-radius:12px}.leader-row strong{text-align:right;color:#fbbf24}.player-row{border-color:#38bdf8;background:#0b2134}@media(max-width:720px){.tabs{grid-template-columns:repeat(3,1fr)}}

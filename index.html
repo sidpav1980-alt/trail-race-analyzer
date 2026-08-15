@@ -41,7 +41,7 @@
       <div class="eyebrow">TRAIL RUNNER RPG</div>
       <h1>Гонка → Экипировка → Армагеддон</h1>
     </div>
-    <div class="topbar-account"><button id="profileBtn" class="profile-chip" type="button">👤 Вход</button><button id="headerLogoutBtn" class="header-logout" type="button" style="display:none">Выйти</button><div class="version">v9.0</div>
+    <div class="topbar-account"><button id="profileBtn" class="profile-chip" type="button">👤 Вход</button><button id="headerLogoutBtn" class="header-logout" type="button" style="display:none">Выйти</button><div class="version">v10.0</div>
   </div></header>
 
   <section class="hud card">
@@ -78,11 +78,9 @@
       <b id="weatherText">—</b>
       <small id="weatherSub">—</small>
     </div>
-    <div>
-      <span>Солнце</span>
-      <b id="sunText">—</b>
-      <small id="sunSub">влияет на расход воды</small>
-    </div>
+    <div><span>Солнце</span><b id="sunText">—</b><small id="sunSub">влияет на расход воды</small></div>
+    <div><span>Тренированность</span><b id="fitnessText">1 / 100</b><small id="coachText">без тренера</small></div>
+    <div><span>ITRA рейтинг</span><b id="itraText">250</b><small id="itraRankText">место в базе: —</small></div>
   </section>
   <main>
     <section id="race" class="panel active game-main">
@@ -215,9 +213,9 @@
       </div>
     </div></details>
     </section>
-  </main>
+  <section id="training" class="panel"><div class="card"><h2>🏋️ Тренер</h2><p class="muted">Тренированность 1–100 влияет на скорость. Тренер ускоряет прокачку после финиша.</p><div id="coachGrid" class="shop-grid"></div></div><div class="card"><h2>📈 Тренированность</h2><b id="fitnessPanelValue">1 / 100</b><div class="durability"><div id="fitnessPanelBar"></div></div><p id="fitnessPanelText" class="muted"></p></div><div class="card"><h2>🏆 ITRA-лига игры</h2><p class="muted">Известные российские трейлраннеры используются как элитные соперники. Баллы в игровой таблице — игровые для баланса.</p><div id="itraLeaderboard" class="leaderboard"></div></div></section></main>
 
-  <footer>Trail Runner: Armageddon v9.0 · игровая симуляция · 2026</footer>
+  <footer>Trail Runner: Armageddon v10.0 · игровая симуляция · 2026</footer>
 </div>
 <script src="app.js"></script>
 </body>

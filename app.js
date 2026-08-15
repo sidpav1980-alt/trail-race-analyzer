@@ -20,18 +20,26 @@ const $=id=>document.getElementById(id);
 let game=loadGame();
 let run=null,timer=null,lastTs=0;
 
+const COACHES=[{name:'Без тренера',price:0,mult:1},{name:'Тренер клуба',price:8000,mult:1.35},{name:'Трейл-тренер',price:25000,mult:1.7},{name:'Elite Coach',price:70000,mult:2.2}];
+const ELITE_RUNNERS=[
+{name:'Алексей Береснев',itra:905,country:'🇷🇺'},{name:'Антонина Юшина',itra:890,country:'🇷🇺'},
+{name:'Алексей Толстенко',itra:865,country:'🇷🇺'},{name:'Константин Иванов',itra:850,country:'🇷🇺'},
+{name:'Елена Носкова',itra:840,country:'🇷🇺'},{name:'Василий Корыткин',itra:835,country:'🇷🇺'},
+{name:'Алексей Макалюкин',itra:825,country:'🇷🇺'},{name:'Алексей Бабушкин',itra:815,country:'🇷🇺'},
+{name:'Павел Тарасов',itra:805,country:'🇷🇺'},{name:'Виктория Жукова',itra:795,country:'🇷🇺'},
+{name:'Мария Гостева',itra:785,country:'🇷🇺'},{name:'Вера Чекалина',itra:775,country:'🇷🇺'}];
 function loadGame(){
   try{
     const x=JSON.parse(localStorage.getItem('trailArmageddonSave')||'null');
     if(x) return Object.assign({
-      money:1500,xp:0,level:1,completed:0,rep:0,current:0,gear:{...START_GEAR},
+      money:1500,xp:0,level:1,completed:0,rep:0,current:0,fitness:1,coach:0,itra:250,gear:{...START_GEAR},
       durability:{},best:{},fatigue:0,lastFinishAt:0,restUntil:0,
       resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
       lampCharge:100
     },x);
   }catch(e){}
   return {
-    money:1500,xp:0,level:1,completed:0,rep:0,current:0,gear:{...START_GEAR},
+    money:1500,xp:0,level:1,completed:0,rep:0,current:0,fitness:1,coach:0,itra:250,gear:{...START_GEAR},
     durability:{},best:{},fatigue:0,lastFinishAt:0,restUntil:0,
     resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
     lampCharge:100
@@ -95,6 +103,7 @@ $('profileBtn')?.addEventListener('click',()=>authUser?$('profilePanel')?.classL
 $('profilePanel')?.addEventListener('click',e=>{if(e.target===$('profilePanel'))$('profilePanel').classList.remove('show')});$('syncNowBtn')?.addEventListener('click',()=>saveProgressCloud(true));$('logoutBtn')?.addEventListener('click',logout);$('headerLogoutBtn')?.addEventListener('click',logout);
 
 
+function ensureTraining(){if(game.fitness==null)game.fitness=Math.max(1,game.level||1);if(game.coach==null)game.coach=0;if(game.itra==null)game.itra=250;}
 function ensureResources(){
   if(!game.resources) game.resources={};
   const defaults={waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0};
@@ -193,7 +202,7 @@ function render(){
  $('money').textContent=fmtMoney(game.money);
  $('completed').textContent=`${game.completed} / 20`;
  $('rep').textContent=game.rep;
- ensureResources();
+ ensureResources();ensureTraining();
  const restMs=restRemainingMs();
  $('fatigueValue').textContent=Math.round(game.fatigue)+'%';
  $('fatigueBar').style.width=Math.min(100,game.fatigue)+'%';
@@ -209,6 +218,11 @@ function render(){
    $('lampPowerSub').textContent='фонарь на батарейках';
  }
  $('medkitSummary').textContent=medkitScore()+'/5';
+ ensureTraining();
+ if($('fitnessText'))$('fitnessText').textContent=`${Math.round(game.fitness)} / 100`;
+ if($('coachText'))$('coachText').textContent=COACHES[game.coach]?.name||'Без тренера';
+ if($('itraText'))$('itraText').textContent=Math.round(game.itra);
+ if($('itraRankText'))$('itraRankText').textContent=`место в базе: ${ELITE_RUNNERS.filter(r=>r.itra>game.itra).length+1}`;
  const raceWeather=weatherForLevel();
  if($('weatherText')) $('weatherText').textContent=`${raceWeather.emoji} ${raceWeather.name}`;
  if($('weatherSub')) $('weatherSub').textContent=`${raceWeather.temp}°C${raceWeather.rain?' · мембранка обязательна':''}`;
@@ -354,6 +368,14 @@ $('restBtn')?.addEventListener('click',()=>{
   game.restUntil=Date.now()+5*60*1000;saveGame();updateRestUi();
 });
 
+function renderTraining(){
+ if(!$('coachGrid'))return;ensureTraining();$('coachGrid').innerHTML='';
+ COACHES.forEach((x,i)=>{let d=document.createElement('div');d.className='shop-item';let active=i===game.coach;d.innerHTML=`<h3>🏋️ ${x.name}</h3><div class="meta">${i?`Цена: ${fmtMoney(x.price)} · прокачка ×${x.mult}`:'Обычная прокачка ×1'}</div><button class="${active?'secondary':'primary'}" ${active?'disabled':''} data-coach="${i}">${active?'Активен':i>game.coach?'Нанять':'Выбрать'}</button>`;$('coachGrid').appendChild(d)});
+ $('coachGrid').querySelectorAll('[data-coach]').forEach(b=>b.onclick=()=>{let i=+b.dataset.coach;if(i>game.coach){if(game.money<COACHES[i].price){alert('Не хватает рублей');return}game.money-=COACHES[i].price}game.coach=i;saveGame();render()});
+ $('fitnessPanelValue').textContent=`${Math.round(game.fitness)} / 100`;$('fitnessPanelBar').style.width=`${game.fitness}%`;$('fitnessPanelText').textContent=`Бонус скорости около +${Math.round((game.fitness-1)*.152)}%. Тренер ускоряет рост после каждой гонки.`;
+ let rows=[...ELITE_RUNNERS,{name:authUser?.nick||'Вы',itra:Math.round(game.itra),country:'🎮',player:true}].sort((a,b)=>b.itra-a.itra);
+ $('itraLeaderboard').innerHTML=rows.map((r,i)=>`<div class="leader-row ${r.player?'player-row':''}"><b>${i+1}</b><span>${r.country} ${r.name}</span><strong>${r.itra}</strong></div>`).join('');
+}
 function totalRepairCost(){
  let s=0;Object.keys(GEAR).forEach(cat=>{const it=item(cat),cur=durability(cat);s+=(it[3]-cur)*Math.max(2,it[1]/it[3]*.28)});return Math.ceil(s);
 }
@@ -382,7 +404,7 @@ function gearTimeFactor(){
  // LEKI poles give an extra climbing/running bonus.
  if(game.gear.poles===3 && durability('poles')>0) f*=0.985;
  if(game.gear.poles===4 && durability('poles')>0) f*=0.97;
- return Math.max(.68,f);
+ const fit=Math.max(1,Math.min(100,game.fitness||1));f*=1-(fit-1)*.00152;return Math.max(.58,f);
 }
 function equipmentPenaltyChance(cat,diff,dist){
  const it=item(cat),cur=durability(cat),max=it[3];
@@ -558,6 +580,12 @@ function startRace(){
    fractureRisk:Math.min(.42, Math.max(0,(game.fatigue-55)/140) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08 : 0)),
    dnf:false
  };
+ if(game.current>=10){
+   const pool=ELITE_RUNNERS.slice(0,Math.min(ELITE_RUNNERS.length,Math.max(2,game.current-8)));
+   const rival=pool[Math.floor(Math.random()*pool.length)];
+   run.events.push({p:.68+Math.random()*.18,emoji:'🏆',name:`Борьба с лидером: ${rival.name}`,sec:Math.round(35+Math.random()*90),cat:null});
+   run.events.sort((a,b)=>a.p-b.p);
+ }
  $('eventLog').innerHTML='';
  if(gelShortage>0) $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>🍯 Не хватает гелей: ${gelShortage}</b><span class="bad">+${fmt(gelPenaltySec)}</span></div>`);
  if(lightShortageHours>0) $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>🔦 Не хватает света: ${lightShortageHours} ч</b><span class="bad">+${fmt(lightPenaltySec)}</span></div>`);
@@ -704,6 +732,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  const xp=Math.round(35+L[5]*18+L[1]/8+(pos===1?45:pos<=3?25:0));
 
  game.money+=reward;addXp(xp);game.rep+=pos===1?8:pos<=3?5:pos<=10?2:1;
+ ensureTraining();const cm=COACHES[game.coach]?.mult||1;const fg=Math.max(.25,(1.15+L[5]*.28+(pos===1?.8:pos<=3?.4:0))*cm*(1-game.fitness/135));game.fitness=Math.min(100,game.fitness+fg);game.itra=Math.min(950,Math.max(200,game.itra+Math.max(1,Math.round((ratio-.72)*22+L[5]*1.4+(pos===1?7:pos<=3?4:0)))));
  if(game.best[game.current]==null||final<game.best[game.current])game.best[game.current]=final;
 
  // Fatigue: long races and quick repeats accumulate it heavily.
