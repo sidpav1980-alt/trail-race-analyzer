@@ -333,5 +333,39 @@
 <button id="helpOk" class="help-ok" type="button">Понятно</button>
 </div></div>
 
+
+<script>
+(function(){
+  function normalizeAbsentMembrane(){
+    document.querySelectorAll('*').forEach(function(el){
+      if (el.children.length) return;
+      const t=(el.textContent||'').trim();
+      if (t==='Нет мембранки') el.textContent='Отсутствует';
+    });
+    document.querySelectorAll('.equipment-card, .gear-card, [class*="equipment"], [class*="gear"]').forEach(function(card){
+      const text=(card.textContent||'');
+      if (/Мембранка/i.test(text) && /(Нет мембранки|Отсутствует)/i.test(text) && /ур\.\s*1\/7/i.test(text)){
+        card.querySelectorAll('*').forEach(function(el){
+          const t=(el.textContent||'').trim();
+          if (t==='НАДЕТО' || t==='✓ НАДЕТО') {
+            el.textContent='ОТСУТСТВУЕТ';
+            el.style.color='#94a3b8';
+            el.style.borderColor='#64748b';
+          }
+          if (/^прочность\s*\d+%/i.test(t)) {
+            el.style.display='none';
+          }
+        });
+        card.querySelectorAll('progress, [class*="durability"], [class*="progress"]').forEach(function(el){
+          el.style.display='none';
+        });
+      }
+    });
+  }
+  document.addEventListener('DOMContentLoaded', normalizeAbsentMembrane);
+  new MutationObserver(normalizeAbsentMembrane).observe(document.documentElement,{childList:true,subtree:true});
+})();
+</script>
+
 </body>
 </html>
