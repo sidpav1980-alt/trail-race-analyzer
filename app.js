@@ -1,4 +1,4 @@
-const APP_VERSION='10.84';
+const APP_VERSION='10.85';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -590,6 +590,7 @@ function render(){
  if($('fitnessText'))$('fitnessText').textContent=`${Math.round(game.fitness)} / 100`;
  if($('coachText'))$('coachText').textContent=COACHES[game.coach]?.name||'Без тренера';
  if($('itraText'))$('itraText').textContent=Math.round(game.itra);
+ if($('itraNameText')) $('itraNameText').textContent=safePlayerName();
  if($('itraRankText'))$('itraRankText').textContent=`место в базе: ${ELITE_RUNNERS.filter(r=>r.itra>game.itra).length+1}`;
  const raceWeather=weatherForLevel();
  const waterNeedNow=waterBottlesNeeded(L,raceWeather);
@@ -861,12 +862,12 @@ setInterval(()=>{
 $('playerNameInput')?.addEventListener('input',e=>{
   const v=(e.target.value||'').slice(0,40);
   if(hasBadName(v)){ e.target.setCustomValidity('Мат и оскорбительные слова запрещены'); e.target.reportValidity(); return; }
-  e.target.setCustomValidity(''); game.playerName=v; saveGame();
+  e.target.setCustomValidity(''); game.playerName=v; if($('itraNameText')) $('itraNameText').textContent=safePlayerName(); saveGame();
 });
 $('playerNameInput')?.addEventListener('change',e=>{
   const v=(e.target.value||'').trim().slice(0,40);
   if(hasBadName(v)){ e.target.setCustomValidity('Мат и оскорбительные слова запрещены'); e.target.reportValidity(); e.target.value=game.playerName||''; return; }
-  e.target.setCustomValidity(''); game.playerName=v; e.target.value=v; saveGame();
+  e.target.setCustomValidity(''); game.playerName=v; e.target.value=v; if($('itraNameText')) $('itraNameText').textContent=safePlayerName(); saveGame();
 });
 
 $('restBtn')?.addEventListener('click',()=>{
