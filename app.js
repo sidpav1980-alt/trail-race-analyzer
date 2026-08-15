@@ -381,7 +381,9 @@ function leadersForRace(raceIndex=game.current){
  return ['Неизвестный участник','Неизвестный участник','Неизвестный участник'];
 }
 function visibleLeaderName(name){
- return (run && run.running && run.startedByUser===true) ? name : 'Неизвестный участник';
+ return (run && run.running===true && run.startedByUser===true)
+   ? name
+   : 'Неизвестный участник';
 }
 
 function leaderKmFor(rank,L,playerKm){
@@ -799,7 +801,7 @@ $('startTrainingBtn')?.addEventListener('click',()=>{
   
   ensureTraining();
   if(trainingActive()) return;
-  game.trainingUntil=Date.now()+5*60*1000;
+  game.trainingUntil=Date.now()+ 60*1000;
   saveGame();
   renderTraining();
 });
