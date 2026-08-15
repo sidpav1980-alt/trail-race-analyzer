@@ -1,4 +1,4 @@
-const APP_VERSION='10.81';
+const APP_VERSION='10.82';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -1099,6 +1099,9 @@ function buildEvents(L){
   ['🩹','Ссадина',90,'medkit'],
   ['🦶','Натёр ногу',120,'cream'],
   ['🤕','Падение',180,'injury'],
+  ['🦶','Подвернул голеностоп',240,'injury'],
+  ['🦵','Ударил колено',210,'injury'],
+  ['🪨','Падение на камнях',300,'injury'],
   ['😅','Слишком быстро на старте',120,null],
   ['👟','Развязался шнурок',60,'shoes'],
   ['🚰','Очередь за водой на ПП',180,'hydration'],
@@ -1125,6 +1128,18 @@ function buildEvents(L){
    if(x[1]==='Слишком быстро на старте' && p>.5) x=pool[0];
    if(x[1]==='Очередь за водой на ПП') p=Math.min(.9, Math.max(.25, Math.round(p*4)/4));
    ev.push({p,...{emoji:x[0],name:x[1],sec:x[2],cat:x[3]}});
+ }
+ // Hard/long races with high fatigue have a real chance of an additional injury event.
+ const fatigue=Number(game.fatigue||0);
+ const injuryChance=Math.min(.75,.04 + L[5]*.055 + L[1]/500 + Math.max(0,fatigue-35)/140);
+ if(Math.random()<injuryChance){
+   const injuryNames=[
+     {emoji:'🦶',name:'Подвернул голеностоп',sec:240,cat:'injury'},
+     {emoji:'🦵',name:'Ударил колено',sec:210,cat:'injury'},
+     {emoji:'🪨',name:'Падение на камнях',sec:300,cat:'injury'}
+   ];
+   const x=injuryNames[Math.floor(Math.random()*injuryNames.length)];
+   ev.push({p:.22+Math.random()*.68,...x});
  }
  return ev.sort((a,b)=>a.p-b.p);
 }
@@ -1511,19 +1526,51 @@ function fireEvents(){
      }
      saveGame();
    }else if(ev.cat==='injury'){
-     const fracture=Math.random()<run.fractureRisk;
+     const medLevel=Math.max(1,Number(game.gear?.medkit||0)+1);
+     const medItem=item('medkit');
+     const medDur=durability('medkit');
+     const medWorking=medDur>0;
+
+     // Higher-level medkits reduce both the chance of a severe injury and its time cost.
+     // Level 1 gives almost no protection; level 7 is substantially safer, but never invulnerable.
+     const injuryProtection=medWorking ? Math.min(.72,(medLevel-1)*.11 + (medItem?.[4]||0)*.8) : 0;
+     const severeRisk=Math.max(.015,run.fractureRisk*(1-injuryProtection));
+     const fracture=Math.random()<severeRisk;
+
      if(fracture){
-       run.dnf=true;run.condition='перелом ноги';
-       showEvent({emoji:'🦴',name:'Перелом ноги'},0,' · DNF');
+       run.dnf=true;
+       run.condition='перелом ноги';
+       showEvent({emoji:'🦴',name:'Перелом ноги'},0,` · аптечка ур. ${medLevel}/7 не спасла → DNF`);
        setTimeout(()=>finishRace(true,'fracture'),1200);
        return;
-     }else if(game.resources.gauze>0 && game.resources.bandage>0){
-       useResource('gauze');useResource('bandage');sec=Math.round(sec*.3);
-       extra=' · аптечка снизила последствия';
+     }
+
+     // Ordinary injury: medkit level reduces lost time.
+     const baseSec=sec;
+     if(medWorking){
+       sec=Math.max(20,Math.round(sec*(1-injuryProtection*.78)));
+       extra=` · аптечка ур. ${medLevel}/7 уменьшила последствия`;
+     }else{
+       sec+=180;
+       extra=' · аптечка сломана';
+     }
+
+     // Consumables can reduce the remaining injury further.
+     if(game.resources.gauze>0 && game.resources.bandage>0){
+       useResource('gauze');useResource('bandage');
+       sec=Math.max(10,Math.round(sec*.55));
+       extra+=' · марля + бинт';
+       saveGame();
+     }else if(game.resources.plaster>0){
+       useResource('plaster');
+       sec=Math.max(15,Math.round(sec*.78));
+       extra+=' · пластырь';
        saveGame();
      }else{
-       sec+=240;extra=' · травма без полноценной аптечки';
+       extra+=' · без расходников';
      }
+
+     run.condition=sec>=180?'травма':'нормально';
    }else if(ev.cat){
      const currentMembraneReq=membraneRequiredLevel(levelData(),weatherForLevel());
      if(ev.cat==='jacket' && currentMembraneReq>0 &&
