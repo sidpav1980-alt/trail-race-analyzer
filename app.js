@@ -1,4 +1,4 @@
-const APP_VERSION='10.93';
+const APP_VERSION='10.96';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -27,7 +27,7 @@ const LEVELS=[["Парковый трейл", 5, 80, 2040, 900, 1, "Лёгкий
 const GEAR={"shoes":[["Базовые кроссовки",0,1.0,65,0.0],["Trail Grip",450,0.97,110,0.04],["Mountain Pro",1300,0.94,180,0.08],["Ultra Carbon",3000,0.91,280,0.12],["Armageddon X",7500,0.88,500,0.18],["Hyper Trail Pro",13000,0.845,760,0.23],["Titanium Speed X",23750,0.81,1100,0.3]],"jacket":[["Нет мембранки",0,1.0,999,0],["Лёгкая мембранка",400,0.99,90,0.03],["Storm Shell",1125,0.98,160,0.06],["Alpine Shield",2500,0.97,260,0.1],["Armageddon Shell",6500,0.96,480,0.15],["Expedition Shield",11500,0.945,760,0.21],["Titan Storm Armor",21250,0.93,1150,0.28]],"lamp":[["Простой фонарь",0,1.0,70,0.0],["Night 400",350,0.995,120,0.03],["Night 800",950,0.99,200,0.06],["Ultra Beam",2250,0.985,320,0.1],["Recharge Pro X",5500,0.98,520,0.14],["Recharge Ultra 2000",10500,0.965,780,0.22],["Night Reactor 3000",20000,0.95,1200,0.3]],"pack":[["Старый рюкзак",0,1.0,80,0.0],["Race Vest 5L",425,0.99,120,0.03],["Ultra Vest 12L",1200,0.98,210,0.06],["Endurance Pack",2750,0.97,330,0.1],["Armageddon Pack",6750,0.96,550,0.15],["Expedition Vest 18L",11750,0.945,800,0.22],["Titan Ultra Pack",22000,0.93,1250,0.3]],"poles":[["Без палок",0,1.0,999,0.0],["Алюминиевые палки",475,0.985,100,0.04],["Carbon Trek",1300,0.97,180,0.08],["LEKI Ultra Carbon",3000,0.955,300,0.12],["LEKI Armageddon",7250,0.94,520,0.18],["LEKI Vertical Pro",12500,0.915,780,0.24],["LEKI Titanium X",23000,0.89,1200,0.32]],"hydration":[["Фляга 500 мл",0,1.0,100,0.0],["2×Soft Flask",300,0.99,160,0.03],["Hydro Vest",900,0.98,250,0.06],["Ultra Hydro",2125,0.97,380,0.1],["Armageddon Hydro",5250,0.96,600,0.15],["Expedition Hydro",9750,0.945,850,0.22],["Titan Hydro System",19000,0.93,1300,0.3]],"watch":[["Нет часов",0,1.0,999,0.0],["GPS Start",450,0.998,180,0.02],["Trail GPS",1400,0.995,280,0.05],["Endurance GPS",3600,0.99,420,0.08],["Fenix Ultra",9000,0.985,650,0.12],["Fenix Expedition",19000,0.975,900,0.2],["Fenix Armageddon",36000,0.965,1400,0.28]],"medkit":[["Пустой слот",0,1.0,999,0.0],["Мини-аптечка",350,0.999,120,0.03],["Trail аптечка",1050,0.997,220,0.06],["Ultra аптечка",2600,0.995,360,0.1],["Armageddon Med",6500,0.99,600,0.15],["Expedition Med Pro",14000,0.985,900,0.22],["Trauma Armageddon Kit",27500,0.975,1400,0.3]]};
 const CATEGORY_NAMES={shoes:'Кроссовки',pack:'Рюкзак / жилет',jacket:'Мембранка',lamp:'Фонарик',poles:'Палки',watch:'Часы',medkit:'Аптечка',hydration:'Вода'};
 const RESOURCE_CATALOG={
-  waterBottles:{name:'Вода 0,5 л',price:20,unit:'бут.',desc:'Обязательна с 4 уровня. Расход зависит от дистанции, жары и солнца.'},
+  waterBottles:{name:'Вода 0,5 л',price:80,unit:'бут.',desc:'Обязательна с 4 уровня. Расход зависит от дистанции, жары и солнца.'},
   gels:{name:'Энергетический гель',price:60,unit:'шт.',desc:'Снижает голод и потерю темпа на длинной гонке.'},
   batteries:{name:'Комплект батареек',price:130,unit:'компл.',desc:'Для фонарей 1–4 уровня. Один комплект ≈ 5 часов света.'},
   bandage:{name:'Бинт',price:40,unit:'шт.',desc:'Сильные ссадины и растяжения.'},
@@ -1962,11 +1962,10 @@ function drawTrack(p){
  // pos>6, so it disappeared/reappeared whenever the player crossed 6th place.
  // Keep drawing it while a race state exists; its km is still recalculated live.
  if(run){
-   const thirdKm=Math.max(playerKm,leaderKms[2]);
-   const gap=Math.max(0,thirdKm-playerKm);
-   let groupKm=playerKm + gap*.20;
-   groupKm=Math.min(groupKm,Math.max(playerKm,thirdKm-L[1]*.006));
-   groupKm=Math.max(playerKm,Math.min(L[1],groupKm));
+   // Main pack is kept behind the player so it does not cover the player icon.
+   // Its gap varies slightly with current position, but it never jumps ahead.
+   const behindGapKm=Math.max(L[1]*.006, Math.min(L[1]*.025, 0.18 + Math.max(0,pos-6)*L[1]*.00035));
+   let groupKm=Math.max(0, playerKm-behindGapKm);
 
    const gx=65+(groupKm/L[1])*(W-160);
    const gy=ground-18;
