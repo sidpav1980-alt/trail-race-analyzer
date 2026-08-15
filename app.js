@@ -1823,7 +1823,7 @@ function renderMapAnalysis(result){
   const bridgeKms=(crossings.bridges||[]).slice();
   const confirmedFordKms=(crossings.confirmed||[]).slice();
 
-  // v0.0257: on city/road races, an early generic water intersection is
+  // v0.0259: on city/road races, an early generic water intersection is
   // usually a false ford (stream/culvert/road drainage). Do not count
   // probable fords in the first 1 km on predominantly paved routes.
   // Explicit OSM ford tags remain untouched.
@@ -2000,7 +2000,10 @@ $('rosterFile').addEventListener('change',e=>{
   selectedRosterFile=e.currentTarget.files&&e.currentTarget.files[0];
   if(!selectedRosterFile){
     $('rosterName').innerHTML='<span class="file-check">○</span> Файл не выбран';
-    $('rosterLoadBtn').disabled=true;setActionState('rosterLoadBtn','idle');$('rosterStatus').textContent='1. Выберите файл стартового списка.';return;
+    $('rosterLoadBtn').disabled=true;setActionState('rosterLoadBtn','idle');$('rosterStatus').textContent='1. Выберите файл стартового списка.';
+    if($('itraLookupBtn')){$('itraLookupBtn').disabled=true;setActionState('itraLookupBtn','idle');}
+    if($('saveItraRosterBtn')){$('saveItraRosterBtn').disabled=true;setActionState('saveItraRosterBtn','idle');}
+    return;
   }
   $('rosterName').innerHTML='<span class="file-check selected">✓</span> Выбран: '+selectedRosterFile.name;
   $('rosterLoadBtn').disabled=false;setActionState('rosterLoadBtn','ready');$('rosterStatus').textContent='2. Файл выбран. Нажмите кнопку загрузки.';
@@ -2013,7 +2016,20 @@ $('rosterLoadBtn').addEventListener('click',async ()=>{
     if(f.name.toLowerCase().endsWith('.csv')) rows=parseCSV(await f.text());
     else rows=await parseXlsxOffline(await f.arrayBuffer());
     p.value=75;state.roster=normalizeRoster(rows);renderRoster();p.value=100;
-    $('rosterStatus').textContent='✓ Готово: '+state.roster.length+' участников.'; setActionState('rosterLoadBtn','success');setTimeout(()=>p.style.display='none',1000);
+    $('rosterStatus').textContent='✓ Готово: '+state.roster.length+' участников.';
+    if($('itraLookupBtn')){
+      $('itraLookupBtn').disabled=state.roster.length===0;
+      setActionState('itraLookupBtn',state.roster.length?'ready':'idle');
+    }
+    if($('saveItraRosterBtn')){
+      const hasPi=state.roster.some(r=>Number(r.pi)>0);
+      $('saveItraRosterBtn').disabled=!hasPi;
+      setActionState('saveItraRosterBtn',hasPi?'ready':'idle');
+    }
+    if($('itraLookupStatus')) $('itraLookupStatus').textContent=state.roster.length
+      ? `✓ Список загружен: ${state.roster.length}. Поиск ITRA будет идти пакетами максимум по 50 участников.`
+      : 'В списке нет участников.';
+    setActionState('rosterLoadBtn','success');setTimeout(()=>p.style.display='none',1000);
   }catch(err){p.style.display='none';$('rosterStatus').textContent='✕ '+(err.message||err);setActionState('rosterLoadBtn','error');}
   finally{btn.disabled=false;}
 });
@@ -2031,7 +2047,7 @@ function normalizeRoster(rows){
   const gen=pick(['пол','gender','sex']), pi=pick(['itra pi','itra','performance index','рейтинг','pi']);
   return rows.map(r=>{
     let athlete=fio?String(r[fio]).trim():[nam?r[nam]:'',sur?r[sur]:''].join(' ').trim();
-    return {athlete, gender:gen?String(r[gen]):'', pi:pi?parseFloat(r[pi])||0:0, tech:0,end:0,form:0};
+    return {athlete, gender:gen?String(r[gen]):'', pi:pi?parseFloat(r[pi])||0:0, tech:0,end:0,form:0, _raw:{...r}};
   }).filter(x=>x.athlete);
 }
 function genderOkay(g){
@@ -2399,49 +2415,78 @@ function initOpenRouterKeyUI(){
 $('itraLookupBtn')?.addEventListener('click', async ()=>{
   if(!state.roster.length){
     $('itraLookupStatus').textContent='Сначала загрузите стартовый список.';
-    setActionState('itraLookupBtn','ready');
+    setActionState('itraLookupBtn','idle');
     return;
   }
 
   const btn=$('itraLookupBtn');
   btn.disabled=true;
   setActionState('itraLookupBtn','working');
-  $('itraLookupStatus').textContent='Ищу ITRA и анализирую участников…';
+
+  const allNames=state.roster.map(r=>r.athlete).filter(Boolean);
+  const batches=[];
+  for(let i=0;i<allNames.length;i+=50) batches.push(allNames.slice(i,i+50));
+
+  let foundTotal=0;
+  let processed=0;
+  let failedBatches=0;
 
   try{
-    const names=state.roster.map(r=>r.athlete).filter(Boolean);
-    const manualKey=getManualOpenRouterKey();
-    const headers={'Content-Type':'application/json'};
-    if(manualKey) headers['X-OpenRouter-Key']=manualKey;
-    const resp=await fetch('/api/itra-batch',{
-      method:'POST',
-      headers,
-      body:JSON.stringify({names})
-    });
+    for(let bi=0;bi<batches.length;bi++){
+      const names=batches[bi];
+      $('itraLookupStatus').textContent=
+        `⏳ ITRA: пакет ${bi+1}/${batches.length} · участники ${processed+1}–${processed+names.length} из ${allNames.length}…`;
 
-    if(!resp.ok){
-      let detail='';
       try{
-        const e=await resp.json();
-        detail=e.error||'';
-      }catch(e){}
-      throw new Error('HTTP '+resp.status+(detail?' · '+detail:''));
+        const resp=await fetch('/api/itra-batch',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({names})
+        });
+
+        if(!resp.ok){
+          let detail='';
+          try{
+            const e=await resp.json();
+            detail=e.error||'';
+          }catch(e){}
+          throw new Error('HTTP '+resp.status+(detail?' · '+detail:''));
+        }
+
+        const data=await resp.json();
+        normalizeFordData(data);
+
+        (data.results||[]).forEach(x=>{
+          const key=String(x.name||'').trim().toLowerCase();
+          const r=state.roster.find(r=>String(r.athlete||'').trim().toLowerCase()===key);
+          if(r && Number(x.pi)>0){
+            r.pi=Number(x.pi);
+            foundTotal++;
+          }
+        });
+      }catch(batchErr){
+        failedBatches++;
+        console.warn('ITRA batch failed',bi+1,batchErr);
+      }
+
+      processed+=names.length;
+      renderRoster();
+
+      // Give Safari/UI a chance to repaint between batches.
+      await new Promise(resolve=>setTimeout(resolve,120));
     }
 
-    const data=await resp.json();
-    normalizeFordData(data);
-    let found=0;
-    (data.results||[]).forEach(x=>{
-      const r=state.roster.find(r=>r.athlete.toLowerCase()===String(x.name||'').toLowerCase());
-      if(r && x.pi){
-        r.pi=Number(x.pi);
-        found++;
-      }
-    });
+    const missing=state.roster.filter(r=>!(Number(r.pi)>0)).length;
+    $('itraLookupStatus').textContent=
+      `✓ ITRA обработан пакетами по 50: найдено ${foundTotal}, без PI ${missing}, всего ${allNames.length}`
+      +(failedBatches?` · ошибок пакетов: ${failedBatches}`:'');
 
-    renderRoster();
-    $('itraLookupStatus').textContent='✓ ITRA загружен: '+found+' из '+names.length+' участников.';
-    setActionState('itraLookupBtn','success');
+    setActionState('itraLookupBtn',failedBatches===batches.length?'error':'success');
+
+    if($('saveItraRosterBtn')){
+      $('saveItraRosterBtn').disabled=false;
+      setActionState('saveItraRosterBtn','ready');
+    }
   }catch(err){
     $('itraLookupStatus').textContent='✕ Ошибка ITRA: '+(err.message||String(err));
     setActionState('itraLookupBtn','error');
@@ -2449,6 +2494,92 @@ $('itraLookupBtn')?.addEventListener('click', async ()=>{
     btn.disabled=false;
   }
 });
+
+
+function csvEscape(value){
+  const s=String(value??'');
+  return /[;"\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+
+function buildEnrichedRosterCsv(){
+  const rows=state.roster||[];
+  if(!rows.length) return '';
+
+  // Preserve the original columns when possible and append/overwrite ITRA PI.
+  const rawHeaders=[];
+  rows.forEach(r=>{
+    Object.keys(r._raw||{}).forEach(k=>{
+      if(!rawHeaders.includes(k)) rawHeaders.push(k);
+    });
+  });
+
+  const normalizedHeaderNames=rawHeaders.map(h=>String(h).toLowerCase().replace(/[_\-./]+/g,' '));
+  let piHeaderIndex=normalizedHeaderNames.findIndex(h=>
+    h==='pi' || h.includes('itra pi') || h==='itra' || h.includes('performance index') || h.includes('рейтинг')
+  );
+
+  const headers=[...rawHeaders];
+  if(piHeaderIndex<0){
+    headers.push('ITRA PI');
+    piHeaderIndex=headers.length-1;
+  }
+
+  // If original file had no usable columns, create a compact useful file.
+  if(headers.length===1 && headers[0]==='ITRA PI'){
+    headers.unshift('Спортсмен','Пол');
+    piHeaderIndex=2;
+  }
+
+  const lines=[headers.map(csvEscape).join(';')];
+
+  rows.forEach(r=>{
+    const raw=r._raw||{};
+    const values=headers.map(h=>{
+      if(h==='ITRA PI' && !(h in raw)) return Number(r.pi)||0;
+      return raw[h]??'';
+    });
+
+    // overwrite whichever original PI column was detected
+    if(piHeaderIndex>=0) values[piHeaderIndex]=Number(r.pi)||0;
+
+    // fallback compact columns
+    if(headers[0]==='Спортсмен'){
+      values[0]=r.athlete||'';
+      values[1]=r.gender||'';
+    }
+
+    lines.push(values.map(csvEscape).join(';'));
+  });
+
+  return '\ufeff'+lines.join('\r\n');
+}
+
+$('saveItraRosterBtn')?.addEventListener('click',()=>{
+  if(!state.roster.length){
+    if($('saveItraRosterStatus')) $('saveItraRosterStatus').textContent='Сначала загрузите стартовый список.';
+    return;
+  }
+
+  const csv=buildEnrichedRosterCsv();
+  if(!csv) return;
+
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const stamp=new Date().toISOString().slice(0,10);
+  a.href=url;
+  a.download=`startlist_ITRA_${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),3000);
+
+  if($('saveItraRosterStatus')){
+    $('saveItraRosterStatus').textContent='✓ Новый стартовый список с ITRA подготовлен для сохранения на iPhone.';
+  }
+  setActionState('saveItraRosterBtn','success');
+});
+
 
 
 // ---------- Race forecast calibrated from a timed reference activity ----------
@@ -2941,7 +3072,7 @@ function flatRaceAnchorForTarget(){
 
   const speedCal=vo2AdjustedFlatCalibration(ref,vo2);
 
-  // v0.0257: for short races the real flat/speed GPX is the primary anchor.
+  // v0.0259: for short races the real flat/speed GPX is the primary anchor.
   // If the target is essentially the same distance as the speed reference,
   // use the actually recorded pace directly instead of allowing q75/q85 or
   // VO2max to make the forecast faster than the reference performance.
@@ -3565,7 +3696,7 @@ function renderRaceForecast(options={}){
     let totalDirtKm=0;
     let totalUnknownKm=0;
 
-    // v0.0257: detect a predominantly paved/asphalt route from the OSM samples.
+    // v0.0259: detect a predominantly paved/asphalt route from the OSM samples.
     // On such routes tiny OSM gaps / water polygons / short path fragments must
     // not turn a road race into a 6:30/km trail forecast.
     const pavedKmAll=trailSamples.length
@@ -4124,18 +4255,6 @@ function bindRaceReference(role){
 bindRaceReference('strength');
 bindRaceReference('fastTrail');
 bindRaceReference('flatRace');
-
-$('clearOpenAiKeyBtn')?.addEventListener('click',()=>{
-  const el=$('openAiKey'); if(el) el.value='';
-  try{sessionStorage.removeItem('openAiApiKey');}catch(e){}
-});
-$('openAiKey')?.addEventListener('input',e=>{
-  try{sessionStorage.setItem('openAiApiKey',e.currentTarget.value||'');}catch(err){}
-});
-window.addEventListener('DOMContentLoaded',()=>{
-  try{const k=sessionStorage.getItem('openAiApiKey')||''; if($('openAiKey')) $('openAiKey').value=k;}catch(e){}
-});
-
 $('raceForecastGpxBtn')?.addEventListener('click',async()=>{
   const btn=$('raceForecastGpxBtn');
   if(!(state.mapAnalysis && state.mapAnalysisReadyForCurrentGpx===true)){
@@ -4781,7 +4900,8 @@ function showFirstPlaceOverlay(){
   }
   el.classList.add('show');
   clearTimeout(window.__firstPlaceTimer);
-  window.__firstPlaceTimer=setTimeout(()=>el.classList.remove('show'),4200);
+  // v0.0259: keep the "1 МЕСТО" result on screen for 5 full seconds.
+  window.__firstPlaceTimer=setTimeout(()=>el.classList.remove('show'),5000);
 }
 function maybeShowFirstPlaceAtFinish(){
   const b=baseSec();
@@ -5999,7 +6119,14 @@ function tick(){
     updateResults();draw();renderSimFordMap();
     showMishaFinishDirect();
     const firstPlace=maybeShowFirstPlaceAtFinish();
-    finishVirtualAttempt(!!firstPlace);
+
+    // v0.0259: if the runner takes 1st place, do not immediately advance
+    // the championship screen. Let the 1st-place message be visible first.
+    if(firstPlace){
+      setTimeout(()=>finishVirtualAttempt(true),8100); // 3.1 s delay + 5 s display
+    }else{
+      finishVirtualAttempt(false);
+    }
   }
 }
 function run(){clearInterval(timer);timer=setInterval(tick,120);E('simStart').textContent='⏸';E('simStatus').textContent=simulationTrackMode==='virtual'?`Виртуальный чемпионат · уровень ${virtualCampaign.level}/3 · ${dist().toFixed(0)} км.`:'Симуляция идёт по выбранному реальному треку.'}

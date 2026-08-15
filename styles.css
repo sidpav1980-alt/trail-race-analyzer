@@ -514,3 +514,7 @@ button.action-error:disabled {
 
 .flat-route-inputs{display:grid;grid-template-columns:1fr;gap:10px}
 .flat-route-inputs label{display:grid;gap:6px}
+
+.roster-intro{margin-top:-4px;margin-bottom:16px}
+.itra-online-box{display:grid;gap:10px}
+#saveItraRosterBtn{margin-top:4px}
