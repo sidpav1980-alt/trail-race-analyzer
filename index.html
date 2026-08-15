@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="ru">
+<html class="auth-required" lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07111f">
 <title>Trail Runner: Armageddon</title>
-<p class="registration-required-note">Новые игроки сначала должны зарегистрироваться. Без созданного профиля вход в игру невозможен.</p>
+<p class="registration-required-note"></p>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -43,7 +43,7 @@
       <div class="eyebrow">TRAIL RUNNER RPG</div>
       <h1>Гонка → Экипировка → Армагеддон</h1>
     </div>
-    <div class="topbar-account"><button id="topHelpBtn" class="help-btn top-help-btn" type="button">❓ Помощь</button><button id="profileBtn" class="profile-chip" type="button">👤 Вход</button><button id="headerLogoutBtn" class="header-logout" type="button" style="display:none">Выйти</button><div class="version">v10.20</div>
+    <div class="topbar-account"><button id="topHelpBtn" class="help-btn top-help-btn" type="button">❓ Помощь</button><button id="profileBtn" class="profile-chip" type="button">👤 Вход</button><button id="headerLogoutBtn" class="header-logout" type="button" style="display:none">Выйти</button><div class="version">v10.22</div>
   </div></header>
 
   <section class="hud card">
@@ -113,7 +113,7 @@
           <div><span>Дистанция</span><b id="raceDistance">5 км</b></div>
           <div><span>Набор</span><b id="raceGain">80 м</b></div>
           <div><span>Целевое время</span><b id="raceTarget">0:34:00</b></div>
-          <div><span>Награда</span><b id="raceReward">до ₽ 900</b></div>
+          <div><span>Награда</span><b id="raceReward">до ₽ 900</b><small class="reward-hint">Чем выше место, тем больше выплата. «До» — максимум за отличный результат.</small></div>
           <div><span>Вода на старт</span><b id="raceWaterNeed">не требуется</b></div>
         </div>
         <p id="raceDesc" class="muted"></p>
@@ -169,7 +169,7 @@
           <div id="raceLeaders" class="race-leaders-list"></div>
         </div>
 
-        <div id="startRequirementsError" class="start-requirements-error" style="display:none"></div>
+        <div id="autoBuyStartNote" class="auto-buy-start-note" style="display:none"></div><div id="startRequirementsError" class="start-requirements-error" style="display:none"></div>
         <div class="controls">
           <button id="startBtn" class="primary">▶ Старт</button>
           <button id="pauseBtn" class="secondary" disabled>Ⅱ Пауза</button>
@@ -258,7 +258,7 @@
       </div>
     </section></main>
 
-  <footer>Trail Runner: Armageddon v10.20 · игровая симуляция · 2026</footer>
+  <footer>Trail Runner: Armageddon v10.22 · игровая симуляция · 2026</footer>
 </div>
 <script src="app.js"></script>
 

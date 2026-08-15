@@ -327,3 +327,57 @@ footer{text-align:center;color:#65758b;padding:28px 0 60px}
   margin:5px 0;
   line-height:1.35;
 }
+
+/* v10.21 strict authorization */
+html.auth-required body > *:not(#authOverlay):not(.auth-overlay):not(script):not(style){
+  visibility:hidden;
+}
+html.auth-required #authOverlay,
+html.auth-required .auth-overlay{
+  visibility:visible!important;
+}
+html.auth-ok body > *{
+  visibility:visible;
+}
+
+/* v10.22 — event popup about 3x smaller */
+.event-overlay .overlay-box{
+  width:min(190px,48vw)!important;
+  max-width:190px!important;
+  min-width:0!important;
+  padding:9px 10px!important;
+  border-radius:13px!important;
+}
+.event-overlay .overlay-box .emoji{
+  font-size:28px!important;
+  line-height:1!important;
+  margin-bottom:3px!important;
+}
+.event-overlay .overlay-box b{
+  font-size:15px!important;
+  line-height:1.08!important;
+  margin:3px 0!important;
+}
+.event-overlay .overlay-box span{
+  font-size:13px!important;
+  line-height:1.1!important;
+}
+@media(max-width:520px){
+  .event-overlay .overlay-box{
+    width:min(160px,44vw)!important;
+    max-width:160px!important;
+    padding:7px 8px!important;
+  }
+  .event-overlay .overlay-box .emoji{font-size:24px!important}
+  .event-overlay .overlay-box b{font-size:14px!important}
+  .event-overlay .overlay-box span{font-size:12px!important}
+}
+
+.reward-hint{
+ display:block;margin-top:6px;color:#8fa2ba;font-size:12px;line-height:1.25;font-weight:500
+}
+
+.auto-buy-start-note{
+ margin:10px 0;padding:10px 12px;border-radius:13px;
+ background:#102c22;border:1px solid #22c55e;color:#bbf7d0;font-size:14px;line-height:1.3
+}

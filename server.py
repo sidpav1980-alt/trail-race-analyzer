@@ -52,13 +52,23 @@ def register():
     session.clear();session["uid"]=uid
     return jsonify(user={"id":uid,"nick":n},progress=None),201
 
+@app.post("/api/user-exists")
+def user_exists():
+    d=request.get_json(silent=True) or {}
+    try:n=nick(d.get("nick"))
+    except ValueError as e:return jsonify(error=str(e)),400
+    with con() as c:
+        r=c.execute("SELECT id,nick FROM users WHERE nick_key=?",(n.casefold(),)).fetchone()
+    return jsonify(exists=bool(r),user={"id":r["id"],"nick":r["nick"]} if r else None)
+
 @app.post("/api/login")
 def login():
     d=request.get_json(silent=True) or {}
     try:n=nick(d.get("nick"));p=password(d.get("password"))
     except ValueError as e:return jsonify(error=str(e)),400
     with con() as c:r=c.execute("SELECT * FROM users WHERE nick_key=?",(n.casefold(),)).fetchone()
-    if not r or not check_password_hash(r["password_hash"],p):return jsonify(error="Неверный ник или пароль."),401
+    if not r:return jsonify(error="Пользователь не зарегистрирован. Сначала создайте профиль."),404
+    if not check_password_hash(r["password_hash"],p):return jsonify(error="Неверный пароль."),401
     session.clear();session["uid"]=r["id"]
     return jsonify(user={"id":r["id"],"nick":r["nick"]},progress=progress(r))
 

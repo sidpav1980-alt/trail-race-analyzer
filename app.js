@@ -120,17 +120,29 @@ async function loadSession(){
   try{
     const r=await fetch('/api/me',{credentials:'same-origin'});
     if(!r.ok){
-      setAuthMode('register');
-      setAuthStatus('Сначала зарегистрируйтесь или войдите в существующий профиль.');
+      authUser=null;
+      updateProfileUi();
+      document.documentElement.classList.remove('auth-ok');
+      document.documentElement.classList.add('auth-required');
+      setAuthMode('login');
+      setAuthStatus('Профиль не подтверждён сервером. Войдите или сначала зарегистрируйтесь.');
+      showAuth();
       return;
     }
     const d=await r.json();
-    if(!d.user||!d.user.nick){
-      setAuthMode('register');
-      setAuthStatus('Сначала зарегистрируйтесь или войдите в существующий профиль.');
+    if(!d.user||!d.user.id||!d.user.nick){
+      authUser=null;
+      updateProfileUi();
+      document.documentElement.classList.remove('auth-ok');
+      document.documentElement.classList.add('auth-required');
+      setAuthMode('login');
+      setAuthStatus('Такой профиль не подтверждён. Войдите или зарегистрируйтесь.');
+      showAuth();
       return;
     }
     authUser=d.user;
+    document.documentElement.classList.remove('auth-required');
+    document.documentElement.classList.add('auth-ok');
     if(d.progress&&typeof d.progress==='object'){
       game=d.progress;
       localStorage.setItem('trailArmageddonSave',JSON.stringify(game));
@@ -155,6 +167,24 @@ async function submitAuth(e){
   }
 
   const registering=authMode==='register';
+  if(!registering){
+    try{
+      const er=await fetch('/api/user-exists',{
+        method:'POST',credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({nick})
+      });
+      const ed=await er.json().catch(()=>({}));
+      if(!er.ok) throw new Error(ed.error||'Не удалось проверить профиль.');
+      if(!ed.exists){
+        setAuthStatus('Пользователь не зарегистрирован. Сначала нажмите «Регистрация».','error');
+        return;
+      }
+    }catch(err){
+      setAuthStatus(err.message||String(err),'error');
+      return;
+    }
+  }
   const endpoint=registering?'/api/register':'/api/login';
   setAuthStatus(registering?'Создаю профиль…':'Выполняю вход…');
   if($('authSubmitBtn'))$('authSubmitBtn').disabled=true;
@@ -169,7 +199,12 @@ async function submitAuth(e){
     const d=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(d.error||'Ошибка входа');
 
-    authUser=d.user||{nick};
+    if(!d.user || !d.user.id || !d.user.nick){
+      throw new Error('Сервер не подтвердил зарегистрированный профиль.');
+    }
+    authUser=d.user;
+    document.documentElement.classList.remove('auth-required');
+    document.documentElement.classList.add('auth-ok');
     if(d.progress&&typeof d.progress==='object') game=d.progress;
     localStorage.setItem('trailArmageddonSave',JSON.stringify(game));
     updateProfileUi();
@@ -188,7 +223,7 @@ async function submitAuth(e){
     if($('authSubmitBtn'))$('authSubmitBtn').disabled=false;
   }
 }
-async function logout(){await saveProgressCloud(false);try{await fetch('/api/logout',{method:'POST',credentials:'same-origin'})}catch(e){}authUser=null;updateProfileUi();$('profilePanel')?.classList.remove('show');showAuth();setAuthStatus('Вы вышли. Войдите снова, чтобы восстановить прогресс.')}
+async function logout(){await saveProgressCloud(false);try{await fetch('/api/logout',{method:'POST',credentials:'same-origin'})}catch(e){}authUser=null;document.documentElement.classList.remove('auth-ok');document.documentElement.classList.add('auth-required');updateProfileUi();$('profilePanel')?.classList.remove('show');showAuth();setAuthStatus('Вы вышли. Войдите снова, чтобы восстановить прогресс.')}
 $('authLoginTab')?.addEventListener('click',()=>setAuthMode('login'));$('authRegisterTab')?.addEventListener('click',()=>setAuthMode('register'));$('authForm')?.addEventListener('submit',submitAuth);
 $('profileBtn')?.addEventListener('click',()=>authUser?$('profilePanel')?.classList.add('show'):showAuth());$('closeProfileBtn')?.addEventListener('click',()=>$('profilePanel')?.classList.remove('show'));
 $('profilePanel')?.addEventListener('click',e=>{if(e.target===$('profilePanel'))$('profilePanel').classList.remove('show')});$('syncNowBtn')?.addEventListener('click',()=>saveProgressCloud(true));$('logoutBtn')?.addEventListener('click',logout);$('headerLogoutBtn')?.addEventListener('click',logout);
@@ -369,6 +404,10 @@ function durability(cat){
 function setDur(cat,v){game.durability[durKey(cat)]=Math.max(0,v)}
 
 function render(){
+ if(!authUser && document.documentElement.classList.contains('auth-required')){
+   showAuth();
+   return;
+ }
  keepEquippedGear();
  const L=levelData();
  $('runnerLevel').textContent=game.level;
@@ -793,6 +832,52 @@ function showStartRequirementsError(title,items=[]){
  // Keep the message visible on screen instead of silently moving the player elsewhere.
  el.scrollIntoView({behavior:'smooth',block:'center'});
 }
+function autoBuyBeforeStart(L){
+  ensureResources();
+  const bought=[];
+  const failed=[];
+
+  // Gels: buy up to the calculated need.
+  const needG=gelsNeeded(L);
+  let missG=Math.max(0,needG-(game.resources.gels||0));
+  if(missG>0){
+    const price=RESOURCE_CATALOG.gels.price;
+    const can=Math.min(missG,Math.floor(game.money/price));
+    if(can>0){
+      game.money-=can*price;
+      game.resources.gels=(game.resources.gels||0)+can;
+      bought.push(`гели +${can}`);
+      missG-=can;
+    }
+    if(missG>0) failed.push(`не хватает ₽ на ${missG} гел.`);
+  }
+
+  // Medkit: refill missing components to at least one of each core item.
+  const medKeys=['bandage','gauze','peroxide','plaster','cream'];
+  const medNames={bandage:'бинт',gauze:'марля',peroxide:'перекись',plaster:'пластырь',cream:'крем'};
+  medKeys.forEach(key=>{
+    if((game.resources[key]||0)<=0){
+      const price=RESOURCE_CATALOG[key].price;
+      if(game.money>=price){
+        game.money-=price;
+        game.resources[key]=(game.resources[key]||0)+1;
+        bought.push(medNames[key]);
+      }else{
+        failed.push(`не хватает ₽ на ${medNames[key]}`);
+      }
+    }
+  });
+
+  if(bought.length){
+    saveGame();
+    renderResources();
+    if($('autoBuyStartNote')){
+      $('autoBuyStartNote').textContent='🛒 Автодокупка перед стартом: '+bought.join(', ')+'.';
+      $('autoBuyStartNote').style.display='block';
+    }
+  }
+  return {bought,failed};
+}
 function startRace(){
  clearStartRequirementsError();
  if(!authUser){showAuth();setAuthStatus('Сначала зарегистрируйтесь или войдите.','error');return}
@@ -800,6 +885,8 @@ function startRace(){
  if(run && run.running)return;
  ensureResources();
  const L=levelData();
+ if($('autoBuyStartNote')){$('autoBuyStartNote').style.display='none';$('autoBuyStartNote').textContent='';}
+ const autoBuy=autoBuyBeforeStart(L);
 
  if(isResting()){
    const left=fmtRest(restRemainingMs());
@@ -815,6 +902,7 @@ function startRace(){
  const raceWeather=weatherForLevel();
  const needWater=waterBottlesNeeded(L,raceWeather);
  let warnings=[];
+ if(autoBuy&&autoBuy.failed&&autoBuy.failed.length) warnings.push(...autoBuy.failed);
 
  // Critical broken equipment is reported directly on the race screen.
  const brokenRequired=[];
@@ -1151,7 +1239,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
    }
  }
 
- ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br>Тренированность: ${Math.round(game.fitness)}/100<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}${coachAdvice}</span></div>`;
+ ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br><small>Награда зависит от места: чем выше позиция, тем больше выплата.</small><br>Тренированность: ${Math.round(game.fitness)}/100<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}${coachAdvice}</span></div>`;
  ov.classList.add('show');
  setTimeout(()=>{ov.classList.remove('show');render()},champ?7000:4200);
 }
