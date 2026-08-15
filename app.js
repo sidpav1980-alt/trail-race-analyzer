@@ -926,6 +926,32 @@ function showStartRequirementsError(title,items=[]){
  // Keep the message visible on screen instead of silently moving the player elsewhere.
  el.scrollIntoView({behavior:'smooth',block:'center'});
 }
+
+function weatherDnfRisk(L,w){
+ let risk=0.01 + Math.max(0,game.fatigue-55)*0.0015;
+ if(w.temp>=30) risk += 0.12 + L[5]*0.018;
+ if(w.name==='Ливень') risk += 0.16 + L[5]*0.015;
+ else if(w.rain) risk += 0.08 + L[5]*0.012;
+ if(w.cold) risk += 0.06 + L[5]*0.01;
+ if(L[1]>=80) risk += 0.025;
+ if(L[1]>=150) risk += 0.035;
+ return Math.min(0.38,Math.max(0.01,risk));
+}
+function competitorDnfRate(L,w){
+ let p=0.025 + L[5]*0.012 + Math.min(0.05,L[1]/3000);
+ if(w.temp>=30) p+=0.09;
+ if(w.name==='Ливень') p+=0.13;
+ else if(w.rain) p+=0.07;
+ if(w.cold) p+=0.05;
+ return Math.min(0.32,p);
+}
+function simulateOtherDnfs(fieldSize,L,w){
+ const p=competitorDnfRate(L,w);
+ let n=0;
+ for(let i=0;i<fieldSize-1;i++) if(Math.random()<p) n++;
+ return n;
+}
+
 function startRace(){
  clearStartRequirementsError();
  
@@ -1071,6 +1097,13 @@ function startRace(){
 
  run={
    running:true,startedByUser:true,paused:false,p:0,base:L[3]*gearTimeFactor(),
+   weatherDnfRisk:weatherDnfRisk(L,raceWeather),
+   weatherDnfPlanned:false,
+   weatherDnfTriggered:false,
+   weatherDnfAt:.35+Math.random()*.55,
+   weatherDnfReason:raceWeather.temp>=30?'heat':((raceWeather.rain||raceWeather.cold)?'weather':'other'),
+   fieldSize:Math.min(250,Math.max(35,Math.round(42+L[5]*18+L[1]*.55))),
+   otherDnfCount:0,
    raceLeaders:createLeadersForAttempt(game.current),
    elapsed:0,penalty:fatiguePenaltySec+gelPenaltySec+lightPenaltySec+(raceWeather.sun>=80?Math.round((raceWeather.sun-70)*L[3]/1200):0)+Math.round(coachDifficultyGap*L[3]*0.04),
    events:buildEvents(L),fired:new Set(),
@@ -1081,6 +1114,8 @@ function startRace(){
    dnf:false
  };
  run.startedByUser=true;
+ run.weatherDnfPlanned=Math.random()<run.weatherDnfRisk;
+ run.otherDnfCount=simulateOtherDnfs(run.fieldSize,L,raceWeather);
  if(game.current>=9){
    const rivalName=(run.raceLeaders && run.raceLeaders.length)
      ? run.raceLeaders[Math.floor(Math.random()*run.raceLeaders.length)]
@@ -1106,7 +1141,21 @@ function tick(ts){
    fireEvents();
    updateRun();
  }
- if(run.dnf)return; if(run.p>=1)finishRace(false); else timer=requestAnimationFrame(tick);
+ if(!run.dnf && run.weatherDnfPlanned && !run.weatherDnfTriggered && run.p>=run.weatherDnfAt){
+    run.weatherDnfTriggered=true;
+    run.dnf=true;
+    if(run.weatherDnfReason==='heat'){
+      run.condition='перегрев';
+      showEvent({emoji:'🥵',name:'Перегрев'},0,' · жара → DNF');
+      setTimeout(()=>finishRace(true,'heat'),900);
+    }else{
+      run.condition='плохая погода';
+      showEvent({emoji:'🌪️',name:'Экстремальная погода'},0,' · условия → DNF');
+      setTimeout(()=>finishRace(true,'weather'),900);
+    }
+    return;
+  }
+  if(run.dnf)return; if(run.p>=1)finishRace(false); else timer=requestAnimationFrame(tick);
 }
 function fireEvents(){
  run.events.forEach((ev,i)=>{
@@ -1217,10 +1266,16 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
      const stronger=COACHES.findIndex((x,i)=>i>game.coach && x.maxDifficulty>=L[5]);
      if(stronger>=0) dnfCoachAdvice=`<br><br>💡 Рекомендация: сменить тренера на «${COACHES[stronger].name}» — текущий уровень подготовки ниже сложности гонки.`;
    }
+   const totalDnfs=Math.min(run.fieldSize,(run.otherDnfCount||0)+1);
+   const dnfStats=`<br><br>🚫 Сошло с дистанции: ${totalDnfs} из ${run.fieldSize}.`;
    if(dnfReason==='freeze'){
-     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🥶</div><b>DNF · переохлаждение</b><span>Вы вышли на холод/дождь без рабочей мембранки и замёрзли до финиша.<br><br>💰 За DNF награда: ₽ 0.${dnfCoachAdvice}</span></div>`;
+     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🥶</div><b>DNF · переохлаждение</b><span>Вы замёрзли до финиша.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
+   }else if(dnfReason==='heat'){
+     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🥵</div><b>DNF · перегрев</b><span>Жара и нагрузка привели к сходу с дистанции.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
+   }else if(dnfReason==='weather'){
+     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🌪️</div><b>DNF · плохая погода</b><span>Тяжёлые погодные условия привели к сходу.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
    }else{
-     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🦴</div><b>DNF · перелом ноги</b><span>Слишком высокая нагрузка и мало отдыха. Отдохните 1 минуту перед новой попыткой.<br><br>💰 За DNF награда: ₽ 0.${dnfCoachAdvice}</span></div>`;
+     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🦴</div><b>DNF · перелом ноги</b><span>Слишком высокая нагрузка и мало отдыха. Отдохните 1 минуту перед новой попыткой.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
    }
    ov.classList.add('show');
    setTimeout(()=>{ov.classList.remove('show');render();switchTab('resources')},5000);
@@ -1287,7 +1342,8 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
    }
  }
 
- ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br>Тренированность: ${Math.round(game.fitness)}/100<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}${coachAdvice}</span></div>`;
+ const totalDnfs=Math.min(run.fieldSize,run.otherDnfCount||0);
+ ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br>🚫 Сошло с дистанции: ${totalDnfs} из ${run.fieldSize}<br>Тренированность: ${Math.round(game.fitness)}/100<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}${coachAdvice}</span></div>`;
  ov.classList.add('show');
  setTimeout(()=>{ov.classList.remove('show');render()},champ?7000:4200);
 }
