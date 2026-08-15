@@ -894,7 +894,7 @@ $('startTrainingBtn')?.addEventListener('click',()=>{
   saveGame();
   renderTraining();
 });
-setInterval(()=>{if($('startTrainingBtn'))renderTraining()},1000);
+setInterval(()=>{if($('startTrainingBtn')){renderTraining(); if($('startBtn')) $('startBtn').disabled = trainingActive() || isResting() || (run&&run.running);}},1000);
 
 function totalRepairCost(){
  let s=0;Object.keys(GEAR).forEach(cat=>{const it=item(cat),cur=durability(cat);s+=(it[3]-cur)*Math.max(2,it[1]/it[3]*.28)});return Math.ceil(s);
@@ -1044,6 +1044,12 @@ function simulateOtherDnfs(fieldSize,L,w){
 }
 
 function startRace(){
+ if(trainingActive()){
+   showGameError('Во время тренировки старт гонки недоступен. Дождитесь окончания тренировки.');
+   renderTraining();
+   return;
+ }
+
  clearStartRequirementsError();
  
 
