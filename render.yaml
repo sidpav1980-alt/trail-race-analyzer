@@ -1,12 +1,11 @@
 services:
   - type: web
-    name: trail-race-analyzer
-    runtime: docker
-    healthCheckPath: /health
+    name: trail-race-analyzer2
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 1 -b 0.0.0.0:$PORT server:app
     envVars:
-      - key: OPENROUTER_API_KEY
-        sync: false
-      - key: OPENROUTER_MODEL
-        value: openrouter/free
-      - key: SITE_URL
-        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SESSION_COOKIE_SECURE
+        value: "1"

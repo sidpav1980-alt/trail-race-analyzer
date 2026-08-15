@@ -6,13 +6,14 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 BASE=Path(__file__).resolve().parent
 DB=Path(os.environ.get("TRAIL_GAME_DB", BASE/"trail_players.sqlite3"))
+DB.parent.mkdir(parents=True, exist_ok=True)
 MAX_PLAYERS=50
 app=Flask(__name__, static_folder=None)
 app.secret_key=os.environ.get("SECRET_KEY","CHANGE-ME-IN-PRODUCTION")
 app.config.update(SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE="Lax",SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE","0")=="1",MAX_CONTENT_LENGTH=512*1024)
 
 def con():
-    c=sqlite3.connect(DB);c.row_factory=sqlite3.Row;c.execute("PRAGMA journal_mode=WAL");return c
+    c=sqlite3.connect(DB, timeout=15);c.row_factory=sqlite3.Row;c.execute("PRAGMA journal_mode=WAL");c.execute("PRAGMA busy_timeout=15000");return c
 def init():
     with con() as c:c.execute("""CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT,nick TEXT NOT NULL,nick_key TEXT UNIQUE NOT NULL,password_hash TEXT NOT NULL,progress_json TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)""")
 def now():return datetime.now(timezone.utc).isoformat()
@@ -34,6 +35,16 @@ def progress(r):
         x=json.loads(r["progress_json"]);return x if isinstance(x,dict) else None
     except:return None
 
+
+@app.get("/api/health")
+def health():
+    try:
+        with con() as c:
+            count=c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        return jsonify(ok=True,db=True,users=count)
+    except Exception as e:
+        return jsonify(ok=False,db=False,error=str(e)),500
+
 @app.get("/api/me")
 def me():
     r=user()
@@ -50,7 +61,7 @@ def register():
         if c.execute("SELECT 1 FROM users WHERE nick_key=?",(n.casefold(),)).fetchone():return jsonify(error="Такой ник уже занят."),409
         t=now();cur=c.execute("INSERT INTO users(nick,nick_key,password_hash,progress_json,created_at,updated_at) VALUES(?,?,?,?,?,?)",(n,n.casefold(),generate_password_hash(p),None,t,t));uid=cur.lastrowid
     session.clear();session["uid"]=uid
-    return jsonify(user={"id":uid,"nick":n},progress=None),201
+    return jsonify(ok=True,user={"id":uid,"nick":n},progress=None),201
 
 @app.post("/api/user-exists")
 def user_exists():

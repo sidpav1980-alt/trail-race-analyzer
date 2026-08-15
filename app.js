@@ -196,11 +196,27 @@ async function submitAuth(e){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({nick,password})
     });
-    const d=await r.json().catch(()=>({}));
+    let d=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(d.error||'Ошибка входа');
 
+    // Некоторые уже развёрнутые версии API после регистрации отвечали {ok:true}
+    // без объекта user. В таком случае сразу выполняем обычный вход теми же
+    // данными: это одновременно подтверждает, что профиль реально записан,
+    // и создаёт серверную сессию.
+    if(registering && (!d.user || !d.user.id || !d.user.nick)){
+      const lr=await fetch('/api/login',{
+        method:'POST',
+        credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({nick,password})
+      });
+      const ld=await lr.json().catch(()=>({}));
+      if(!lr.ok) throw new Error(ld.error||'Профиль создан, но сервер не смог выполнить вход.');
+      d=ld;
+    }
+
     if(!d.user || !d.user.id || !d.user.nick){
-      throw new Error('Сервер не подтвердил зарегистрированный профиль.');
+      throw new Error('Сервер не подтвердил зарегистрированный профиль. Обновите серверную часть приложения.');
     }
     authUser=d.user;
     document.documentElement.classList.remove('auth-required');
@@ -450,7 +466,17 @@ function render(){
  $('raceDistance').textContent=L[1]+' км';
  $('raceGain').textContent=L[2]+' м';
  $('raceTarget').textContent=fmt(L[3]);
- $('raceReward').textContent='до '+fmtMoney(L[4]);
+ $('raceReward').textContent='база '+fmtMoney(L[4]);
+ const rr=$('raceReward')?.parentElement;
+ if(rr){
+   let note=rr.querySelector('.reward-place-note');
+   if(!note){
+     note=document.createElement('small');
+     note.className='reward-place-note';
+     rr.appendChild(note);
+   }
+   note.textContent='Чем выше место на финише, тем больше рублей. За сильный результат выплата может быть выше базовой суммы.';
+ }
  $('difficultyBadge').textContent='★'.repeat(L[5])+'☆'.repeat(5-L[5]);
  $('raceDesc').textContent=L[6];
  renderLevels();renderShop();renderGear();renderRaceGearSummary();renderResources();renderLampPower();updateRestUi();renderRaceLeaders(0);drawTrack(0);
@@ -832,52 +858,6 @@ function showStartRequirementsError(title,items=[]){
  // Keep the message visible on screen instead of silently moving the player elsewhere.
  el.scrollIntoView({behavior:'smooth',block:'center'});
 }
-function autoBuyBeforeStart(L){
-  ensureResources();
-  const bought=[];
-  const failed=[];
-
-  // Gels: buy up to the calculated need.
-  const needG=gelsNeeded(L);
-  let missG=Math.max(0,needG-(game.resources.gels||0));
-  if(missG>0){
-    const price=RESOURCE_CATALOG.gels.price;
-    const can=Math.min(missG,Math.floor(game.money/price));
-    if(can>0){
-      game.money-=can*price;
-      game.resources.gels=(game.resources.gels||0)+can;
-      bought.push(`гели +${can}`);
-      missG-=can;
-    }
-    if(missG>0) failed.push(`не хватает ₽ на ${missG} гел.`);
-  }
-
-  // Medkit: refill missing components to at least one of each core item.
-  const medKeys=['bandage','gauze','peroxide','plaster','cream'];
-  const medNames={bandage:'бинт',gauze:'марля',peroxide:'перекись',plaster:'пластырь',cream:'крем'};
-  medKeys.forEach(key=>{
-    if((game.resources[key]||0)<=0){
-      const price=RESOURCE_CATALOG[key].price;
-      if(game.money>=price){
-        game.money-=price;
-        game.resources[key]=(game.resources[key]||0)+1;
-        bought.push(medNames[key]);
-      }else{
-        failed.push(`не хватает ₽ на ${medNames[key]}`);
-      }
-    }
-  });
-
-  if(bought.length){
-    saveGame();
-    renderResources();
-    if($('autoBuyStartNote')){
-      $('autoBuyStartNote').textContent='🛒 Автодокупка перед стартом: '+bought.join(', ')+'.';
-      $('autoBuyStartNote').style.display='block';
-    }
-  }
-  return {bought,failed};
-}
 function startRace(){
  clearStartRequirementsError();
  if(!authUser){showAuth();setAuthStatus('Сначала зарегистрируйтесь или войдите.','error');return}
@@ -885,8 +865,6 @@ function startRace(){
  if(run && run.running)return;
  ensureResources();
  const L=levelData();
- if($('autoBuyStartNote')){$('autoBuyStartNote').style.display='none';$('autoBuyStartNote').textContent='';}
- const autoBuy=autoBuyBeforeStart(L);
 
  if(isResting()){
    const left=fmtRest(restRemainingMs());
@@ -902,7 +880,6 @@ function startRace(){
  const raceWeather=weatherForLevel();
  const needWater=waterBottlesNeeded(L,raceWeather);
  let warnings=[];
- if(autoBuy&&autoBuy.failed&&autoBuy.failed.length) warnings.push(...autoBuy.failed);
 
  // Critical broken equipment is reported directly on the race screen.
  const brokenRequired=[];
@@ -1239,7 +1216,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
    }
  }
 
- ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br><small>Награда зависит от места: чем выше позиция, тем больше выплата.</small><br>Тренированность: ${Math.round(game.fitness)}/100<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}${coachAdvice}</span></div>`;
+ ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br>Тренированность: ${Math.round(game.fitness)}/100<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}${coachAdvice}</span></div>`;
  ov.classList.add('show');
  setTimeout(()=>{ov.classList.remove('show');render()},champ?7000:4200);
 }
