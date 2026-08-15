@@ -1,4 +1,4 @@
-const APP_VERSION='10.72';
+const APP_VERSION='10.73';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -778,17 +778,41 @@ function renderLampPower(){
 }
 
 function updateRestUi(){
- const b=$('restBtn'),s=$('restStatus');if(!b||!s)return;
- if($('restFatigueValue')) $('restFatigueValue').textContent=Math.round(game.fatigue||0)+'%';
- const ms=restRemainingMs();
- if(ms>0){
-   b.disabled=true;b.textContent='😴 Отдых идёт…';
-   s.textContent='До полного отдыха: '+fmtRest(ms)+'. Старт гонки заблокирован.';
- }else{
-   if(game.restUntil){game.restUntil=0;game.fatigue=Math.max(0,game.fatigue-65);saveGame();}
-   const noFatigue=Number(game.fatigue||0)<=0;
-   b.disabled=noFatigue;b.textContent='😴 Отдыхать 1 минуту';
-   s.textContent=noFatigue?'Усталость 0% — отдых не требуется.':game.fatigue>=70?'Усталость высокая — лучше отдохнуть перед следующим стартом.':'Можно стартовать.';
+ const resting=isResting();
+ const restMs=restRemainingMs();
+
+ if($('restBtn')){
+   $('restBtn').disabled = !!(run&&run.running) || resting || Number(game.fatigue||0)<=0;
+   $('restBtn').textContent = resting ? '😴 Отдых идёт…' : '😴 Отдых 1 минуту';
+ }
+
+ if($('restStatus')){
+   $('restStatus').style.display=resting?'block':'none';
+   $('restStatus').textContent=resting
+     ? `До полного отдыха: ${fmtRest(restMs)}. Старт гонки заблокирован.`
+     : '';
+ }
+
+ const startBtn=$('startBtn');
+ if(startBtn && !(run&&run.running)){
+   if(resting){
+     startBtn.disabled=true;
+     startBtn.textContent=`😴 Отдых ${fmtRest(restMs)}`;
+   }else if(!trainingActive()){
+     startBtn.disabled=false;
+     startBtn.textContent='▶ Старт';
+   }
+ }
+
+ const req=$('startRequirementsError');
+ if(req && !(run&&run.running)){
+   if(resting){
+     req.innerHTML=`<b>😴 Отдых идёт</b><ul><li>До полного отдыха: ${fmtRest(restMs)}.</li><li>Старт гонки заблокирован до окончания отдыха.</li></ul>`;
+     req.style.display='block';
+   }else if(/Отдых идёт/.test(req.textContent||'')){
+     req.innerHTML='';
+     req.style.display='none';
+   }
  }
 }
 setInterval(()=>{
@@ -1543,7 +1567,7 @@ function updateRun(){
 }
 function finishRace(forceDnf=false,dnfReason='fracture'){
  if(!run||!run.running)return;
- run.running=false;cancelAnimationFrame(timer);$('pauseBtn').disabled=true;$('startBtn').disabled=false;
+ run.running=false;cancelAnimationFrame(timer);$('pauseBtn').disabled=true;$('startBtn').disabled=false; updateRestUi();
  const L=levelData();
 
  if(forceDnf || run.dnf){
@@ -1945,3 +1969,5 @@ document.addEventListener('click', function(e){
     e.stopImmediatePropagation();
   }
 }, true);
+
+setInterval(()=>{updateRestUi();},1000);
