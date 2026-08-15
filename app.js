@@ -1,4 +1,4 @@
-const APP_VERSION='10.85';
+const APP_VERSION='10.86';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -1009,7 +1009,7 @@ function renderTraining(){
    }
  }
 
- const playerName=(authUser&&authUser.nick)?authUser.nick:'Вы';
+ const playerName=safePlayerName();
  const rows=[...ELITE_RUNNERS,{name:playerName,itra:Math.round(game.itra),country:'🎮',player:true}]
    .sort((a,b)=>b.itra-a.itra);
  if($('itraLeaderboard')){
