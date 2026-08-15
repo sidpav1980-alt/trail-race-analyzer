@@ -1670,7 +1670,7 @@ function renderMapAnalysis(result){
   const bridgeKms=(crossings.bridges||[]).slice();
   const confirmedFordKms=(crossings.confirmed||[]).slice();
 
-  // v0.0251: on city/road races, an early generic water intersection is
+  // v0.0252: on city/road races, an early generic water intersection is
   // usually a false ford (stream/culvert/road drainage). Do not count
   // probable fords in the first 1 km on predominantly paved routes.
   // Explicit OSM ford tags remain untouched.
@@ -2788,7 +2788,7 @@ function flatRaceAnchorForTarget(){
 
   const speedCal=vo2AdjustedFlatCalibration(ref,vo2);
 
-  // v0.0251: for short races the real flat/speed GPX is the primary anchor.
+  // v0.0252: for short races the real flat/speed GPX is the primary anchor.
   // If the target is essentially the same distance as the speed reference,
   // use the actually recorded pace directly instead of allowing q75/q85 or
   // VO2max to make the forecast faster than the reference performance.
@@ -3412,6 +3412,15 @@ function renderRaceForecast(options={}){
     let totalDirtKm=0;
     let totalUnknownKm=0;
 
+    // v0.0252: detect a predominantly paved/asphalt route from the OSM samples.
+    // On such routes tiny OSM gaps / water polygons / short path fragments must
+    // not turn a road race into a 6:30/km trail forecast.
+    const pavedKmAll=trailSamples.length
+      ? surfaceDistanceInRange(trailSamples,0,Math.max(0.001,state.dist),'paved')
+      : 0;
+    const pavedShareAll=state.dist>0 ? pavedKmAll/state.dist : 0;
+    const asphaltRaceAnalysis=pavedShareAll>=0.80;
+
     // Analysis-mode local penalties:
     // ford: +40 sec each;
     // trail: +60 sec per OSM trail km;
@@ -3427,20 +3436,20 @@ function renderRaceForecast(options={}){
         const fordCount=fordKms.filter(km=>km>=g.from-1e-9 && km<g.to+1e-9).length;
         const fordExtra=fordCount*fordPenaltyPer;
 
-        const trailKm=trailPenaltyPerKmSec>0
+        const trailKm=(!asphaltRaceAnalysis && trailPenaltyPerKmSec>0)
           ? surfaceDistanceInRange(trailSamples,g.from,g.to,'trail')
           : 0;
         const trailExtra=trailKm*trailPenaltyPerKmSec;
 
-        const dirtKm=dirtPenaltyPerKmSec>0
+        const dirtKm=(!asphaltRaceAnalysis && dirtPenaltyPerKmSec>0)
           ? surfaceDistanceInRange(trailSamples,g.from,g.to,'dirt')
           : 0;
         const dirtExtra=dirtKm*dirtPenaltyPerKmSec;
 
-        const unknownKm=trailSamples.length
+        const unknownKm=(!asphaltRaceAnalysis && trailSamples.length)
           ? surfaceDistanceInRange(trailSamples,g.from,g.to,'unknown')
           : 0;
-        const waterKm=trailSamples.length
+        const waterKm=(!asphaltRaceAnalysis && trailSamples.length)
           ? surfaceDistanceInRange(trailSamples,g.from,g.to,'water')
           : 0;
 
@@ -3597,6 +3606,9 @@ function renderRaceForecast(options={}){
         + ` → ${f.flatAnchor.targetKm.toFixed(1)} км: ${fmtPaceSecPerKm(f.flatAnchor.targetPaceSec)}`;
     }
     $('raceForecastRange').textContent=`${fmtClockSec(f.lowSec)}–${fmtClockSec(f.highSec)}`;
+    if(asphaltRaceAnalysis && $('raceForecastStatus')){
+      $('raceForecastStatus').textContent='✓ Асфальтовый режим анализа: OSM-разрывы, вода и короткие фрагменты тропы не замедляют дорожный прогноз. Реальные броды учитываются отдельно.';
+    }
     if($('raceDurationFactor')){
       const ec=f.enduranceCalibration;
       if(ec){
