@@ -364,6 +364,10 @@ function leadersForRace(raceIndex=game.current){
  if(a===b) b=randomFio(raceIndex*53+311);
  return [top,a,b];
 }
+function visibleLeaderName(name){
+ return (run && run.running) ? name : 'Неизвестный участник';
+}
+
 function leaderKmFor(rank,L,playerKm){
  if(!run || !run.running) return 0;
  const playerPos=Math.max(1,run.currentPosition||run.position||18);
@@ -464,6 +468,17 @@ function render(){
  if($('itraText'))$('itraText').textContent=Math.round(game.itra);
  if($('itraRankText'))$('itraRankText').textContent=`место в базе: ${ELITE_RUNNERS.filter(r=>r.itra>game.itra).length+1}`;
  const raceWeather=weatherForLevel();
+ const waterNeedNow=waterBottlesNeeded(L,raceWeather);
+ if($('waterCount')) $('waterCount').textContent=`${game.resources.waterBottles||0} × 0,5 л`;
+ if($('waterNeedText')) $('waterNeedText').textContent=`на эту гонку нужно ≈ ${waterNeedNow} × 0,5 л`;
+ const waterQuick=$('quickBuyWater');
+ if(waterQuick){
+   const miss=Math.max(0,waterNeedNow-Number(game.resources.waterBottles||0));
+   const cost=miss*RESOURCE_CATALOG.waterBottles.price;
+   waterQuick.classList.toggle('quick-buy-ok',miss===0);
+   const h=waterQuick.querySelector('.quick-buy-hint');
+   if(h) h.textContent=miss===0?'Запас воды готов':`Докупить ${miss} бут. · ${fmtMoney(cost)}`;
+ }
  if($('weatherText')) $('weatherText').textContent=`${raceWeather.emoji} ${raceWeather.name}`;
  if($('weatherSub')){
    const reqMem=membraneRequiredLevel(L,raceWeather);
@@ -1264,57 +1279,89 @@ function drawOpponent(ctx,x,y,scale=1,color='#60a5fa',rank=0){
  ctx.save();
  ctx.translate(x,y);
  ctx.scale(scale,scale);
-
- // Soft shadow makes competitors readable over the elevation background.
- ctx.shadowColor='rgba(0,0,0,.38)';
- ctx.shadowBlur=5;
- ctx.shadowOffsetY=2;
-
- // Round competitor token.
- ctx.beginPath();
- ctx.arc(4,-5,17,0,Math.PI*2);
- ctx.fillStyle='rgba(5,15,28,.94)';
- ctx.fill();
- ctx.lineWidth=3;
- ctx.strokeStyle=color;
- ctx.stroke();
-
- // Runner head.
- ctx.shadowColor='transparent';
- ctx.beginPath();
- ctx.arc(4,-12,4.2,0,Math.PI*2);
- ctx.fillStyle='#f8fafc';
- ctx.fill();
-
- // Runner body with forward lean.
- ctx.strokeStyle='#f8fafc';
- ctx.lineWidth=3.4;
  ctx.lineCap='round';
+ ctx.lineJoin='round';
+
+ // Ground shadow.
+ ctx.fillStyle='rgba(0,0,0,.28)';
  ctx.beginPath();
- ctx.moveTo(3,-7); ctx.lineTo(8,1);
- ctx.moveTo(7,-3); ctx.lineTo(14,-1);
- ctx.moveTo(8,1); ctx.lineTo(14,8);
- ctx.moveTo(8,1); ctx.lineTo(1,8);
+ ctx.ellipse(5,17,12,3,0,0,Math.PI*2);
+ ctx.fill();
+
+ // Legs with clear running pose.
+ ctx.strokeStyle='#dbeafe';
+ ctx.lineWidth=4.2;
+ ctx.beginPath();
+ ctx.moveTo(4,2); ctx.lineTo(-3,10); ctx.lineTo(-9,16);
+ ctx.moveTo(5,2); ctx.lineTo(12,9); ctx.lineTo(17,14);
  ctx.stroke();
 
- // Colored singlet.
- ctx.strokeStyle=color;
- ctx.lineWidth=4.4;
+ // Shorts.
+ ctx.fillStyle='#0f172a';
  ctx.beginPath();
- ctx.moveTo(3,-6);ctx.lineTo(8,1);
+ ctx.roundRect(-1,-1,12,8,3);
+ ctx.fill();
+
+ // Torso / running shirt.
+ ctx.fillStyle=color;
+ ctx.beginPath();
+ ctx.moveTo(-1,-16);
+ ctx.quadraticCurveTo(5,-20,11,-15);
+ ctx.lineTo(10,1);
+ ctx.quadraticCurveTo(5,4,0,1);
+ ctx.closePath();
+ ctx.fill();
+
+ // Arms in running motion.
+ ctx.strokeStyle='#f1c7a5';
+ ctx.lineWidth=3.6;
+ ctx.beginPath();
+ ctx.moveTo(0,-12); ctx.lineTo(-7,-6); ctx.lineTo(-3,-1);
+ ctx.moveTo(10,-12); ctx.lineTo(16,-7); ctx.lineTo(13,-2);
  ctx.stroke();
 
- // Small rank badge for leaders.
- if(rank>0){
+ // Neck.
+ ctx.strokeStyle='#f1c7a5';
+ ctx.lineWidth=3.4;
+ ctx.beginPath();
+ ctx.moveTo(5,-17); ctx.lineTo(5,-21);
+ ctx.stroke();
+
+ // Head.
+ ctx.fillStyle='#f1c7a5';
+ ctx.beginPath();
+ ctx.arc(5,-27,7,0,Math.PI*2);
+ ctx.fill();
+
+ // Hair/cap.
+ ctx.fillStyle=rank>0 ? '#111827' : '#1e293b';
+ ctx.beginPath();
+ ctx.arc(5,-29,7,Math.PI,Math.PI*2);
+ ctx.lineTo(12,-27);
+ ctx.lineTo(-2,-27);
+ ctx.closePath();
+ ctx.fill();
+
+ // Tiny backpack on group runners for a more trail-like silhouette.
+ if(rank===0){
+   ctx.fillStyle='rgba(15,23,42,.95)';
    ctx.beginPath();
-   ctx.arc(17,-19,8,0,Math.PI*2);
-   ctx.fillStyle=rank===1?'#fbbf24':rank===2?'#cbd5e1':'#d97706';
+   ctx.roundRect(-5,-15,6,14,3);
+   ctx.fill();
+ }
+
+ // Leader rank badge.
+ if(rank>0){
+   const badgeColor=rank===1?'#fbbf24':rank===2?'#cbd5e1':'#d97706';
+   ctx.fillStyle=badgeColor;
+   ctx.beginPath();
+   ctx.arc(19,-31,8.5,0,Math.PI*2);
    ctx.fill();
    ctx.fillStyle='#07111f';
    ctx.font='bold 10px sans-serif';
    ctx.textAlign='center';
    ctx.textBaseline='middle';
-   ctx.fillText(String(rank),17,-19);
+   ctx.fillText(String(rank),19,-31);
  }
 
  ctx.restore();
@@ -1345,7 +1392,7 @@ function drawTrack(p){
    const packColors=['#60a5fa','#34d399','#f59e0b','#a78bfa','#fb7185','#22d3ee'];
    const packOffsets=[[0,0],[38,-4],[76,1],[18,35],[56,31],[94,36]];
    for(let i=0;i<6;i++){
-     drawOpponent(ctx,gx+packOffsets[i][0],gy+packOffsets[i][1],.76,packColors[i],0);
+     drawOpponent(ctx,gx+packOffsets[i][0],gy+packOffsets[i][1],.90,packColors[i],0);
    }
 
    // Rounded label above the pack.
@@ -1370,7 +1417,7 @@ function drawTrack(p){
    const lx=Math.min(W-178,x+260),ly=ground-70;
    const leaderColors=['#fbbf24','#cbd5e1','#d97706'];
    for(let i=0;i<3;i++){
-     drawOpponent(ctx,lx+i*42,ly+i*5,.82,leaderColors[i],i+1);
+     drawOpponent(ctx,lx+i*48,ly+i*5,.96,leaderColors[i],i+1);
    }
 
    const leadKm=leaderKmFor(1,L,p*L[1]);
@@ -1396,6 +1443,20 @@ function drawTrack(p){
  ctx.fillStyle='#fff';ctx.font='22px sans-serif';ctx.fillText(`${(p*L[1]).toFixed(1)} км`,Math.max(10,x-35),ground+48);
 }
 
+
+function quickBuyWater(){
+ if(purchasesLockedDuringRace()){ showGameError('Во время гонки покупки недоступны'); return; }
+ const L=levelData();
+ const weather=weatherForLevel();
+ const need=waterBottlesNeeded(L,weather);
+ const missing=Math.max(0,need-Number(game.resources.waterBottles||0));
+ if(missing<=0){ showGameError('Воды уже достаточно для этой гонки'); return; }
+ const cost=missing*RESOURCE_CATALOG.waterBottles.price;
+ if(game.money<cost){ showGameError(`Не хватает рублей: нужно ${fmtMoney(cost)}`); return; }
+ game.money-=cost;
+ game.resources.waterBottles=Number(game.resources.waterBottles||0)+missing;
+ saveGame(); render();
+}
 
 function quickBuyGels(){
  if(purchasesLockedDuringRace()){ showGameError('Во время гонки покупки недоступны'); return; }
@@ -1429,6 +1490,7 @@ function bindQuickBuyCard(id,fn){
    if(e.key==='Enter'||e.key===' '){ e.preventDefault(); fn(); }
  });
 }
+bindQuickBuyCard('quickBuyWater',quickBuyWater);
 bindQuickBuyCard('quickBuyGels',quickBuyGels);
 bindQuickBuyCard('quickBuyMedkit',quickBuyMedkit);
 
