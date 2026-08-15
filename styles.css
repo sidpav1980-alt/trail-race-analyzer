@@ -500,3 +500,17 @@ button.action-error:disabled {
   .flat-route-row{grid-template-columns:1fr}
   .flat-route-row button{width:100%}
 }
+
+/* v0.0255: selected manual asphalt route */
+#flatRouteBtn.flat-route-active{
+  background:#22c55e !important;
+  border-color:#22c55e !important;
+  color:#04130a !important;
+  opacity:1 !important;
+}
+
+#flatRouteBtn:not(.flat-route-active){background:#38bdf8!important;border-color:#38bdf8!important;color:#06131d!important;opacity:1!important}
+.forecast-distance{display:block;margin-top:7px;font-size:16px;line-height:1.2;font-weight:700;color:#94a3b8}
+
+.flat-route-inputs{display:grid;grid-template-columns:1fr;gap:10px}
+.flat-route-inputs label{display:grid;gap:6px}
