@@ -1799,7 +1799,7 @@ function renderMapAnalysis(result){
   const bridgeKms=(crossings.bridges||[]).slice();
   const confirmedFordKms=(crossings.confirmed||[]).slice();
 
-  // v0.0253: on city/road races, an early generic water intersection is
+  // v0.0254: on city/road races, an early generic water intersection is
   // usually a false ford (stream/culvert/road drainage). Do not count
   // probable fords in the first 1 km on predominantly paved routes.
   // Explicit OSM ford tags remain untouched.
@@ -2857,7 +2857,7 @@ function riegelExponentForDistance(targetKm,refKm){
   if(targetKm<=25) return 1.06;
   if(targetKm<=42.5) return 1.07;
   if(targetKm<=60) return 1.085;
-  if(targetKm<=100) return 0.0200;
+  if(targetKm<=100) return 1.105;
   return 1.12;
 }
 
@@ -2917,7 +2917,7 @@ function flatRaceAnchorForTarget(){
 
   const speedCal=vo2AdjustedFlatCalibration(ref,vo2);
 
-  // v0.0253: for short races the real flat/speed GPX is the primary anchor.
+  // v0.0254: for short races the real flat/speed GPX is the primary anchor.
   // If the target is essentially the same distance as the speed reference,
   // use the actually recorded pace directly instead of allowing q75/q85 or
   // VO2max to make the forecast faster than the reference performance.
@@ -3541,7 +3541,7 @@ function renderRaceForecast(options={}){
     let totalDirtKm=0;
     let totalUnknownKm=0;
 
-    // v0.0253: detect a predominantly paved/asphalt route from the OSM samples.
+    // v0.0254: detect a predominantly paved/asphalt route from the OSM samples.
     // On such routes tiny OSM gaps / water polygons / short path fragments must
     // not turn a road race into a 6:30/km trail forecast.
     const pavedKmAll=trailSamples.length
