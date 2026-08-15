@@ -1,3 +1,4 @@
+const APP_VERSION='10.50';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -444,7 +445,15 @@ function durability(cat){
 }
 function setDur(cat,v){game.durability[durKey(cat)]=Math.max(0,v)}
 
+
+function applyAppVersion(){
+ const v='v'+APP_VERSION;
+ if($('appVersion')) $('appVersion').textContent=v;
+ if($('footerVersion')) $('footerVersion').textContent=v;
+}
+
 function render(){
+ applyAppVersion();
  const raceShoppingLocked=!!(run&&run.running);
  const restRaceLocked=raceShoppingLocked;
  const restBtnRace=$('restBtn');
