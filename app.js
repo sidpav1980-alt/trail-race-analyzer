@@ -293,6 +293,64 @@ function fmt(sec){
 }
 function fmtMoney(n){return '₽ '+Math.round(n).toLocaleString('ru-RU')}
 function levelData(i=game.current){return LEVELS[Math.max(0,Math.min(19,i))]}
+const TOP_ITRA_LEADERS=[
+ 'Jim Walmsley','Kilian Jornet','Tom Evans','Mathieu Blanchard',
+ 'François D’Haene','Jonathan Albon','Hannes Namberger','Ruth Croft',
+ 'Courtney Dauwalter','Katie Schide','Blandine L’Hirondel','Judith Wyder'
+];
+const RANDOM_FIRST_NAMES=['Алексей','Илья','Дмитрий','Сергей','Максим','Андрей','Никита','Роман','Антон','Егор','Мария','Анна','Елена','Ольга','Дарья','Ирина','Алина','Виктория'];
+const RANDOM_LAST_NAMES=['Волков','Орлов','Соколов','Лебедев','Морозов','Крылов','Белов','Громов','Зайцев','Титов','Смирнова','Орлова','Волкова','Белова','Морозова','Крылова','Соколова','Лебедева'];
+function seededIndex(seed,n){ return Math.abs((seed*9301+49297)%233280)%n; }
+function randomFio(seed){
+ const first=RANDOM_FIRST_NAMES[seededIndex(seed*7+11,RANDOM_FIRST_NAMES.length)];
+ let last=RANDOM_LAST_NAMES[seededIndex(seed*13+29,RANDOM_LAST_NAMES.length)];
+ // Roughly match surname ending to first-name gender for more natural generated names.
+ const female=['Мария','Анна','Елена','Ольга','Дарья','Ирина','Алина','Виктория'].includes(first);
+ if(female && !last.endsWith('а')) last=last+'а';
+ if(!female && last.endsWith('а')) last=last.slice(0,-1);
+ return `${first} ${last}`;
+}
+function leadersForRace(raceIndex=game.current){
+ // Уровни 1–15: один топовый ITRA-лидер + два соперника со случайными ФИО.
+ // Уровни 16–20: вся тройка — топовые трейлраннеры.
+ if(raceIndex>=15){
+   const n=TOP_ITRA_LEADERS.length;
+   const offset=((raceIndex-15)*3)%n;
+   return [
+     TOP_ITRA_LEADERS[offset],
+     TOP_ITRA_LEADERS[(offset+1)%n],
+     TOP_ITRA_LEADERS[(offset+2)%n]
+   ];
+ }
+ const top=TOP_ITRA_LEADERS[raceIndex%TOP_ITRA_LEADERS.length];
+ let a=randomFio(raceIndex*31+101), b=randomFio(raceIndex*47+207);
+ if(a===b) b=randomFio(raceIndex*53+311);
+ return [top,a,b];
+}
+function leaderKmFor(rank,L,playerKm){
+ if(!run || !run.running) return 0;
+ const playerPos=Math.max(1,run.currentPosition||run.position||18);
+ // Leaders are visibly ahead while the player is outside top-3.
+ // Gap shrinks as player improves; leader 1 is a little farther than 2/3.
+ const baseGap=playerPos<=3 ? [0.18,0.10,0.04][rank-1] : [0.055,0.040,0.028][rank-1]*L[1];
+ const dynamicGap=playerPos<=3 ? baseGap : baseGap*(0.65+0.35*(1-run.p));
+ let km=playerKm+dynamicGap;
+ // If player is already in top 3, let his progress nearly match the leaders.
+ if(playerPos===1) km=Math.max(playerKm-(rank-1)*0.03,playerKm);
+ else if(playerPos===2 && rank>=2) km=Math.max(playerKm-(rank-2)*0.02,playerKm);
+ else if(playerPos===3 && rank===3) km=playerKm;
+ return Math.max(0,Math.min(L[1],km));
+}
+function renderRaceLeaders(playerKm=0){
+ const box=$('raceLeaders'); if(!box)return;
+ const L=levelData(),names=leadersForRace();
+ if($('leadersRaceName')) $('leadersRaceName').textContent=`${game.current+1}. ${L[0]}`;
+ box.innerHTML=names.map((name,i)=>{
+   const km=run&&run.running?leaderKmFor(i+1,L,playerKm):0;
+   const status=run&&run.running?(km>=L[1]?'Финиш':`${km.toFixed(1)} км`):'на старте';
+   return `<div class="race-leader-row"><b>${i+1}</b><span>${name}</span><strong>${status}</strong></div>`;
+ }).join('');
+}
 function xpNeeded(lvl){return 100+Math.floor(lvl*18)}
 function addXp(n){
  game.xp+=Math.round(n);
@@ -356,7 +414,7 @@ function render(){
  $('raceReward').textContent='до '+fmtMoney(L[4]);
  $('difficultyBadge').textContent='★'.repeat(L[5])+'☆'.repeat(5-L[5]);
  $('raceDesc').textContent=L[6];
- renderLevels();renderShop();renderGear();renderRaceGearSummary();renderResources();renderLampPower();updateRestUi();drawTrack(0);
+ renderLevels();renderShop();renderGear();renderRaceGearSummary();renderResources();renderLampPower();updateRestUi();renderRaceLeaders(0);drawTrack(0);
 }
 function renderLevels(){
  const g=$('levelsGrid');g.innerHTML='';
@@ -720,7 +778,23 @@ function buildEvents(L){
  }
  return ev.sort((a,b)=>a.p-b.p);
 }
+function clearStartRequirementsError(){
+ const el=$('startRequirementsError');
+ if(!el)return;
+ el.style.display='none';
+ el.innerHTML='';
+}
+function showStartRequirementsError(title,items=[]){
+ const el=$('startRequirementsError');
+ if(!el)return;
+ const rows=(items||[]).filter(Boolean);
+ el.innerHTML=`<b>⛔ ${title}</b>${rows.length?`<ul>${rows.map(x=>`<li>${x}</li>`).join('')}</ul>`:''}`;
+ el.style.display='block';
+ // Keep the message visible on screen instead of silently moving the player elsewhere.
+ el.scrollIntoView({behavior:'smooth',block:'center'});
+}
 function startRace(){
+ clearStartRequirementsError();
  if(!authUser){showAuth();setAuthStatus('Сначала зарегистрируйтесь или войдите.','error');return}
 
  if(run && run.running)return;
@@ -728,8 +802,10 @@ function startRace(){
  const L=levelData();
 
  if(isResting()){
-   $('preRaceNote').textContent='😴 Вы отдыхаете. До следующего старта: '+fmtRest(restRemainingMs());
-   switchTab('resources');return;
+   const left=fmtRest(restRemainingMs());
+   $('preRaceNote').textContent='😴 Вы отдыхаете. До следующего старта: '+left;
+   showStartRequirementsError('Старт пока недоступен',[`Идёт отдых. Осталось: ${left}.`]);
+   return;
  }
 
   const needGels=gelsNeeded(L);
@@ -740,10 +816,23 @@ function startRace(){
  const needWater=waterBottlesNeeded(L,raceWeather);
  let warnings=[];
 
+ // Critical broken equipment is reported directly on the race screen.
+ const brokenRequired=[];
+ if(durability('shoes')<=0) brokenRequired.push(`Кроссовки: ${item('shoes')[0]} сломаны — замените или почините.`);
+ if((raceWeather.rain||raceWeather.cold) && durability('jacket')<=0) brokenRequired.push(`Мембранка: ${item('jacket')[0]} сломана.`);
+ if(lampHours>0 && durability('lamp')<=0) brokenRequired.push(`Фонарик: ${item('lamp')[0]} сломан.`);
+ if(brokenRequired.length){
+   showStartRequirementsError('Нельзя стартовать — экипировка неисправна',brokenRequired);
+   return;
+ }
+
  // Water becomes mandatory starting with level 4.
  if(game.current>=3 && (game.resources.waterBottles||0)<needWater){
-   $('raceResourceWarning').textContent=`⛔ Нельзя стартовать: воды ${(game.resources.waterBottles||0)}/${needWater} бутылок по 0,5 л. Докупите воду.`;
-   switchTab('resources');
+   const have=game.resources.waterBottles||0;
+   $('raceResourceWarning').textContent='';
+   showStartRequirementsError('Не хватает обязательного снаряжения / расходников',[
+     `Вода: есть ${have} × 0,5 л, нужно минимум ${needWater} × 0,5 л.`
+   ]);
    return;
  }
 
@@ -753,10 +842,13 @@ function startRace(){
    const equippedMembrane=membraneEquippedLevel();
    if(!hasMembrane(requiredMembrane)){
      const equippedName=GEAR.jacket[Number(game.gear.jacket||0)]?.[0]||'Нет мембранки';
-     $('raceResourceWarning').textContent=
-       `⛔ ${raceWeather.emoji} ${raceWeather.name}, ${raceWeather.temp}°C. Для гонки ${game.current+1} нужна мембранка ур. ${requiredMembrane}/7 или выше. Сейчас надета: ${equippedName} · ур. ${equippedMembrane}/7. Старт запрещён.`;
+     $('raceResourceWarning').textContent='';
+     showStartRequirementsError('Не подходит экипировка для этой гонки',[
+       `${raceWeather.emoji} ${raceWeather.name}, ${raceWeather.temp}°C.`,
+       `Мембранка: нужна ур. ${requiredMembrane}/7 или выше.`,
+       `Сейчас надета: ${equippedName} · ур. ${equippedMembrane}/7.`
+     ]);
      activeShopCategory='jacket';
-     switchTab('shop');
      renderShop();
      return;
    }
@@ -779,6 +871,14 @@ function startRace(){
  $('raceResourceWarning').textContent=warnings.length
    ? '⚠️ Риски перед стартом: '+warnings.join(' · ')
    : '✅ Запас расходников и состояние нормальные.';
+ if(warnings.length){
+   const important=warnings.map(x=>`⚠️ ${x}`);
+   const el=$('startRequirementsError');
+   if(el && el.style.display==='none'){
+     el.innerHTML=`<b>Перед стартом обратите внимание:</b><ul>${important.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+     el.style.display='block';
+   }
+ }
 
  if(game.level<Math.max(1,game.current*3-2)){
    $('preRaceNote').textContent=`⚠️ Рекомендуемый уровень трейлраннера: ${Math.max(1,game.current*3-2)}. Можно стартовать, но будет сложнее.`;
@@ -959,6 +1059,7 @@ function updateRun(){
  $('position').textContent=estimatedPos;
  $('penalties').textContent=(run.penalty>=0?'+':'−')+fmt(Math.abs(run.penalty));
  $('condition').textContent=run.condition;
+ renderRaceLeaders(km);
  drawTrack(run.p);
 }
 function finishRace(forceDnf=false,dnfReason='fracture'){
@@ -1112,12 +1213,14 @@ function drawTrack(p){
    ctx.fillStyle='#fff';ctx.font='bold 16px sans-serif';ctx.fillText('ГРУППА',gx+12,gy-58);
    ctx.font='14px sans-serif';ctx.fillText(`места 6–${Math.max(10,pos-1)}`,gx+8,gy-41);
  }
- // Top-5 leaders visible farther ahead whenever runner is not first.
+ // Top-3 leaders visible farther ahead whenever runner is not first.
  if(pos>1){
-   const lx=Math.min(W-95,x+260),ly=ground-65;
-   for(let i=0;i<5;i++) drawOpponent(ctx,lx+(i%2)*20,ly+Math.floor(i/2)*15,.58,'#fbbf24');
-   ctx.fillStyle='rgba(5,15,28,.9)';ctx.fillRect(lx-25,ly-76,110,40);
-   ctx.fillStyle='#fde68a';ctx.font='bold 15px sans-serif';ctx.fillText('ЛИДЕРЫ 1–5',lx-13,ly-51);
+   const lx=Math.min(W-110,x+245),ly=ground-62;
+   for(let i=0;i<3;i++) drawOpponent(ctx,lx+i*23,ly+i*9,.62,'#fbbf24');
+   ctx.fillStyle='rgba(5,15,28,.9)';ctx.fillRect(lx-28,ly-82,132,44);
+   ctx.fillStyle='#fde68a';ctx.font='bold 15px sans-serif';ctx.fillText('ЛИДЕРЫ 1–3',lx-14,ly-57);
+   const leadKm=leaderKmFor(1,L,p*L[1]);
+   ctx.font='13px sans-serif';ctx.fillText(`${leadKm.toFixed(1)} км`,lx+12,ly-40);
  }
 
  // runner faces toward the finish (right), not toward the viewer
