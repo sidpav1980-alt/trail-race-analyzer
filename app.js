@@ -1,4 +1,4 @@
-const APP_VERSION='10.77';
+const APP_VERSION='10.79';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -528,6 +528,7 @@ function render(){
  ensureResources();ensureTraining();
  const restMs=restRemainingMs();
  $('fatigueValue').textContent=Math.round(game.fatigue)+'%';
+ if($('restFatigueValue')) $('restFatigueValue').textContent=Math.round(game.fatigue)+'%';
  $('fatigueBar').style.width=Math.min(100,game.fatigue)+'%';
  $('fatigueBar').className=game.fatigue>=80?'danger-fatigue':game.fatigue>=55?'warn-fatigue':'';
  $('restText').textContent=restMs>0?'отдых ещё '+fmtRest(restMs):game.fatigue>=70?'нужен отдых':'готов к гонке';
@@ -793,6 +794,7 @@ function renderLampPower(){
 function updateRestUi(){
  const resting=isResting();
  const restMs=restRemainingMs();
+ if($('restFatigueValue')) $('restFatigueValue').textContent=Math.round(Number(game.fatigue||0))+'%';
 
  if($('restBtn')){
    $('restBtn').disabled = !!(run&&run.running) || resting || Number(game.fatigue||0)<=0;
