@@ -5389,21 +5389,11 @@ function checkAidStation(km){
       if(fatigueActive){
         fatigueActive=false;
 
-        // Усталость может стоить максимум 30 минут.
-        // Если ПП встретился раньше, возвращаем неиспользованную часть штрафа.
-        const elapsedRaceSec=Math.max(0,baseSec()*progress);
-        const fatigueElapsedSec=Math.max(0,elapsedRaceSec-fatigueStartVirtualSec);
-        const actualFatigueCost=Math.min(1800,fatigueElapsedSec);
-        const refund=Math.max(0,fatiguePenaltyAppliedSec-actualFatigueCost);
-
-        if(refund>0){
-          penalty-=refund;
-          showConditionChip('🍊',`ПП ${i+1}: усталость прошла`,`-${fmt(refund)}`);
-        }else{
-          showConditionChip('🍊',`ПП ${i+1}: усталость прошла`,'');
-        }
-
-        fatiguePenaltyAppliedSec=actualFatigueCost;
+        // Штраф усталости уже получен на старте (+30:00). На ПП эффект
+        // заканчивается, но потерянное время НЕ возвращается и остаётся
+        // в текущем и финишном времени.
+        fatiguePenaltyAppliedSec=1800;
+        showConditionChip('🍊',`ПП ${i+1}: усталость прошла`,'+30:00 сохранено');
         renderSimConditions();
       }else{
         showConditionChip('🍊',`ПП ${i+1}`,'подкрепились');
@@ -6459,3 +6449,36 @@ document.querySelectorAll('.tab').forEach(btn=>{
     }
   });
 });
+// v0.0260: the ITRA button now loads a roster that already contains ITRA PI.
+$('itraLookupBtn')?.addEventListener('click',(ev)=>{
+  ev.preventDefault();
+  ev.stopImmediatePropagation();
+  $('rosterFile')?.click();
+},true);
+
+// v0.0260: calculate race placing from uploaded ITRA list + own PI.
+$('saveItraRosterBtn')?.addEventListener('click',(ev)=>{
+  ev.preventDefault();
+  ev.stopImmediatePropagation();
+  const pi=Number($('itraPi')?.value||0);
+  if(!state.roster.length){
+    if($('saveItraRosterStatus')) $('saveItraRosterStatus').textContent='Сначала загрузите стартовый список с баллами ITRA.';
+    return;
+  }
+  if(!(pi>0)){
+    if($('saveItraRosterStatus')) $('saveItraRosterStatus').textContent='Введите свой ITRA PI.';
+    return;
+  }
+  let athlete=($('athleteName')?.value||'').trim();
+  if(!athlete){
+    athlete='Вы';
+    const existing=state.roster.find(r=>String(r.athlete||'').toLowerCase()==='вы');
+    if(existing) existing.pi=pi;
+    else state.roster.push({athlete:'Вы',gender:'',pi,tech:0,end:0,form:0,_raw:{}});
+  }
+  const nameEl=$('athleteName'); if(nameEl) nameEl.value=athlete;
+  if($('saveItraRosterStatus')) $('saveItraRosterStatus').textContent='✓ PI принят. Рассчитываю прогноз гонки…';
+  updateFinalCalcAvailability();
+  const calc=$('calcBtn');
+  if(calc){ calc.disabled=false; calc.click(); }
+},true);

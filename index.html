@@ -194,7 +194,7 @@
 
 
 <style>
-/* v0.0259 — compact phone simulation */
+/* v0.0260 — compact phone simulation */
 .sim-profile-card{display:none!important}
 .sim-reference-shell{gap:10px!important}
 .sim-scene-title{
@@ -313,7 +313,7 @@
 </style>
 
 <style>
-/* v0.0259 — small event notification above the track profile */
+/* v0.0260 — small event notification above the track profile */
 #simEventCard{display:none!important}
 .sim-event-chip{
   position:absolute;
@@ -391,7 +391,7 @@
 </style>
 
 <style>
-/* v0.0259 — static route map, no zoom/pan */
+/* v0.0260 — static route map, no zoom/pan */
 .ford-leaflet-map,
 .sim-ford-map{
   touch-action:none!important;
@@ -406,7 +406,7 @@
 </style>
 
 <style>
-/* v0.0259: compact controls, nothing overlaps on iPhone */
+/* v0.0260: compact controls, nothing overlaps on iPhone */
 .sim-scene-controls{
   position:static!important;
   display:grid!important;
@@ -450,13 +450,13 @@
 </style>
 
 <style>
-/* v0.0259 */
+/* v0.0260 */
 .sim-fords-card{display:none!important}
 .sim-mid-grid{grid-template-columns:1fr!important}
 </style>
 
 <style>
-/* v0.0259 — map is shown in route analysis, hidden only in simulation */
+/* v0.0260 — map is shown in route analysis, hidden only in simulation */
 #route .ford-map-panel,
 [data-tabpanel="route"] .ford-map-panel,
 #tab-route .ford-map-panel{
@@ -476,7 +476,7 @@
 </style>
 
 <style>
-/* v0.0259 — guaranteed GPX scheme in Analysis map block */
+/* v0.0260 — guaranteed GPX scheme in Analysis map block */
 #mapAnalysisResults .ford-map-panel{
   display:block!important;
   visibility:visible!important;
@@ -505,7 +505,7 @@
 </style>
 
 <style>
-/* v0.0259 — analysis progress UI */
+/* v0.0260 — analysis progress UI */
 .map-analyze-running{
   margin-top:12px;padding:14px;border:1px solid #2a405d;border-radius:15px;
   background:#0b1727;display:grid;grid-template-columns:42px minmax(0,1fr);
@@ -637,7 +637,7 @@
 
 </head>
 <body>
-<div class="app-version">v0.0259</div>
+<div class="app-version">v0.0260</div>
   <header class="app-header">
     <div>
       <div class="eyebrow">Прогноз и анализ трейловых гонок</div>
@@ -955,11 +955,15 @@
           
 
         <div class="itra-online-box">
-          <button id="itraLookupBtn" type="button" class="secondary action-idle" disabled>Заполнить ITRA автоматически · по 50 участников</button>
-          <div id="itraLookupStatus" class="muted">Сначала загрузите стартовый список. Затем приложение само обработает участников пакетами по 50.</div>
-          <button id="saveItraRosterBtn" type="button" class="secondary action-idle" disabled>Сохранить список с ITRA на iPhone</button>
-          <div id="saveItraRosterStatus" class="muted">После поиска ITRA можно сохранить новый CSV со всеми участниками и баллами.</div>
+          <button id="itraLookupBtn" type="button" class="secondary action-idle" disabled>Загрузить список с баллами ITRA</button>
+          <div id="itraLookupStatus" class="muted">Загрузите XLSX / CSV, в котором уже есть баллы ITRA.</div>
+          <button id="saveItraRosterBtn" type="button" class="secondary action-idle" disabled>Рассчитать прогноз гонки по баллам ITRA</button>
+          <div id="saveItraRosterStatus" class="muted">Введите свой ITRA PI и рассчитайте прогноз относительно загруженного стартового списка.</div>
         </div>
+        <label class="field">
+          <span>Мой ITRA PI</span>
+          <input id="itraPi" type="number" min="0" max="1000" step="1" value="0" inputmode="numeric" placeholder="Например, 545">
+        </label>
         <label class="field">
             <span>Зачёт</span>
             <select id="genderFilter">
