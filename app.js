@@ -1,11 +1,9 @@
 
 function purchasesLockedDuringRace(){
-  try{
-    if(state && state.race && state.race.running){
-      showGameError('Во время гонки покупки запрещены. Дождитесь финиша или завершите гонку.');
-      return true;
-    }
-  }catch(e){}
+  if(run && run.running){
+    showGameError('Во время гонки нельзя покупать или менять экипировку и расходники. Дождитесь финиша.');
+    return true;
+  }
   return false;
 }
 
@@ -408,6 +406,18 @@ function durability(cat){
 function setDur(cat,v){game.durability[durKey(cat)]=Math.max(0,v)}
 
 function render(){
+ const raceShoppingLocked=!!(run&&run.running);
+ const restRaceLocked=raceShoppingLocked;
+ const restBtnRace=$('restBtn');
+ if(restBtnRace){
+   restBtnRace.disabled=restRaceLocked || isResting();
+   restBtnRace.title=restRaceLocked?'Во время гонки отдых недоступен':'';
+ }
+ const shopJump=$('scrollShopBtn');
+ if(shopJump){
+   shopJump.disabled=raceShoppingLocked;
+   shopJump.title=raceShoppingLocked?'Покупки недоступны до финиша':'Купить / сменить экипировку';
+ }
  keepEquippedGear();
  const L=levelData();
  $('runnerLevel').textContent=game.level;
@@ -422,7 +432,15 @@ function render(){
  $('fatigueBar').className=game.fatigue>=80?'danger-fatigue':game.fatigue>=55?'warn-fatigue':'';
  $('restText').textContent=restMs>0?'отдых ещё '+fmtRest(restMs):game.fatigue>=70?'нужен отдых':'готов к гонке';
  $('gelCount').textContent=game.resources.gels;
- $('gelNeedText').textContent='на эту гонку нужно ≈ '+gelsNeeded(L);
+ const gelNeedNow=gelsNeeded(L);
+ $('gelNeedText').textContent='на эту гонку нужно ≈ '+gelNeedNow;
+ const gelQuick=$('quickBuyGels');
+ if(gelQuick){
+   const miss=Math.max(0,gelNeedNow-Number(game.resources.gels||0));
+   gelQuick.classList.toggle('quick-buy-ok',miss===0);
+   const h=gelQuick.querySelector('.quick-buy-hint');
+   if(h) h.textContent=miss===0?'Запас на гонку готов':`Докупить ${miss} шт. · ${fmtMoney(miss*RESOURCE_CATALOG.gels.price)}`;
+ }
  if(isRechargeableLamp()){
    $('lampPowerText').textContent='🔋 '+Math.round(game.lampCharge)+'%';
    $('lampPowerSub').textContent=`сменных АКБ: ${game.resources.accumulator||0} · ${game.resources.powerbank>0?'powerbank есть':'без powerbank'}`;
@@ -431,6 +449,15 @@ function render(){
    $('lampPowerSub').textContent='фонарь на батарейках';
  }
  $('medkitSummary').textContent=medkitScore()+'/5';
+ const medQuick=$('quickBuyMedkit');
+ if(medQuick){
+   const medKeys=['bandage','gauze','peroxide','plaster','cream'];
+   const missing=medKeys.filter(k=>Number(game.resources[k]||0)<=0);
+   const cost=missing.reduce((s,k)=>s+RESOURCE_CATALOG[k].price,0);
+   medQuick.classList.toggle('quick-buy-ok',missing.length===0);
+   const h=medQuick.querySelector('.quick-buy-hint');
+   if(h) h.textContent=missing.length===0?'Аптечка укомплектована':`Докупить ${missing.length} поз. · ${fmtMoney(cost)}`;
+ }
  ensureTraining();
  if($('fitnessText'))$('fitnessText').textContent=`${Math.round(game.fitness)} / 100`;
  if($('coachText'))$('coachText').textContent=COACHES[game.coach]?.name||'Без тренера';
@@ -514,6 +541,7 @@ function renderShop(){
  });
 
  g.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{
+   if(purchasesLockedDuringRace())return;
    const [cat,idxS]=b.dataset.buy.split(':'),idx=+idxS,it=GEAR[cat][idx];
    if(game.money<it[1])return;
    game.money-=it[1];
@@ -621,6 +649,7 @@ function updateRestUi(){
 }
 setInterval(()=>{if($('restBtn')){updateRestUi(); if($('restText'))$('restText').textContent=isResting()?'отдых ещё '+fmtRest(restRemainingMs()):game.fatigue>=70?'нужен отдых':'готов к гонке'}},1000);
 $('restBtn')?.addEventListener('click',()=>{
+  if(run && run.running){ showGameError('Во время гонки отдых недоступен. Сначала завершите гонку.'); return; }
   if(isResting())return;
   game.restUntil=Date.now()+60*1000;saveGame();updateRestUi();
 });
@@ -744,7 +773,10 @@ function switchTab(id){
  if(el.tagName==='DETAILS') el.open=true;
  el.scrollIntoView({behavior:'smooth',block:'start'});
 }
-$('scrollShopBtn')?.addEventListener('click',()=>switchTab('shop'));
+$('scrollShopBtn')?.addEventListener('click',()=>{
+  if(purchasesLockedDuringRace())return;
+  switchTab('shop');
+});
 
 function keepEquippedGear(){
   // Сломанная вещь остаётся выбранной/надетой, пока игрок сам не купит и не наденет другую.
@@ -1010,7 +1042,7 @@ function startRace(){
 }
 function tick(ts){
  if(!run||!run.running)return;
- // Визуальная симуляция ускорена ещё в 1.5 раза; игровое финишное время не меняется.
+ // Визуальная скорость прохождения увеличена в 2 раза относительно предыдущей сборки; игровое финишное время не меняется.
  const dt=(ts-lastTs)/1000*Number($('speed').value||2);lastTs=ts;
  if(!run.paused){
    const total=Math.max(60,run.base+run.penalty);
@@ -1206,7 +1238,6 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
 }
 $('startBtn').onclick=startRace;
 $('pauseBtn').onclick=()=>{if(!run)return;run.paused=!run.paused;$('pauseBtn').textContent=run.paused?'▶ Продолжить':'Ⅱ Пауза';lastTs=performance.now()};
-$('resetBtn').onclick=()=>{if(timer)cancelAnimationFrame(timer);run=null;$('startBtn').disabled=false;$('pauseBtn').disabled=true;$('pauseBtn').textContent='Ⅱ Пауза';$('progressBar').style.width='0';$('eventLog').innerHTML='<div class="muted">События появятся по ходу гонки.</div>';render()};
 $('resetGameBtn').onclick=()=>{if(confirm('Сбросить весь прогресс, деньги и экипировку?')){localStorage.removeItem('trailArmageddonSave');game=loadGame();render()}};
 
 function drawRunnerFacingForward(ctx,x,y,scale=1){
@@ -1229,10 +1260,64 @@ function drawRunnerFacingForward(ctx,x,y,scale=1){
  ctx.fillStyle='#2563eb';ctx.fillRect(-2,-46,19,7);ctx.fillRect(14,-42,13,4);
  ctx.restore();
 }
-function drawOpponent(ctx,x,y,scale=1,color='#60a5fa'){
- ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=4;ctx.lineCap='round';
- ctx.beginPath();ctx.arc(4,-18,5,0,Math.PI*2);ctx.fill();
- ctx.beginPath();ctx.moveTo(0,-12);ctx.lineTo(7,2);ctx.moveTo(6,-5);ctx.lineTo(16,1);ctx.moveTo(6,2);ctx.lineTo(16,15);ctx.moveTo(5,2);ctx.lineTo(-5,14);ctx.stroke();ctx.restore();
+function drawOpponent(ctx,x,y,scale=1,color='#60a5fa',rank=0){
+ ctx.save();
+ ctx.translate(x,y);
+ ctx.scale(scale,scale);
+
+ // Soft shadow makes competitors readable over the elevation background.
+ ctx.shadowColor='rgba(0,0,0,.38)';
+ ctx.shadowBlur=5;
+ ctx.shadowOffsetY=2;
+
+ // Round competitor token.
+ ctx.beginPath();
+ ctx.arc(4,-5,17,0,Math.PI*2);
+ ctx.fillStyle='rgba(5,15,28,.94)';
+ ctx.fill();
+ ctx.lineWidth=3;
+ ctx.strokeStyle=color;
+ ctx.stroke();
+
+ // Runner head.
+ ctx.shadowColor='transparent';
+ ctx.beginPath();
+ ctx.arc(4,-12,4.2,0,Math.PI*2);
+ ctx.fillStyle='#f8fafc';
+ ctx.fill();
+
+ // Runner body with forward lean.
+ ctx.strokeStyle='#f8fafc';
+ ctx.lineWidth=3.4;
+ ctx.lineCap='round';
+ ctx.beginPath();
+ ctx.moveTo(3,-7); ctx.lineTo(8,1);
+ ctx.moveTo(7,-3); ctx.lineTo(14,-1);
+ ctx.moveTo(8,1); ctx.lineTo(14,8);
+ ctx.moveTo(8,1); ctx.lineTo(1,8);
+ ctx.stroke();
+
+ // Colored singlet.
+ ctx.strokeStyle=color;
+ ctx.lineWidth=4.4;
+ ctx.beginPath();
+ ctx.moveTo(3,-6);ctx.lineTo(8,1);
+ ctx.stroke();
+
+ // Small rank badge for leaders.
+ if(rank>0){
+   ctx.beginPath();
+   ctx.arc(17,-19,8,0,Math.PI*2);
+   ctx.fillStyle=rank===1?'#fbbf24':rank===2?'#cbd5e1':'#d97706';
+   ctx.fill();
+   ctx.fillStyle='#07111f';
+   ctx.font='bold 10px sans-serif';
+   ctx.textAlign='center';
+   ctx.textBaseline='middle';
+   ctx.fillText(String(rank),17,-19);
+ }
+
+ ctx.restore();
 }
 function drawTrack(p){
  const c=$('trackCanvas'),ctx=c.getContext('2d'),W=c.width,H=c.height,L=levelData();
@@ -1256,26 +1341,96 @@ function drawTrack(p){
 
  // If not leading, show the main pack ahead.
  if(pos>6){
-   const gx=Math.min(W-185,x+125), gy=ground-18;
-   for(let i=0;i<6;i++) drawOpponent(ctx,gx+(i%3)*24,gy+Math.floor(i/3)*18,.72,['#60a5fa','#34d399','#f59e0b'][i%3]);
-   ctx.fillStyle='rgba(5,15,28,.86)';ctx.fillRect(gx-10,gy-82,120,42);
-   ctx.fillStyle='#fff';ctx.font='bold 16px sans-serif';ctx.fillText('ГРУППА',gx+12,gy-58);
-   ctx.font='14px sans-serif';ctx.fillText(`места 6–${Math.max(10,pos-1)}`,gx+8,gy-41);
+   const gx=Math.min(W-210,x+125), gy=ground-18;
+   const packColors=['#60a5fa','#34d399','#f59e0b','#a78bfa','#fb7185','#22d3ee'];
+   const packOffsets=[[0,0],[38,-4],[76,1],[18,35],[56,31],[94,36]];
+   for(let i=0;i<6;i++){
+     drawOpponent(ctx,gx+packOffsets[i][0],gy+packOffsets[i][1],.76,packColors[i],0);
+   }
+
+   // Rounded label above the pack.
+   const pw=148,ph=50,px=gx-12,py=gy-88,r=12;
+   ctx.fillStyle='rgba(5,15,28,.93)';
+   ctx.beginPath();
+   ctx.roundRect(px,py,pw,ph,r);
+   ctx.fill();
+   ctx.strokeStyle='rgba(96,165,250,.55)';
+   ctx.lineWidth=2;
+   ctx.stroke();
+   ctx.fillStyle='#dbeafe';
+   ctx.font='bold 16px sans-serif';
+   ctx.textAlign='left';
+   ctx.fillText('👥 ГРУППА',px+13,py+20);
+   ctx.fillStyle='#93c5fd';
+   ctx.font='13px sans-serif';
+   ctx.fillText(`места 6–${Math.max(10,pos-1)}`,px+13,py+40);
  }
  // Top-3 leaders visible farther ahead whenever runner is not first.
  if(pos>1){
-   const lx=Math.min(W-110,x+245),ly=ground-62;
-   for(let i=0;i<3;i++) drawOpponent(ctx,lx+i*23,ly+i*9,.62,'#fbbf24');
-   ctx.fillStyle='rgba(5,15,28,.9)';ctx.fillRect(lx-28,ly-82,132,44);
-   ctx.fillStyle='#fde68a';ctx.font='bold 15px sans-serif';ctx.fillText('ЛИДЕРЫ 1–3',lx-14,ly-57);
+   const lx=Math.min(W-178,x+260),ly=ground-70;
+   const leaderColors=['#fbbf24','#cbd5e1','#d97706'];
+   for(let i=0;i<3;i++){
+     drawOpponent(ctx,lx+i*42,ly+i*5,.82,leaderColors[i],i+1);
+   }
+
    const leadKm=leaderKmFor(1,L,p*L[1]);
-   ctx.font='13px sans-serif';ctx.fillText(`${leadKm.toFixed(1)} км`,lx+12,ly-40);
+   const lw=164,lh=52,lxBox=lx-14,lyBox=ly-92,r=12;
+   ctx.fillStyle='rgba(22,15,5,.95)';
+   ctx.beginPath();
+   ctx.roundRect(lxBox,lyBox,lw,lh,r);
+   ctx.fill();
+   ctx.strokeStyle='rgba(251,191,36,.7)';
+   ctx.lineWidth=2;
+   ctx.stroke();
+   ctx.fillStyle='#fde68a';
+   ctx.font='bold 15px sans-serif';
+   ctx.textAlign='left';
+   ctx.fillText('🏆 ЛИДЕРЫ 1–3',lxBox+12,lyBox+20);
+   ctx.fillStyle='#fef3c7';
+   ctx.font='13px sans-serif';
+   ctx.fillText(`${leadKm.toFixed(1)} км`,lxBox+12,lyBox+41);
  }
 
  // runner faces toward the finish (right), not toward the viewer
  drawRunnerFacingForward(ctx,x,ground,1.15);
  ctx.fillStyle='#fff';ctx.font='22px sans-serif';ctx.fillText(`${(p*L[1]).toFixed(1)} км`,Math.max(10,x-35),ground+48);
 }
+
+
+function quickBuyGels(){
+ if(purchasesLockedDuringRace()){ showGameError('Во время гонки покупки недоступны'); return; }
+ const need=gelsNeeded(levelData());
+ const missing=Math.max(0,need-Number(game.resources.gels||0));
+ if(missing<=0){ showGameError('Гелей уже достаточно для этой гонки'); return; }
+ const cost=missing*RESOURCE_CATALOG.gels.price;
+ if(game.money<cost){ showGameError(`Не хватает рублей: нужно ${fmtMoney(cost)}`); return; }
+ game.money-=cost;
+ game.resources.gels=Number(game.resources.gels||0)+missing;
+ saveGame(); render();
+}
+
+function quickBuyMedkit(){
+ if(purchasesLockedDuringRace()){ showGameError('Во время гонки покупки недоступны'); return; }
+ const keys=['bandage','gauze','peroxide','plaster','cream'];
+ const missing=keys.filter(k=>Number(game.resources[k]||0)<=0);
+ if(!missing.length){ showGameError('Аптечка уже укомплектована 5/5'); return; }
+ const cost=missing.reduce((sum,k)=>sum+RESOURCE_CATALOG[k].price,0);
+ if(game.money<cost){ showGameError(`Не хватает рублей: нужно ${fmtMoney(cost)}`); return; }
+ game.money-=cost;
+ missing.forEach(k=>game.resources[k]=Number(game.resources[k]||0)+1);
+ saveGame(); render();
+}
+
+function bindQuickBuyCard(id,fn){
+ const el=$(id); if(!el || el.dataset.quickBuyBound==='1') return;
+ el.dataset.quickBuyBound='1';
+ el.addEventListener('click',fn);
+ el.addEventListener('keydown',e=>{
+   if(e.key==='Enter'||e.key===' '){ e.preventDefault(); fn(); }
+ });
+}
+bindQuickBuyCard('quickBuyGels',quickBuyGels);
+bindQuickBuyCard('quickBuyMedkit',quickBuyMedkit);
 
 render();
 

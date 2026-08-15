@@ -7,6 +7,15 @@
 <title>Trail Runner: Armageddon</title>
 <p class="registration-required-note"></p>
 <link rel="stylesheet" href="styles.css">
+
+<style>
+.quick-buy-card{cursor:pointer;position:relative;transition:transform .12s ease,border-color .12s ease}
+.quick-buy-card:active{transform:scale(.985)}
+.quick-buy-card:hover{border-color:#4d78a8}
+.quick-buy-hint{display:block!important;margin-top:7px;color:#55b9ff!important;font-size:12px!important}
+.quick-buy-card.quick-buy-ok .quick-buy-hint{color:#73d995!important}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -15,7 +24,7 @@
       <div class="eyebrow">TRAIL RUNNER RPG</div>
       <h1>Гонка → Экипировка → Армагеддон</h1>
     </div>
-    <div class="topbar-account"><button id="topHelpBtn" class="help-btn top-help-btn" type="button">❓ Помощь</button><div class="version">v10.25</div>
+    <div class="topbar-account"><button id="topHelpBtn" class="help-btn top-help-btn" type="button">❓ Помощь</button><div class="version">v10.29</div>
   </div></header>
 
   <section class="hud card">
@@ -32,20 +41,22 @@
       <div class="mini-progress"><div id="fatigueBar"></div></div>
       <small id="restText">Готов к гонке</small>
     </div>
-    <div>
+    <div id="quickBuyGels" class="quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить гели до нормы этой гонки">
       <span>Гели</span>
       <b id="gelCount">0</b>
       <small id="gelNeedText">нужно по дистанции</small>
+      <small class="quick-buy-hint">Нажмите, чтобы докупить</small>
     </div>
     <div>
       <span>Питание фонаря</span>
       <b id="lampPowerText">—</b>
       <small id="lampPowerSub">—</small>
     </div>
-    <div>
+    <div id="quickBuyMedkit" class="quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить недостающие компоненты аптечки">
       <span>Аптечка</span>
       <b id="medkitSummary">—</b>
       <small>бинт · марля · перекись · пластырь · крем</small>
+      <small class="quick-buy-hint">Нажмите, чтобы докупить</small>
     </div>
     <div>
       <span>Погода гонки</span>
@@ -70,6 +81,7 @@
           </div>
         </div>
         <button id="restBtn" class="primary">😴 Отдыхать 1 минуту</button>
+        <div class="muted">Во время гонки отдых запустить нельзя.</div>
         <div id="restStatus" class="notice">Можно стартовать.</div>
       </div>
 
@@ -106,10 +118,10 @@
         <div class="row between">
           <h2>Симуляция гонки</h2>
           <select id="speed">
-            <option value="60">60×</option>
-            <option value="90">90×</option>
-            <option value="120" selected>120×</option>
-            <option value="150">150×</option>
+            <option value="120">120×</option>
+            <option value="180">180×</option>
+            <option value="240" selected>240×</option>
+            <option value="300">300×</option>
           </select>
         </div>
 
@@ -145,8 +157,8 @@
         <div class="controls">
           <button id="startBtn" class="primary">▶ Старт</button>
           <button id="pauseBtn" class="secondary" disabled>Ⅱ Пауза</button>
-          <button id="resetBtn" class="secondary">↻ Сброс</button>
         </div>
+        <div class="notice race-lock-note">После старта покупки и смена необходимой экипировки/расходников недоступны до финиша.</div>
         <div id="preRaceNote" class="notice">Перед стартом обязательна проверка экипировки и расходников. Кроссовки имеют 5 уровней: более дорогие дают прирост скорости и лучше переживают сложные трассы. На длинной гонке могут закончиться гели, батарейки или аптечка.</div>
         <div id="raceResourceWarning" class="notice warning-note"></div>
       </div>
@@ -231,7 +243,7 @@
     </section></main>
 
   <div class="card simulation-disclaimer" style="margin-top:16px;line-height:1.5;font-size:.92rem;opacity:.9">ℹ️ Игра является симуляцией. Броды, погода, питание, состояние покрытия, самочувствие и другие факторы могут существенно повлиять на фактический результат. Расчёты носят исключительно информационно-ознакомительный характер, не являются гарантией результата или рекомендацией к действию. Автор не несёт ответственности за решения, принятые на основании расчётов игры.</div>
-  <footer>Trail Runner: Armageddon v10.25 · игровая симуляция · 2026</footer>
+  <footer>Trail Runner: Armageddon v10.29 · игровая симуляция · 2026</footer>
 </div>
 <script src="app.js"></script>
 
