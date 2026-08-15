@@ -419,14 +419,14 @@ function updateRestUi(){
    s.textContent='До полного отдыха: '+fmtRest(ms)+'. Старт гонки заблокирован.';
  }else{
    if(game.restUntil){game.restUntil=0;game.fatigue=Math.max(0,game.fatigue-65);saveGame();}
-   b.disabled=false;b.textContent='😴 Отдыхать 5 минут';
+   b.disabled=false;b.textContent='😴 Отдыхать 1 минуту';
    s.textContent=game.fatigue>=70?'Усталость высокая — лучше отдохнуть перед следующим стартом.':'Можно стартовать.';
  }
 }
 setInterval(()=>{if($('restBtn')){updateRestUi(); if($('restText'))$('restText').textContent=isResting()?'отдых ещё '+fmtRest(restRemainingMs()):game.fatigue>=70?'нужен отдых':'готов к гонке'}},1000);
 $('restBtn')?.addEventListener('click',()=>{
   if(isResting())return;
-  game.restUntil=Date.now()+5*60*1000;saveGame();updateRestUi();
+  game.restUntil=Date.now()+60*1000;saveGame();updateRestUi();
 });
 
 function trainingRemainingMs(){return Math.max(0,(game.trainingUntil||0)-Date.now())}
@@ -859,14 +859,23 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  const L=levelData();
 
  if(forceDnf || run.dnf){
+   // DNF never gives race money.
    game.fatigue=Math.min(100,game.fatigue+18+L[5]*3);
    game.lastFinishAt=Date.now();
    saveGame();
    const ov=$('finishOverlay');
+   const coach=COACHES[game.coach]||COACHES[0];
+   let dnfCoachAdvice='';
+   if(game.coach===0){
+     dnfCoachAdvice='<br><br>💡 Рекомендация: нанять тренера перед следующей попыткой.';
+   }else if(coach.maxDifficulty<L[5]){
+     const stronger=COACHES.findIndex((x,i)=>i>game.coach && x.maxDifficulty>=L[5]);
+     if(stronger>=0) dnfCoachAdvice=`<br><br>💡 Рекомендация: сменить тренера на «${COACHES[stronger].name}» — текущий уровень подготовки ниже сложности гонки.`;
+   }
    if(dnfReason==='freeze'){
-     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🥶</div><b>DNF · переохлаждение</b><span>Вы вышли на холод/дождь без рабочей мембранки и замёрзли до финиша.</span></div>`;
+     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🥶</div><b>DNF · переохлаждение</b><span>Вы вышли на холод/дождь без рабочей мембранки и замёрзли до финиша.<br><br>💰 За DNF награда: ₽ 0.${dnfCoachAdvice}</span></div>`;
    }else{
-     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🦴</div><b>DNF · перелом ноги</b><span>Слишком высокая нагрузка и мало отдыха. Отдохните 5 минут перед новой попыткой.</span></div>`;
+     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🦴</div><b>DNF · перелом ноги</b><span>Слишком высокая нагрузка и мало отдыха. Отдохните 1 минуту перед новой попыткой.<br><br>💰 За DNF награда: ₽ 0.${dnfCoachAdvice}</span></div>`;
    }
    ov.classList.add('show');
    setTimeout(()=>{ov.classList.remove('show');render();switchTab('resources')},5000);
@@ -915,7 +924,25 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
 
  const champ=game.completed>=20;
  const ov=$('finishOverlay');
- ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br>Тренированность: ${Math.round(game.fitness)}/100<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}</span></div>`;
+
+ let coachAdvice='';
+ const currentCoach=COACHES[game.coach]||COACHES[0];
+ const poorRun=(pos>10 || final>L[3]*1.12 || ratio<0.90);
+
+ if(poorRun){
+   if(game.coach===0){
+     coachAdvice='<br><br>💡 Рекомендация: нанять тренера — он ускорит рост тренированности и подготовку к более сложным гонкам.';
+   }else if(currentCoach.maxDifficulty<L[5]){
+     const stronger=COACHES.findIndex((x,i)=>i>game.coach && x.maxDifficulty>=L[5]);
+     coachAdvice=stronger>=0
+       ? `<br><br>💡 Рекомендация: текущий тренер рассчитан до ${'★'.repeat(currentCoach.maxDifficulty)}. Для этой гонки лучше сменить на «${COACHES[stronger].name}».`
+       : '<br><br>💡 Рекомендация: нужен более сильный тренер для этой сложности.';
+   }else{
+     coachAdvice='<br><br>💡 Рекомендация: продолжить тренировки — уровень тренера подходит, но тренированность ещё можно повысить.';
+   }
+ }
+
+ ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br>Тренированность: ${Math.round(game.fitness)}/100<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}${coachAdvice}</span></div>`;
  ov.classList.add('show');
  setTimeout(()=>{ov.classList.remove('show');render()},champ?7000:4200);
 }
