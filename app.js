@@ -1669,8 +1669,21 @@ function renderMapAnalysis(result){
   // then deduplicates only near-identical physical crossings.
   const bridgeKms=(crossings.bridges||[]).slice();
   const confirmedFordKms=(crossings.confirmed||[]).slice();
-  const likelyFordKms=(crossings.likely||[]).slice();
-  const fordKms=(crossings.fords||[]).slice();
+
+  // v0.0251: on city/road races, an early generic water intersection is
+  // usually a false ford (stream/culvert/road drainage). Do not count
+  // probable fords in the first 1 km on predominantly paved routes.
+  // Explicit OSM ford tags remain untouched.
+  const urbanLike=Number(summary?.paved||0)>=70
+    && (Number(summary?.trail||0)+Number(summary?.dirt||0))<=20;
+  const urbanStartIgnoreKm=Math.min(1.0, Math.max(0.2, Number(state.dist||0)*0.10));
+  const likelyFordKms=(crossings.likely||[]).slice().filter(k=>
+    !(urbanLike && Number(k)<urbanStartIgnoreKm)
+  );
+  const fordKms=[...confirmedFordKms,...likelyFordKms]
+    .filter(Number.isFinite)
+    .sort((a,b)=>a-b)
+    .filter((v,i,a)=>i===0 || Math.abs(v-a[i-1])>0.05);
   state.mapAnalysis={
     result,
     samples:[...samples],
@@ -1729,7 +1742,7 @@ function renderMapAnalysis(result){
 
   $('mapAnalysisNote').textContent=result?.osmUnavailable
     ? 'OSM-серверы временно недоступны. Профиль GPX сохранён; повторите анализ позже для покрытия и бродов.'
-    : `OSM-классификация маршрута. Броды в пределах 400 м объединяются в один; рукава одной реки также объединяются, мосты исключаются. Неизвестно: ${(100-summary.coverage).toFixed(0)}%.`;
+    : `OSM-классификация маршрута. Броды в пределах 400 м объединяются в один; рукава одной реки также объединяются, мосты исключаются.${urbanLike ? ' На преимущественно асфальтовом городском маршруте вероятные броды в первом километре не учитываются.' : ''} Неизвестно: ${(100-summary.coverage).toFixed(0)}%.`;
   drawSurfaceStrip(samples);
   requestAnimationFrame(()=>drawFordScheme());
 }
@@ -2775,7 +2788,7 @@ function flatRaceAnchorForTarget(){
 
   const speedCal=vo2AdjustedFlatCalibration(ref,vo2);
 
-  // v0.0248: for short races the real flat/speed GPX is the primary anchor.
+  // v0.0251: for short races the real flat/speed GPX is the primary anchor.
   // If the target is essentially the same distance as the speed reference,
   // use the actually recorded pace directly instead of allowing q75/q85 or
   // VO2max to make the forecast faster than the reference performance.
@@ -3304,11 +3317,15 @@ function calculateRaceForecast(){
 
   const physiology=racePhysiologyFactors(totalSec);
 
+  const shortRace=state.dist<=15;
+  const realisticLowFactor=shortRace ? 0.938 : 0.95;
+  const realisticHighFactor=shortRace ? 1.045 : 1.05;
+
   return {
     totalSec,
     avgPaceSec:totalSec/state.dist,
-    lowSec:totalSec*0.95,
-    highSec:totalSec*1.05,
+    lowSec:totalSec*realisticLowFactor,
+    highSec:totalSec*realisticHighFactor,
     effort,
     groupKm,
     segmentMode,
@@ -3477,8 +3494,13 @@ function renderRaceForecast(options={}){
 
       f.totalSec+=extraTotal;
       f.avgPaceSec=f.totalSec/state.dist;
-      f.lowSec=f.totalSec*0.90;
-      f.highSec=f.totalSec*0.0200;
+      if(state.dist<=15){
+        f.lowSec=f.totalSec*0.938;
+        f.highSec=f.totalSec*1.045;
+      }else{
+        f.lowSec=f.totalSec*0.95;
+        f.highSec=f.totalSec*1.05;
+      }
       f.physiology=racePhysiologyFactors(f.totalSec);
     }
     // v0.50: HR targets use the real HR DISTRIBUTION of the uploaded GPXs.
