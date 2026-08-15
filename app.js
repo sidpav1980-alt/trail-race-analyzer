@@ -69,14 +69,14 @@ function loadGame(){
   try{
     const x=JSON.parse(localStorage.getItem('trailArmageddonSave')||'null');
     if(x) return Object.assign({
-      money:1500,xp:0,level:1,completed:0,rep:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
+      money:1500,xp:0,level:1,completed:0,rep:0,wins:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
       durability:{},best:{},fatigue:0,lastFinishAt:0,restUntil:0,
       resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
       lampCharge:100
     },x);
   }catch(e){}
   return {
-    money:1500,xp:0,level:1,completed:0,rep:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
+    money:1500,xp:0,level:1,completed:0,rep:0,wins:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
     durability:{},best:{},fatigue:0,lastFinishAt:0,restUntil:0,
     resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
     lampCharge:100
@@ -386,19 +386,36 @@ function visibleLeaderName(name){
    : 'Неизвестный участник';
 }
 
+function leaderKmForPosition(rank,L,playerKm,playerPos){
+ const dist=L[1];
+ const p=Math.max(1,Number(playerPos||18));
+
+ // TOP-3 positions must agree with the displayed player place.
+ // If the player is 1st, all three named rivals are slightly behind.
+ // If the player is 2nd, only leader #1 is ahead; if 3rd — #1 and #2 are ahead.
+ if(p===1){
+   const behind=[0.010,0.018,0.026][rank-1]*dist;
+   return Math.max(0,Math.min(dist,playerKm-behind));
+ }
+ if(p===2){
+   if(rank===1) return Math.max(0,Math.min(dist,playerKm+0.014*dist));
+   const behind=(rank===2?0.008:0.018)*dist;
+   return Math.max(0,Math.min(dist,playerKm-behind));
+ }
+ if(p===3){
+   if(rank<=2) return Math.max(0,Math.min(dist,playerKm+(rank===1?0.016:0.008)*dist));
+   return Math.max(0,Math.min(dist,playerKm-0.008*dist));
+ }
+
+ // Outside TOP-3 the leaders stay ahead. The gap gradually shrinks through the race.
+ const base=[0.055,0.040,0.028][rank-1]*dist;
+ const dynamic=base*(0.65+0.35*(1-(run?.p||0)));
+ return Math.max(0,Math.min(dist,playerKm+dynamic));
+}
+
 function leaderKmFor(rank,L,playerKm){
  if(!run || !run.running) return 0;
- const playerPos=Math.max(1,run.currentPosition||run.position||18);
- // Leaders are visibly ahead while the player is outside top-3.
- // Gap shrinks as player improves; leader 1 is a little farther than 2/3.
- const baseGap=playerPos<=3 ? [0.18,0.10,0.04][rank-1] : [0.055,0.040,0.028][rank-1]*L[1];
- const dynamicGap=playerPos<=3 ? baseGap : baseGap*(0.65+0.35*(1-run.p));
- let km=playerKm+dynamicGap;
- // If player is already in top 3, let his progress nearly match the leaders.
- if(playerPos===1) km=Math.max(playerKm-(rank-1)*0.03,playerKm);
- else if(playerPos===2 && rank>=2) km=Math.max(playerKm-(rank-2)*0.02,playerKm);
- else if(playerPos===3 && rank===3) km=playerKm;
- return Math.max(0,Math.min(L[1],km));
+ return leaderKmForPosition(rank,L,playerKm,run.currentPosition||run.position||18);
 }
 function renderRaceLeaders(playerKm=0){
  const box=$('raceLeaders'); if(!box)return;
@@ -463,6 +480,7 @@ function render(){
  $('money').textContent=fmtMoney(game.money);
  $('completed').textContent=`${game.completed} / 20`;
  $('rep').textContent=game.rep;
+ $('wins').textContent=game.wins||0;
  ensureResources();ensureTraining();
  const restMs=restRemainingMs();
  $('fatigueValue').textContent=Math.round(game.fatigue)+'%';
@@ -602,7 +620,11 @@ function renderShop(){
        Ресурс: ${it[3]} ед. · защита от поломки +${Math.round(it[4]*100)}%
      </div>
      <button class="${owned?'secondary equipped-btn':'primary'}" ${owned||game.money<it[1]?'disabled':''} data-buy="${activeShopCategory}:${idx}">
-       ${owned?(durability(activeShopCategory)<=0?'✓ Надето · сломано':'✓ Надето'):game.money<it[1]?'Не хватает ₽':'Купить и надеть'}
+       ${owned
+         ? (durability(activeShopCategory)<=0?'✓ Надето · сломано':'✓ Надето')
+         : game.money<it[1]
+           ? `Не хватает ${fmtMoney(it[1]-game.money)}`
+           : 'Купить и надеть'}
      </button>`;
    g.appendChild(d);
  });
@@ -666,14 +688,18 @@ function renderResources(){
    const oneOnly=key==='powerbank';
    d.innerHTML=`<h3>${it.name}</h3>
      <div class="meta">${it.desc}<br>В наличии: <b>${count}</b> ${it.unit}<br><span class="money">${fmtMoney(it.price)}</span></div>
-     <button class="primary" ${oneOnly&&count>0?'disabled':''} data-resource-buy="${key}">
-       ${oneOnly&&count>0?'Уже куплен':'Купить'}
+     <button class="primary" ${(oneOnly&&count>0)||game.money<it.price?'disabled':''} data-resource-buy="${key}">
+       ${oneOnly&&count>0
+         ? 'Уже куплен'
+         : game.money<it.price
+           ? `Не хватает ${fmtMoney(it.price-game.money)}`
+           : 'Купить'}
      </button>`;
    g.appendChild(d);
  });
  g.querySelectorAll('[data-resource-buy]').forEach(b=>b.onclick=()=>{
    const key=b.dataset.resourceBuy,it=RESOURCE_CATALOG[key];
-   if(game.money<it.price){showGameError('Не хватает рублей');return}
+   if(game.money<it.price){showGameError('Не хватает '+fmtMoney(it.price-game.money));return}
    game.money-=it.price;game.resources[key]=(game.resources[key]||0)+1;saveGame();render();
  });
 }
@@ -760,8 +786,14 @@ function renderTraining(){
        Тренировка 1 мин: +${coach.trainingGain.toFixed(1)} к тренированности<br>
        ${i===0?'Бесплатно':`Цена: <span class="money">${fmtMoney(coach.price)}</span>`}
      </div>
-     <button class="${active?'secondary':'primary'}" ${active?'disabled':''} data-coach="${i}">
-       ${active?'Активен':owned?'Выбрать тренера':'Купить тренера'}
+     <button class="${active?'secondary':'primary'}" ${active||(!owned&&game.money<coach.price)?'disabled':''} data-coach="${i}">
+       ${active
+         ? 'Активен'
+         : owned
+           ? 'Выбрать тренера'
+           : game.money<coach.price
+             ? `Не хватает ${fmtMoney(coach.price-game.money)}`
+             : 'Купить тренера'}
      </button>`;
    $('coachGrid').appendChild(d);
  });
@@ -770,7 +802,7 @@ function renderTraining(){
    const i=Number(b.dataset.coach);
    const coach=COACHES[i];
    if(!game.coachOwned.includes(i)){
-     if(game.money<coach.price){showGameError('Не хватает рублей на тренера.');return}
+     if(game.money<coach.price){showGameError('Не хватает '+fmtMoney(coach.price-game.money)+' на тренера.');return}
      game.money-=coach.price;
      game.coachOwned.push(i);
    }
@@ -1259,7 +1291,17 @@ function updateRun(){
  $('clock').textContent=fmt(run.elapsed);
  $('progressBar').style.width=(run.p*100)+'%';
  $('pace').textContent=fmt(total/L[1]).replace(':',' : ')+' /км';
- const estimatedPos=Math.max(1,Math.round(run.position-run.p*(game.level/15+Math.max(0,-run.penalty)/240)));
+
+ let estimatedPos=Math.max(1,Math.round(run.position-run.p*(game.level/15+Math.max(0,-run.penalty)/240)));
+
+ // Calculate leader progress using the candidate place itself, so the UI cannot say
+ // "1st place" while one or more TOP-3 athletes are already shown as finished ahead.
+ const leaderKms=[1,2,3].map(rank=>leaderKmForPosition(rank,L,km,estimatedPos));
+ if(km<L[1]-0.001){
+   const leadersFinished=leaderKms.filter(v=>v>=L[1]-0.001).length;
+   estimatedPos=Math.max(estimatedPos,leadersFinished+1);
+ }
+
  run.currentPosition=estimatedPos;
  $('position').textContent=estimatedPos;
  $('penalties').textContent=(run.penalty>=0?'+':'−')+fmt(Math.abs(run.penalty));
@@ -1312,6 +1354,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  const final=Math.max(1,run.base+run.penalty);
  const ratio=L[3]/final;
  let pos=Math.max(1,Math.round(12+L[5]*6-game.level/3-ratio*10+Math.random()*8));
+ // Финальное место является источником истины: виртуальные позиции TOP-3 согласованы с ним.
  if(ratio>=1.03)pos=Math.max(1,pos-5);
  if(ratio>=1.08)pos=1;
 
@@ -1320,6 +1363,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  const xp=Math.round(35+L[5]*18+L[1]/8+(pos===1?45:pos<=3?25:0));
 
  game.money+=reward;addXp(xp);game.rep+=pos===1?8:pos<=3?5:pos<=10?2:1;
+ if(pos===1) game.wins=(game.wins||0)+1;
  ensureTraining();
  const coach=COACHES[game.coach]||COACHES[0];
  const finishBase=1.0 + L[5]*0.35 + Math.min(2.0,L[1]/180);
@@ -1486,80 +1530,81 @@ function drawTrack(p){
  const c=$('trackCanvas'),ctx=c.getContext('2d'),W=c.width,H=c.height,L=levelData();
  ctx.clearRect(0,0,W,H);
  const sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#153554');sky.addColorStop(.62,'#8b5a24');sky.addColorStop(1,'#503a2d');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
- // mountains
+
  ctx.fillStyle='#0c2130';ctx.beginPath();ctx.moveTo(0,H*.72);
  for(let i=0;i<=8;i++)ctx.lineTo(i*W/8,H*(.58+(i%2)*.08));ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.fill();
- // profile
+
  const base=H*.55,amp=Math.min(H*.28,60+L[5]*25);
  ctx.beginPath();
  for(let i=0;i<=100;i++){
-  const x=i/100*W;
-  const y=base-Math.sin(i/100*Math.PI*(2+L[5]))*amp*.45-Math.sin(i/100*Math.PI*6)*amp*.18;
-  i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+  const xx=i/100*W;
+  const yy=base-Math.sin(i/100*Math.PI*(2+L[5]))*amp*.45-Math.sin(i/100*Math.PI*6)*amp*.18;
+  i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);
  }
  ctx.strokeStyle='#22c55e';ctx.lineWidth=8;ctx.stroke();
 
  const pos=run?.currentPosition||run?.position||18;
+ const playerKm=p*L[1];
  const x=65+p*(W-160),ground=H*.82;
 
- // If not leading, show the main pack ahead.
+ // Calculate TOP-3 first. Every object on the map uses the same km -> x scale.
+ const leaderKms=[1,2,3].map(rank=>leaderKmFor(rank,L,playerKm));
+ const leaderColors=['#fbbf24','#cbd5e1','#d97706'];
+ const leaderXs=leaderKms.map(km=>65+(km/L[1])*(W-160));
+
+ // Main pack is between the player and 3rd leader and can NEVER be farther
+ // down-course than TOP-3.
  if(pos>6){
-   const gx=Math.min(W-210,x+125), gy=ground-18;
+   const thirdKm=Math.max(playerKm,leaderKms[2]);
+   const gap=Math.max(0,thirdKm-playerKm);
+   let groupKm=playerKm + gap*.52;
+   groupKm=Math.min(groupKm,Math.max(playerKm,thirdKm-L[1]*.006));
+   groupKm=Math.max(playerKm,Math.min(L[1],groupKm));
+
+   const gx=65+(groupKm/L[1])*(W-160);
+   const gy=ground-18;
    const packColors=['#60a5fa','#34d399','#f59e0b','#a78bfa','#fb7185','#22d3ee'];
-   const packOffsets=[[0,0],[38,-4],[76,1],[18,35],[56,31],[94,36]];
+   const packOffsets=[[0,0],[34,-4],[68,1],[16,32],[50,29],[84,34]];
+
    for(let i=0;i<6;i++){
-     drawOpponent(ctx,gx+packOffsets[i][0],gy+packOffsets[i][1],.90,packColors[i],0);
+     drawOpponent(ctx,gx+packOffsets[i][0],gy+packOffsets[i][1],.82,packColors[i],0);
    }
 
-   // Rounded label above the pack.
-   const pw=148,ph=50,px=gx-12,py=gy-88,r=12;
+   const pw=145,ph=50;
+   const px=Math.max(8,Math.min(W-pw-8,gx-10));
+   const py=gy-86,r=12;
    ctx.fillStyle='rgba(5,15,28,.93)';
-   ctx.beginPath();
-   ctx.roundRect(px,py,pw,ph,r);
-   ctx.fill();
-   ctx.strokeStyle='rgba(96,165,250,.55)';
-   ctx.lineWidth=2;
-   ctx.stroke();
-   ctx.fillStyle='#dbeafe';
-   ctx.font='bold 16px sans-serif';
-   ctx.textAlign='left';
+   ctx.beginPath();ctx.roundRect(px,py,pw,ph,r);ctx.fill();
+   ctx.strokeStyle='rgba(96,165,250,.55)';ctx.lineWidth=2;ctx.stroke();
+   ctx.fillStyle='#dbeafe';ctx.font='bold 16px sans-serif';ctx.textAlign='left';
    ctx.fillText('👥 ГРУППА',px+13,py+20);
-   ctx.fillStyle='#93c5fd';
-   ctx.font='13px sans-serif';
+   ctx.fillStyle='#93c5fd';ctx.font='13px sans-serif';
    ctx.fillText(`места 6–${Math.max(10,pos-1)}`,px+13,py+40);
  }
- // Top-3 leaders: position on the profile is tied to their actual race kilometres.
+
+ // TOP-3 icons follow actual virtual kilometres.
  if(pos>1){
-   const leaderKms=[1,2,3].map(rank=>leaderKmFor(rank,L,p*L[1]));
-   const leaderColors=['#fbbf24','#cbd5e1','#d97706'];
-   const leaderXs=leaderKms.map(km=>65+(km/L[1])*(W-160));
-   const lx=leaderXs[0],ly=ground-70;
+   const ly=ground-70;
    for(let i=0;i<3;i++){
-     // Each leader uses the same km→x scale as the player. Small vertical offsets keep icons readable.
      drawOpponent(ctx,leaderXs[i],ly+i*5,.96,leaderColors[i],i+1);
    }
 
    const leadKm=leaderKms[0];
-   const lw=164,lh=52,lxBox=Math.max(8,Math.min(W-lw-8,lx-14)),lyBox=ly-92,r=12;
+   const lw=164,lh=52;
+   const lxBox=Math.max(8,Math.min(W-lw-8,leaderXs[0]-14));
+   const lyBox=ly-92,r=12;
    ctx.fillStyle='rgba(22,15,5,.95)';
-   ctx.beginPath();
-   ctx.roundRect(lxBox,lyBox,lw,lh,r);
-   ctx.fill();
-   ctx.strokeStyle='rgba(251,191,36,.7)';
-   ctx.lineWidth=2;
-   ctx.stroke();
-   ctx.fillStyle='#fde68a';
-   ctx.font='bold 15px sans-serif';
-   ctx.textAlign='left';
+   ctx.beginPath();ctx.roundRect(lxBox,lyBox,lw,lh,r);ctx.fill();
+   ctx.strokeStyle='rgba(251,191,36,.7)';ctx.lineWidth=2;ctx.stroke();
+   ctx.fillStyle='#fde68a';ctx.font='bold 15px sans-serif';ctx.textAlign='left';
    ctx.fillText('🏆 ЛИДЕРЫ 1–3',lxBox+12,lyBox+20);
-   ctx.fillStyle='#fef3c7';
-   ctx.font='13px sans-serif';
+   ctx.fillStyle='#fef3c7';ctx.font='13px sans-serif';
    ctx.fillText(`${leadKm.toFixed(1)} км`,lxBox+12,lyBox+41);
  }
 
- // runner faces toward the finish (right), not toward the viewer
  drawRunnerFacingForward(ctx,x,ground,1.15);
- ctx.fillStyle='#fff';ctx.font='22px sans-serif';ctx.fillText(`${(p*L[1]).toFixed(1)} км`,Math.max(10,x-35),ground+48);
+ ctx.fillStyle='#fff';ctx.font='22px sans-serif';
+ ctx.fillText(`${playerKm.toFixed(1)} км`,Math.max(10,x-35),ground+48);
 }
 
 
