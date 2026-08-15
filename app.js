@@ -1,4 +1,4 @@
-const APP_VERSION='10.59';
+const APP_VERSION='10.63';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -73,14 +73,14 @@ function loadGame(){
       money:1500,xp:0,level:1,completed:0,rep:0,wins:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
       durability:{},best:{},fatigue:0,lastFinishAt:0,restUntil:0,
       resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
-      lampCharge:100
+      lampCharge:100,gearOwned:{}
     },x);
   }catch(e){}
   return {
     money:1500,xp:0,level:1,completed:0,rep:0,wins:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
     durability:{},best:{},fatigue:0,lastFinishAt:0,restUntil:0,
     resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
-    lampCharge:100
+    lampCharge:100,gearOwned:{}
   };
 }
 let authUser={id:'local',nick:'Вы'},authMode='local',cloudSaveTimer=null,cloudSaving=false;
@@ -574,6 +574,7 @@ function render(){
  const bottlesNeed=waterBottlesNeeded(L,raceWeather);
  if($('raceWaterNeed')) $('raceWaterNeed').textContent=game.current<3?'не требуется':`${bottlesNeed} × 0,5 л`;
  $('raceTitle').textContent=`${game.current+1}. ${L[0]}`;
+ if($('simulationRaceTitle')) $('simulationRaceTitle').textContent=`${game.current+1}. ${L[0]}`;
  $('raceDistance').textContent=L[1]+' км';
  $('raceGain').textContent=L[2]+' м';
  $('raceTarget').textContent=fmt(L[3]);
@@ -608,6 +609,7 @@ let activeShopCategory='shoes';
 function renderShop(){
  const tabs=$('shopCategoryTabs'),g=$('shopGrid');
  if(!tabs||!g)return;
+ keepEquippedGear();
 
  const cats=Object.keys(GEAR);
  if(!cats.includes(activeShopCategory)) activeShopCategory=cats[0];
@@ -624,22 +626,32 @@ function renderShop(){
  g.innerHTML='';
  const list=GEAR[activeShopCategory]||[];
  list.forEach((it,idx)=>{
-   const owned=game.gear[activeShopCategory]===idx;
+   const equipped=game.gear[activeShopCategory]===idx;
+   const purchased=(game.gearOwned[activeShopCategory]||[]).includes(idx);
    const d=document.createElement('div');
    d.className='shop-item';
    const lvl=idx+1;
+   let label,disabled=false,cls='primary';
+   if(equipped){
+     label=durability(activeShopCategory)<=0?'✓ Надето · сломано':'✓ Надето';
+     disabled=true; cls='secondary equipped-btn';
+   }else if(purchased){
+     label='Надеть';
+     cls='secondary';
+   }else if(game.money<it[1]){
+     label=`Не хватает ${fmtMoney(it[1]-game.money)}`;
+     disabled=true;
+   }else{
+     label='Купить и надеть';
+   }
    d.innerHTML=`<h3>${CATEGORY_NAMES[activeShopCategory]} · ур. ${lvl}/7 · ${it[0]}</h3>
      <div class="meta">
        Цена: <span class="money">${fmtMoney(it[1])}</span><br>
        Эффект: ${gearEffectText(activeShopCategory,idx,it)}<br>
        Ресурс: ${it[3]} ед. · защита от поломки +${Math.round(it[4]*100)}%
      </div>
-     <button class="${owned?'secondary equipped-btn':'primary'}" ${owned||game.money<it[1]?'disabled':''} data-buy="${activeShopCategory}:${idx}">
-       ${owned
-         ? (durability(activeShopCategory)<=0?'✓ Надето · сломано':'✓ Надето')
-         : game.money<it[1]
-           ? `Не хватает ${fmtMoney(it[1]-game.money)}`
-           : 'Купить и надеть'}
+     <button class="${cls}" ${disabled?'disabled':''} data-buy="${activeShopCategory}:${idx}">
+       ${label}
      </button>`;
    g.appendChild(d);
  });
@@ -647,10 +659,16 @@ function renderShop(){
  g.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{
    if(purchasesLockedDuringRace())return;
    const [cat,idxS]=b.dataset.buy.split(':'),idx=+idxS,it=GEAR[cat][idx];
-   if(game.money<it[1])return;
-   game.money-=it[1];
+   keepEquippedGear();
+   const purchased=(game.gearOwned[cat]||[]).includes(idx);
+   if(!purchased){
+     if(game.money<it[1])return;
+     game.money-=it[1];
+     game.gearOwned[cat].push(idx);
+     game.durability[cat+'_'+idx]=it[3];
+   }
    game.gear[cat]=idx;
-   game.durability[durKey(cat)]=it[3];
+   if(game.durability[cat+'_'+idx]==null) game.durability[cat+'_'+idx]=it[3];
    saveGame();
    render();
  });
@@ -922,10 +940,16 @@ $('scrollShopBtn')?.addEventListener('click',()=>{
 });
 
 function keepEquippedGear(){
-  // Сломанная вещь остаётся выбранной/надетой, пока игрок сам не купит и не наденет другую.
+  // Сломанная вещь остаётся выбранной/надетой, пока игрок сам не наденет другую.
   if(!game.gear) game.gear={...START_GEAR};
+  if(!game.gearOwned) game.gearOwned={};
   Object.keys(START_GEAR).forEach(cat=>{
     if(game.gear[cat]==null) game.gear[cat]=START_GEAR[cat];
+    if(!Array.isArray(game.gearOwned[cat])) game.gearOwned[cat]=[];
+    // Миграция старых сохранений: раз надет ур. N, уровни 1..N уже были куплены.
+    for(let i=0;i<=Number(game.gear[cat]||0);i++){
+      if(!game.gearOwned[cat].includes(i)) game.gearOwned[cat].push(i);
+    }
   });
 }
 function gearTimeFactor(){
@@ -1610,7 +1634,7 @@ function drawTrack(p){
  if(pos>6){
    const thirdKm=Math.max(playerKm,leaderKms[2]);
    const gap=Math.max(0,thirdKm-playerKm);
-   let groupKm=playerKm + gap*.38;
+   let groupKm=playerKm + gap*.20;
    groupKm=Math.min(groupKm,Math.max(playerKm,thirdKm-L[1]*.006));
    groupKm=Math.max(playerKm,Math.min(L[1],groupKm));
 
