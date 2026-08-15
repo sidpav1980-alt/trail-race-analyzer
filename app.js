@@ -449,7 +449,7 @@ function render(){
  const restRaceLocked=raceShoppingLocked;
  const restBtnRace=$('restBtn');
  if(restBtnRace){
-   restBtnRace.disabled=restRaceLocked || isResting();
+   restBtnRace.disabled=restRaceLocked || isResting() || Number(game.fatigue||0)<=0;
    restBtnRace.title=restRaceLocked?'Во время гонки отдых недоступен':'';
  }
  const shopJump=$('scrollShopBtn');
@@ -736,14 +736,16 @@ function updateRestUi(){
    s.textContent='До полного отдыха: '+fmtRest(ms)+'. Старт гонки заблокирован.';
  }else{
    if(game.restUntil){game.restUntil=0;game.fatigue=Math.max(0,game.fatigue-65);saveGame();}
-   b.disabled=false;b.textContent='😴 Отдыхать 1 минуту';
-   s.textContent=game.fatigue>=70?'Усталость высокая — лучше отдохнуть перед следующим стартом.':'Можно стартовать.';
+   const noFatigue=Number(game.fatigue||0)<=0;
+   b.disabled=noFatigue;b.textContent='😴 Отдыхать 1 минуту';
+   s.textContent=noFatigue?'Усталость 0% — отдых не требуется.':game.fatigue>=70?'Усталость высокая — лучше отдохнуть перед следующим стартом.':'Можно стартовать.';
  }
 }
 setInterval(()=>{if($('restBtn')){updateRestUi(); if($('restText'))$('restText').textContent=isResting()?'отдых ещё '+fmtRest(restRemainingMs()):game.fatigue>=70?'нужен отдых':'готов к гонке'}},1000);
 $('restBtn')?.addEventListener('click',()=>{
   if(run && run.running){ showGameError('Во время гонки отдых недоступен. Сначала завершите гонку.'); return; }
   if(isResting())return;
+  if(Number(game.fatigue||0)<=0){updateRestUi();return;}
   game.restUntil=Date.now()+60*1000;saveGame();updateRestUi();
 });
 
