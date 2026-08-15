@@ -1,4 +1,4 @@
-const APP_VERSION='10.58';
+const APP_VERSION='10.59';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -756,12 +756,18 @@ function updateRestUi(){
    s.textContent=noFatigue?'Усталость 0% — отдых не требуется.':game.fatigue>=70?'Усталость высокая — лучше отдохнуть перед следующим стартом.':'Можно стартовать.';
  }
 }
-setInterval(()=>{if($('restBtn')){updateRestUi(); if($('restText'))$('restText').textContent=isResting()?'отдых ещё '+fmtRest(restRemainingMs()):game.fatigue>=70?'нужен отдых':'готов к гонке'}},1000);
+setInterval(()=>{
+ if($('restBtn')){
+   updateRestUi();
+   if($('restText')) $('restText').textContent=isResting()?'отдых ещё '+fmtRest(restRemainingMs()):game.fatigue>=70?'нужен отдых':'готов к гонке';
+ }
+ if($('startTrainingBtn')) renderTraining();
+},1000);
 $('restBtn')?.addEventListener('click',()=>{
   if(run && run.running){ showGameError('Во время гонки отдых недоступен. Сначала завершите гонку.'); return; }
   if(isResting())return;
   if(Number(game.fatigue||0)<=0){updateRestUi();return;}
-  game.restUntil=Date.now()+60*1000;saveGame();updateRestUi();
+  game.restUntil=Date.now()+60*1000;saveGame();updateRestUi();renderTraining();
 });
 
 function trainingRemainingMs(){return Math.max(0,(game.trainingUntil||0)-Date.now())}
@@ -784,14 +790,20 @@ function coachSupportsCurrentRace(){
  return coach.maxDifficulty>=diff;
 }
 function renderTraining(){
- if($('trainingBtn')){
-   $('trainingBtn').disabled = isResting() || trainingActive();
-   $('trainingBtn').title = isResting() ? 'Во время отдыха тренировка недоступна' : '';
- }
 
  if(!$('coachGrid')) return;
  ensureTraining();
  const completedGain=finishTrainingIfReady();
+
+ const trainingBtn=$('startTrainingBtn');
+ if(trainingBtn){
+   const restingNow=isResting();
+   const trainingNow=trainingActive();
+   trainingBtn.disabled = restingNow || trainingNow;
+   trainingBtn.title = restingNow ? 'Во время отдыха тренировка недоступна' : '';
+   if(restingNow) trainingBtn.textContent='😴 Сначала закончите отдых';
+ }
+
 
  $('coachGrid').innerHTML='';
  COACHES.forEach((coach,i)=>{
@@ -870,10 +882,15 @@ function renderTraining(){
  }
 }
 $('startTrainingBtn')?.addEventListener('click',()=>{
-  
+  ensureResources();
   ensureTraining();
+  if(isResting()){
+    showGameError('Во время отдыха тренировку запускать нельзя. Дождитесь окончания отдыха.');
+    renderTraining();
+    return;
+  }
   if(trainingActive()) return;
-  game.trainingUntil=Date.now()+ 60*1000;
+  game.trainingUntil=Date.now()+60*1000;
   saveGame();
   renderTraining();
 });
