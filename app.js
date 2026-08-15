@@ -1,4 +1,4 @@
-const APP_VERSION='10.80';
+const APP_VERSION='10.81';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -792,8 +792,20 @@ function renderLampPower(){
 }
 
 function updateRestUi(){
+ // If a started rest has reached its end, apply the recovery exactly once.
+ // Previously the timer ended but fatigue itself was never changed.
+ if((game.restUntil||0)>0 && Date.now()>=(game.restUntil||0)){
+   game.fatigue=0;
+   game.restUntil=0;
+   saveGame();
+ }
  const resting=isResting();
  const restMs=restRemainingMs();
+ if($('fatigueValue')) $('fatigueValue').textContent=Math.round(Number(game.fatigue||0))+'%';
+ if($('fatigueBar')){
+   $('fatigueBar').style.width=Math.min(100,Number(game.fatigue||0))+'%';
+   $('fatigueBar').className=game.fatigue>=80?'danger-fatigue':game.fatigue>=55?'warn-fatigue':'';
+ }
  if($('restFatigueValue')) $('restFatigueValue').textContent=Math.round(Number(game.fatigue||0))+'%';
 
  if($('restBtn')){
