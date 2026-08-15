@@ -486,6 +486,24 @@ function render(){
    $('lampPowerText').textContent='🔦 '+game.resources.batteries+' компл.';
    $('lampPowerSub').textContent='фонарь на батарейках';
  }
+ const lampQuick=$('quickBuyLampPower');
+ if(lampQuick){
+   const lampHours=lampHoursNeeded(L);
+   const hint=lampQuick.querySelector('.quick-buy-hint');
+   let ready=true, hintText='Питание фонаря готово';
+   if(isRechargeableLamp()){
+     const requiredCharge=Math.min(100,Math.ceil(lampHours/8*100));
+     if(lampHours>0 && game.lampCharge<requiredCharge && Number(game.resources.powerbank||0)<=0){
+       ready=false; hintText=`Докупить powerbank · ${fmtMoney(RESOURCE_CATALOG.powerbank.price)}`;
+     }
+   }else{
+     const needBat=Math.ceil(lampHours/5);
+     const miss=Math.max(0,needBat-Number(game.resources.batteries||0));
+     if(miss>0){ ready=false; hintText=`Докупить ${miss} компл. · ${fmtMoney(miss*RESOURCE_CATALOG.batteries.price)}`; }
+   }
+   lampQuick.classList.toggle('quick-buy-ok',ready);
+   if(hint) hint.textContent=hintText;
+ }
  $('medkitSummary').textContent=medkitScore()+'/5';
  const medQuick=$('quickBuyMedkit');
  if(medQuick){
@@ -1568,6 +1586,30 @@ function quickBuyGels(){
  saveGame(); render();
 }
 
+
+function quickBuyLampPower(){
+ if(purchasesLockedDuringRace()){ showGameError('Во время гонки покупки недоступны'); return; }
+ const L=levelData();
+ const lampHours=lampHoursNeeded(L);
+ if(isRechargeableLamp()){
+   const requiredCharge=Math.min(100,Math.ceil(lampHours/8*100));
+   if(lampHours<=0 || game.lampCharge>=requiredCharge || Number(game.resources.powerbank||0)>0){
+     showGameError('Питания фонаря уже достаточно для этой гонки'); return;
+   }
+   const cost=RESOURCE_CATALOG.powerbank.price;
+   if(game.money<cost){ showGameError(`Не хватает рублей: нужно ${fmtMoney(cost)}`); return; }
+   game.money-=cost; game.resources.powerbank=Number(game.resources.powerbank||0)+1;
+ }else{
+   const need=Math.ceil(lampHours/5);
+   const missing=Math.max(0,need-Number(game.resources.batteries||0));
+   if(missing<=0){ showGameError('Батареек уже достаточно для этой гонки'); return; }
+   const cost=missing*RESOURCE_CATALOG.batteries.price;
+   if(game.money<cost){ showGameError(`Не хватает рублей: нужно ${fmtMoney(cost)}`); return; }
+   game.money-=cost; game.resources.batteries=Number(game.resources.batteries||0)+missing;
+ }
+ saveGame(); render();
+}
+
 function quickBuyMedkit(){
  if(purchasesLockedDuringRace()){ showGameError('Во время гонки покупки недоступны'); return; }
  const keys=['bandage','gauze','peroxide','plaster','cream'];
@@ -1589,6 +1631,7 @@ function bindQuickBuyCard(id,fn){
  });
 }
 bindQuickBuyCard('quickBuyWater',quickBuyWater);
+bindQuickBuyCard('quickBuyLampPower',quickBuyLampPower);
 bindQuickBuyCard('quickBuyGels',quickBuyGels);
 bindQuickBuyCard('quickBuyMedkit',quickBuyMedkit);
 
