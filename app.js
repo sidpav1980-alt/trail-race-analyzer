@@ -1,4 +1,4 @@
-const APP_VERSION='11.15';
+const APP_VERSION='11.16';
 
 
 
@@ -1447,6 +1447,50 @@ function updateLiveDnfs(){
 }
 
 
+
+function enforceMinRussianTop7(L){
+  if(!run || !run.running) return;
+
+  const raceLevel=Number((levelData()?.[0])||0);
+  if(raceLevel < 8) return;
+
+  const russianNames=new Set([
+    'Алексей Береснев','Антонина Юшина','Алексей Толстенко','Константин Иванов',
+    'Елена Носкова','Василий Корыткин','Алексей Макалюкин','Алексей Бабушкин',
+    'Павел Тарасов','Виктория Жукова','Мария Гостева','Вера Чекалина'
+  ].map(x=>x.toLowerCase()));
+
+  const rows=dynamicLeaderRows(L);
+  if(!rows.length) return;
+
+  const top7=rows.slice(0,7);
+  const isRu=r=>russianNames.has(String(r?.c?.name||r?.c?.fullName||'').trim().toLowerCase());
+
+  let ruCount=top7.filter(isRu).length;
+  if(ruCount>=4) return;
+
+  const outsiders=rows.slice(7).filter(isRu);
+  if(!outsiders.length) return;
+
+  // Promote enough Russian runners into the live top-7 by nudging their live position
+  // just above the current 7th-place threshold. This keeps the order dynamic while
+  // guaranteeing at least four Russian athletes in TOP-7 from level 8 onward.
+  const threshold=Number(top7[top7.length-1]?.liveKm ?? top7[top7.length-1]?.km ?? 0);
+  let need=4-ruCount;
+
+  for(let i=0;i<outsiders.length && need>0;i++,need--){
+    const r=outsiders[i];
+    const target=Math.min(Number(L[1]||0), threshold + 0.02 + i*0.01);
+    r.liveKm=target;
+
+    if(r.c){
+      // Keep a tiny persistent competitive bump so they do not instantly fall out next tick.
+      if('speedFactor' in r.c) r.c.speedFactor=Math.max(Number(r.c.speedFactor)||1,1.08);
+      if('paceFactor' in r.c) r.c.paceFactor=Math.min(Number(r.c.paceFactor)||1,0.94);
+    }
+  }
+}
+
 function dynamicLeaderRows(L){
   if(!run) return [];
   if(!run.running){
@@ -1483,6 +1527,8 @@ function dynamicLeaderRows(L){
 }
 
 function currentRaceStandings(){
+  try{ enforceMinRussianTop7(levelData()); }catch(e){}
+
   if(!run || !run.running) return [];
   const L=levelData();
   const dist=Number(L[1]||0);
