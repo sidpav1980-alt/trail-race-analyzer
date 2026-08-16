@@ -1,4 +1,4 @@
-const APP_VERSION='11.05';
+const APP_VERSION='11.03';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -437,33 +437,7 @@ function leaderKmFor(rank,L,playerKm){
  const row=rows[Math.max(0,rank-1)];
  return row ? Math.max(0,Math.min(L[1],row.liveKm)) : 0;
 }
-
-function updateRaceTerrainOverlay(){
- const el=document.getElementById('raceTerrainOverlay');
- if(!el||!run) return;
- const gainEl=document.getElementById('raceGain');
- const slopeEl=document.getElementById('raceSlope');
- const gain=(gainEl?.textContent||'0 м').trim();
- const slope=(slopeEl?.textContent||'0%').trim();
- el.innerHTML=`⛰ ${gain}<br>↗ ${slope}`;
-}
-
 function renderRaceLeaders(playerKm=0){
- const _standing=currentRaceStandings();
- const _playerRank=Number(_standing?.position||_standing?.rank||0);
- const _playerName=(
-   state?.playerName ||
-   state?.profileName ||
-   state?.runnerName ||
-   document.querySelector('#playerName')?.value ||
-   document.querySelector('#profileName')?.value ||
-   localStorage.getItem('playerName') ||
-   localStorage.getItem('profileName') ||
-   localStorage.getItem('runnerName') ||
-   'Вы'
- ).trim()||'Вы';
-
- setTimeout(()=>{updateRaceTerrainOverlay();showPlayerInsideTop3();},0);
  const _L=levelData();
  const _liveRows=dynamicLeaderRows(_L);
  const _pool=Array.isArray(run?.raceLeaders)?run.raceLeaders:[];
@@ -2267,30 +2241,3 @@ document.addEventListener('click', function(e){
 }, true);
 
 setInterval(()=>{updateRestUi();},1000);
-
-
-function showPlayerInsideTop3(){
- if(!run) return;
- const st=currentRaceStandings();
- const rank=Number(st?.position||st?.rank||0);
- if(rank<1||rank>3) return;
- const name=(
-   state?.playerName ||
-   state?.profileName ||
-   state?.runnerName ||
-   document.querySelector('#playerName')?.value ||
-   document.querySelector('#profileName')?.value ||
-   localStorage.getItem('playerName') ||
-   localStorage.getItem('profileName') ||
-   localStorage.getItem('runnerName') ||
-   'Вы'
- ).trim()||'Вы';
- const box=document.getElementById('raceLeaders')||document.querySelector('.race-leaders');
- if(!box) return;
- const rows=[...box.querySelectorAll('.leader-row,.leaderboard-row,.race-leader-row')];
- const row=rows[rank-1];
- if(!row) return;
- const nameEl=row.querySelector('.leader-name,.name,[data-leader-name]') || row.children[1];
- if(nameEl) nameEl.textContent=name;
-}
-
