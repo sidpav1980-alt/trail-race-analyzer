@@ -1915,6 +1915,7 @@ function startRace(){
  const raceWeather=weatherForLevel();
  const needWater=waterBottlesNeeded(L,raceWeather);
  let warnings=[];
+ let mandatoryGearWarnings=[];
 
  // Critical broken equipment is reported directly on the race screen.
  const brokenRequired=[];
@@ -1922,7 +1923,7 @@ function startRace(){
  if((raceWeather.rain||raceWeather.cold) && durability('jacket')<=0) brokenRequired.push(`Мембранка: ${item('jacket')[0]} сломана.`);
  if(lampHours>0 && durability('lamp')<=0) brokenRequired.push(`Фонарик: ${item('lamp')[0]} сломан.`);
  if(brokenRequired.length){
-   warnings.push(...brokenRequired.map(x=>`неисправность: ${x}`));
+   mandatoryGearWarnings.push(...brokenRequired.map(x=>`обязательная экипировка: ${x}`));
  }
 
  // Water shortage is only a warning; start is still allowed.
@@ -1937,8 +1938,8 @@ function startRace(){
    const equippedMembrane=membraneEquippedLevel();
    if(requiredMembrane>0 && !hasMembrane(requiredMembrane)){
      const equippedName=GEAR.jacket[Number(game.gear.jacket||0)]?.[0]||'Нет мембранки';
-     warnings.push(
-       `мембранка: нужна ур. ${requiredMembrane}/7+, сейчас ${
+     mandatoryGearWarnings.push(
+       `обязательная экипировка — мембранка: нужна ур. ${requiredMembrane}/7+, сейчас ${
          equippedMembrane <= 1 ? 'нет' : equippedName+' · ур. '+equippedMembrane+'/7'
        }`
      );
@@ -1947,6 +1948,9 @@ function startRace(){
 
  if(game.resources.gels<needGels) warnings.push(`гелей ${game.resources.gels}/${needGels}`);
  if(lampHours>0){
+   if(durability('lamp')<=0){
+     mandatoryGearWarnings.push('обязательная экипировка — фонарь неисправен');
+   }
    if(isRechargeableLamp()){
      const requiredCharge=Math.min(100,Math.ceil(lampHours*12));
      if(game.lampCharge<requiredCharge && game.resources.powerbank<=0) warnings.push('не хватает заряда фонаря');
@@ -1958,6 +1962,11 @@ function startRace(){
  if(medkitScore()<3) warnings.push('аптечка неполная');
  if(game.fatigue>=70) warnings.push(`усталость ${Math.round(game.fatigue)}%`);
 
+ // Mandatory equipment never blocks the start, but is always highlighted separately.
+ if(mandatoryGearWarnings.length){
+   warnings.unshift(...mandatoryGearWarnings);
+ }
+
  $('raceResourceWarning').textContent=warnings.length
    ? '⚠️ Риски перед стартом: '+warnings.join(' · ')
    : '✅ Запас расходников и состояние нормальные.';
@@ -1965,7 +1974,7 @@ function startRace(){
    const important=warnings.map(x=>`⚠️ ${x}`);
    const el=$('startRequirementsError');
    if(el){
-     el.innerHTML=`<b>⚠️ Обратите внимание — гонка всё равно будет запущена:</b><ul>${important.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+     el.innerHTML=`<b>⚠️ Обратите внимание — проверьте обязательную экипировку. Гонка всё равно будет запущена:</b><ul>${important.map(x=>`<li>${x}</li>`).join('')}</ul>`;
      el.style.display='block';
    }
  }
