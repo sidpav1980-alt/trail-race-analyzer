@@ -1,4 +1,4 @@
-const APP_VERSION='11.06';
+const APP_VERSION='11.07';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -449,11 +449,7 @@ function updateRaceTerrainOverlay(){
 }
 
 function renderRaceLeaders(playerKm=0){
- const _standing=currentRaceStandings();
- const _playerRank=Number(_standing?.position||_standing?.rank||0);
- const _playerName=safeProfileNameForRace();
-
- setTimeout(()=>{updateRaceTerrainOverlay();showPlayerInsideTop3();},0);
+setTimeout(()=>{updateRaceTerrainOverlay();showPlayerInsideTop3();},0);
  const _L=levelData();
  const _liveRows=dynamicLeaderRows(_L);
  const _pool=Array.isArray(run?.raceLeaders)?run.raceLeaders:[];
@@ -2282,16 +2278,29 @@ setInterval(()=>{updateRestUi();},1000);
 
 function showPlayerInsideTop3(){
  if(!run) return;
- const st=currentRaceStandings();
- const rank=Number(st?.position||st?.rank||0);
- if(rank<1||rank>3) return;
+
+ const standings=currentRaceStandings();
+ if(!Array.isArray(standings) || !standings.length) return;
+
+ const playerIndex=standings.findIndex(r=>r && r.player);
+ const rank=playerIndex>=0 ? playerIndex+1 : 0;
+ if(rank<1 || rank>3) return;
+
  const name=safeProfileNameForRace();
  const box=document.getElementById('raceLeaders')||document.querySelector('.race-leaders');
  if(!box) return;
+
  const rows=[...box.querySelectorAll('.leader-row,.leaderboard-row,.race-leader-row')];
  const row=rows[rank-1];
  if(!row) return;
+
  const nameEl=row.querySelector('.leader-name,.name,[data-leader-name]') || row.children[1];
  if(nameEl) nameEl.textContent=name;
+
+ // Keep the kilometre value equal to the player's live distance.
+ const L=levelData();
+ const playerKm=Math.max(0,Math.min(Number(L[1]||0),Number(run.p||0)*Number(L[1]||0)));
+ const kmEl=row.querySelector('.leader-km,.km,[data-leader-km]') || row.children[row.children.length-1];
+ if(kmEl && /км/i.test(kmEl.textContent||'')) kmEl.textContent=`${playerKm.toFixed(1)} км`;
 }
 
