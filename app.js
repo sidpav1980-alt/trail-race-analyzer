@@ -1923,7 +1923,11 @@ function startRace(){
  if((raceWeather.rain||raceWeather.cold) && durability('jacket')<=0) brokenRequired.push(`Мембранка: ${item('jacket')[0]} сломана.`);
  if(lampHours>0 && durability('lamp')<=0) brokenRequired.push(`Фонарик: ${item('lamp')[0]} сломан.`);
  if(brokenRequired.length){
-   mandatoryGearWarnings.push(...brokenRequired.map(x=>`обязательная экипировка: ${x}`));
+   showStartRequirementsError(
+     '⛔ Нельзя стартовать — обязательная экипировка неисправна',
+     brokenRequired
+   );
+   return;
  }
 
  // Water shortage is only a warning; start is still allowed.
@@ -1938,18 +1942,28 @@ function startRace(){
    const equippedMembrane=membraneEquippedLevel();
    if(requiredMembrane>0 && !hasMembrane(requiredMembrane)){
      const equippedName=GEAR.jacket[Number(game.gear.jacket||0)]?.[0]||'Нет мембранки';
-     mandatoryGearWarnings.push(
-       `обязательная экипировка — мембранка: нужна ур. ${requiredMembrane}/7+, сейчас ${
-         equippedMembrane <= 1 ? 'нет' : equippedName+' · ур. '+equippedMembrane+'/7'
-       }`
+     showStartRequirementsError(
+       '⛔ Нельзя стартовать — нет обязательной мембранки',
+       [
+         `${raceWeather.emoji} ${raceWeather.name}, ${raceWeather.temp}°C.`,
+         `Мембранка: нужна ур. ${requiredMembrane}/7 или выше.`,
+         `Сейчас: ${equippedMembrane <= 1 ? 'мембранки нет' : equippedName+' · ур. '+equippedMembrane+'/7'}.`
+       ]
      );
+     activeShopCategory='jacket';
+     renderShop();
+     return;
    }
  }
 
  if(game.resources.gels<needGels) warnings.push(`гелей ${game.resources.gels}/${needGels}`);
  if(lampHours>0){
    if(durability('lamp')<=0){
-     mandatoryGearWarnings.push('обязательная экипировка — фонарь неисправен');
+     showStartRequirementsError(
+       '⛔ Нельзя стартовать — обязательный фонарь неисправен',
+       ['Отремонтируйте или замените фонарь перед стартом.']
+     );
+     return;
    }
    if(isRechargeableLamp()){
      const requiredCharge=Math.min(100,Math.ceil(lampHours*12));
@@ -1974,7 +1988,7 @@ function startRace(){
    const important=warnings.map(x=>`⚠️ ${x}`);
    const el=$('startRequirementsError');
    if(el){
-     el.innerHTML=`<b>⚠️ Обратите внимание — проверьте обязательную экипировку. Гонка всё равно будет запущена:</b><ul>${important.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+     el.innerHTML=`<b>⚠️ Обратите внимание — есть риски/нехватка расходников. Гонка будет запущена:</b><ul>${important.map(x=>`<li>${x}</li>`).join('')}</ul>`;
      el.style.display='block';
    }
  }
