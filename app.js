@@ -1,4 +1,4 @@
-const APP_VERSION='11.07';
+const APP_VERSION='11.08';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -432,7 +432,7 @@ function leaderKmForPosition(rank,L,playerKm,playerPos){
 }
 
 function leaderKmFor(rank,L,playerKm){
- if(!run) return 0;
+ if(!run || !run.running) return 0;
  const rows=dynamicLeaderRows(L);
  const row=rows[Math.max(0,rank-1)];
  return row ? Math.max(0,Math.min(L[1],row.liveKm)) : 0;
@@ -1340,6 +1340,11 @@ function updateLiveDnfs(){
 
 function dynamicLeaderRows(L){
   if(!run) return [];
+  if(!run.running){
+    return (run.virtualField||[])
+      .filter(c=>!c.dnf)
+      .map((c,idx)=>({c,idx,km:0,liveKm:0}));
+  }
 
   // Build rows from the live virtual field, excluding DNF runners.
   const dist=Math.max(1,Number(L[1]||1));
@@ -1868,7 +1873,9 @@ function updateRun(){
 }
 function finishRace(forceDnf=false,dnfReason='fracture'){
  if(!run||!run.running)return;
- run.running=false;cancelAnimationFrame(timer);$('pauseBtn').disabled=true;$('startBtn').disabled=false; updateRestUi();
+ run.running=false;cancelAnimationFrame(timer);$('pauseBtn').disabled=true;$('startBtn').disabled=false;
+ drawTrack(0);
+ renderRaceLeaders(0); updateRestUi();
  const L=levelData();
 
  if(forceDnf || run.dnf){
