@@ -1934,7 +1934,7 @@ function startRace(){
    startPenalty:fatiguePenaltySec+gelPenaltySec+lightPenaltySec+(raceWeather.sun>=80?Math.round((raceWeather.sun-70)*L[3]/1200):0)+Math.round(coachDifficultyGap*L[3]*0.04),
    positionDrift:0,
    condition:game.fatigue>=75?'сильная усталость':'нормально',
-   waterStart:waterAvailable,waterRemaining:waterAvailable,waterNeed:needWater,waterEmptyNotified:(waterAvailable<=0),waterShortage,gelShortage,lightShortageHours,
+   waterStart:waterAvailable,waterRemaining:waterAvailable,waterNeed:needWater,waterSegmentStartKm:0,waterSegmentStartAmount:waterAvailable,waterEmptyNotified:(waterAvailable<=0),aidStations:buildAidStations(Number(L[1]||0)),aidStationsPassed:new Set(),waterShortage,gelShortage,lightShortageHours,
    fractureRisk:Math.min(.42, Math.max(0,(game.fatigue-55)/140) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08 : 0)),
    dnf:false
  };
@@ -1994,6 +1994,55 @@ function startRace(){
  timer=requestAnimationFrame(tick);
 }
 
+
+function buildAidStations(distanceKm){
+  const d=Math.max(0,Number(distanceKm||0));
+  if(d<100) return [];
+  const pts=[];
+  let km=50+Math.random()*20; // first PP at 50–70 km
+  while(km<d-20){
+    pts.push(Math.round(km*10)/10);
+    km+=50+Math.random()*20;  // next PP every 50–70 km
+  }
+  return pts;
+}
+
+function updateAidStationsAndWater(){
+  if(!run || !run.running) return;
+  const L=levelData();
+  const dist=Math.max(1,Number(L[1]||run.raceDistance||1));
+  if(dist<100) return;
+
+  const playerKm=Math.max(0,Math.min(dist,Number(run.p||0)*dist));
+  if(!Array.isArray(run.aidStations)) run.aidStations=buildAidStations(dist);
+  if(!run.aidStationsPassed) run.aidStationsPassed=new Set();
+
+  for(const ppKm of run.aidStations){
+    const key=String(ppKm);
+    if(playerKm+1e-9<ppKm || run.aidStationsPassed.has(key)) continue;
+
+    run.aidStationsPassed.add(key);
+
+    // Refill enough water for the next ~70 km section.
+    const rate=Math.max(0.001,Number(run.waterNeed||1)/dist);
+    const refill=Math.max(1,Math.ceil(rate*70));
+    run.waterRemaining=refill;
+    run.waterSegmentStartKm=ppKm;
+    run.waterSegmentStartAmount=refill;
+    run.waterEmptyNotified=false;
+    if(run.condition==='жажда') run.condition='нормально';
+
+    const msg=`ПП ${ppKm.toFixed(1)} км · вода пополнена: ${refill} × 0,5 л`;
+    showEvent({emoji:'🥤',name:'Пункт питания'},0,` · ${msg}`);
+    try{
+      $('eventLog').insertAdjacentHTML(
+        'afterbegin',
+        `<div class="event-row"><span>${ppKm.toFixed(1)} км</span><b>🥤 Пункт питания</b><span class="good">вода пополнена: ${refill} × 0,5 л</span></div>`
+      );
+    }catch(e){}
+  }
+}
+
 function notifyWaterEndedDuringRace(){
   try{
     if(!run || !run.running) return;
@@ -2026,16 +2075,16 @@ function tick(ts){
    updateLiveDnfs();
    updateRealisticPosition();
 
-   // Gradually consume race water. If exactly the recommended amount was taken,
-   // it reaches zero only at the finish. If less was taken, it can run out earlier.
-   if(Number(run.waterStart||0)>0){
-     const need=Math.max(1,Number(run.waterNeed||1));
-     const consumed=Math.min(Number(run.waterStart||0), Math.floor((run.p||0)*need + 1e-9));
-     run.waterRemaining=Math.max(0,Number(run.waterStart||0)-consumed);
-   }else{
-     run.waterRemaining=0;
-   }
+   // Gradually consume water within the current section (start → PP or PP → PP).
+   const raceDist=Math.max(1,Number(L[1]||1));
+   const playerKm=Math.max(0,Math.min(raceDist,Number(run.p||0)*raceDist));
+   const rate=Math.max(0.001,Number(run.waterNeed||1)/raceDist);
+   const segmentStartKm=Math.max(0,Number(run.waterSegmentStartKm||0));
+   const segmentStartAmount=Math.max(0,Number(run.waterSegmentStartAmount||0));
+   const usedSinceSegment=Math.floor(Math.max(0,playerKm-segmentStartKm)*rate + 1e-9);
+   run.waterRemaining=Math.max(0,segmentStartAmount-usedSinceSegment);
 
+   updateAidStationsAndWater();
    updateRun();
    notifyWaterEndedDuringRace();
    renderRaceLeaders((run.p||0)*Number((run&&run.raceDistance)||L[1]||5));
