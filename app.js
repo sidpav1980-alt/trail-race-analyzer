@@ -1584,8 +1584,24 @@ function updateLiveDnfs(){
    const names=[];
 
    for(let i=0;i<newly && active.length;i++){
-     const idx=Math.floor(Math.random()*active.length);
-     const dnfRunner=active[idx];
+     // Текущий ТОП-7 гонки сходит очень редко.
+     // В 98% случаев выбираем участника вне ТОП-7, если такой есть.
+     const ranked=[...active].sort((a,b)=>{
+       const da=Number(a.km ?? a.distance ?? a.progress ?? a.p ?? 0);
+       const db=Number(b.km ?? b.distance ?? b.progress ?? b.p ?? 0);
+       return db-da;
+     });
+     const top7=new Set(ranked.slice(0,7));
+     let pool;
+     if(Math.random()<0.02){
+       pool=active.filter(c=>top7.has(c));
+       if(!pool.length) pool=active;
+     }else{
+       pool=active.filter(c=>!top7.has(c));
+       if(!pool.length) pool=active;
+     }
+     const dnfRunner=pool[Math.floor(Math.random()*pool.length)];
+     const idx=active.indexOf(dnfRunner);
      dnfRunner.dnf=true;
 
      const dnfName=String(
