@@ -1488,6 +1488,25 @@ function simulateOtherDnfs(fieldSize,L,w){
 }
 
 
+function playerItraPlace(){
+  return ELITE_RUNNERS.filter(r=>Number(r.itra||0)>Number(game.itra||0)).length+1;
+}
+
+function top3ItraEarlyRaceBoost(){
+  const place=playerItraPlace();
+  const earlyRace=Number(game.current||0)<10; // уровни 1–10
+  if(!earlyRace || place>3) return {active:false,place,chance:0,mult:1};
+
+  // Чем выше игрок в ITRA, тем чаще он получает реально выгодный расклад гонки.
+  const chance=place===1 ? 0.70 : place===2 ? 0.55 : 0.42;
+  const active=Math.random()<chance;
+
+  // Это не гарантированная победа: события, штрафы, вода, травмы и погода
+  // всё ещё могут испортить гонку.
+  const mult=active ? (place===1 ? 1.075 : place===2 ? 1.060 : 1.045) : 1;
+  return {active,place,chance,mult};
+}
+
 function seededNoise01(seed){
   // deterministic pseudo-random 0..1 for this race/competitor
   const x=Math.sin(seed*12.9898+78.233)*43758.5453;
@@ -1496,6 +1515,7 @@ function seededNoise01(seed){
 
 function createVirtualField(L,fieldSize,playerBaseSec){
   const n=Math.max(20,Math.min(124,fieldSize||50));
+  const itraBoost=top3ItraEarlyRaceBoost();
   const strength=Math.max(0,Math.min(1,
     (Number(game.fitness||0)/100)*0.52 +
     (Number(game.level||1)/100)*0.24 +
@@ -1533,7 +1553,7 @@ function createVirtualField(L,fieldSize,playerBaseSec){
           // становятся относительно доступнее.
           Math.max(0.82,Math.min(1.12,
             0.84 + strength*0.28 - Math.max(0,L[5]-2)*0.006
-          ))
+          )) * itraBoost.mult
         )
       ),
       dnf:false
@@ -2102,6 +2122,7 @@ function startRace(){
    dnf:false
  };
  run.virtualField=createVirtualField(L,run.fieldSize,Math.max(60,run.base+run.penalty));
+ run.playerItraPlace=playerItraPlace();
  attachRivalNamesToVirtualField();
 
  // Армагеддон: Артём Чернов — главный соперник.
