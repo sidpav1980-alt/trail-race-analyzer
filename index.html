@@ -34,6 +34,22 @@
 
 </style>
 
+
+<style>
+/* v11.02: compact pre-race informational messages */
+.compact-race-note{
+  padding:10px 14px !important;
+  margin-top:10px !important;
+  min-height:0 !important;
+  line-height:1.25 !important;
+  font-size:0.78em !important;
+}
+.compact-race-note b,
+.compact-race-note strong{
+  font-size:1em !important;
+}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -193,8 +209,8 @@
           <button id="pauseBtn" class="secondary" disabled>Ⅱ Пауза</button>
         </div>
         <div class="notice race-lock-note">После старта покупки и смена необходимой экипировки/расходников недоступны до финиша.</div>
-        <div id="preRaceNote" class="notice">Перед стартом обязательна проверка экипировки и расходников. Кроссовки имеют 5 уровней: более дорогие дают прирост скорости и лучше переживают сложные трассы. На длинной гонке могут закончиться гели, батарейки или аптечка.</div>
-        <div id="raceResourceWarning" class="notice warning-note"></div>
+        <div id="preRaceNote" class="notice compact-race-note">Перед стартом обязательна проверка экипировки и расходников. Кроссовки имеют 5 уровней: более дорогие дают прирост скорости и лучше переживают сложные трассы. На длинной гонке могут закончиться гели, батарейки или аптечка.</div>
+        <div id="raceResourceWarning" class="notice warning-note compact-race-note"></div>
       </div>
 
       <div class="card">

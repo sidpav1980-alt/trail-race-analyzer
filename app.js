@@ -1,4 +1,4 @@
-const APP_VERSION='11.01';
+const APP_VERSION='11.03';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -1467,7 +1467,7 @@ function startRace(){
  }
 
  if(game.level<Math.max(1,game.current*3-2)){
-   $('preRaceNote').textContent=`⚠️ Рекомендуемый уровень трейлраннера: ${Math.max(1,game.current*3-2)}. Можно стартовать, но будет сложнее.`;
+   $('preRaceNote').textContent=`⚠️ Рекомендуемый уровень трейлраннера: ${Math.max(1, Math.round((Math.max(1,game.current*3-2))*0.5))}. Можно стартовать, но будет сложнее.`;
  }
 
  // Reserve mandatory water for this race.
