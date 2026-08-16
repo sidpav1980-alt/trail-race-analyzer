@@ -1487,11 +1487,11 @@ function seededNoise01(seed){
 function createVirtualField(L,fieldSize,playerBaseSec){
   const n=Math.max(20,Math.min(124,fieldSize||50));
   const strength=Math.max(0,Math.min(1,
-    (Number(game.fitness||0)/100)*0.48 +
-    (Number(game.level||1)/100)*0.18 +
-    ((COACHES[game.coach]||COACHES[0]).mult-1)*0.18 +
-    (game.rep||0)/500*0.08 +
-    (game.itra||250)/1000*0.08
+    (Number(game.fitness||0)/100)*0.52 +
+    (Number(game.level||1)/100)*0.24 +
+    Math.max(0,((COACHES[game.coach]||COACHES[0]).mult-1))*0.14 +
+    (game.itra||250)/1000*0.07 +
+    (game.rep||0)/500*0.03
   ));
 
   const field=[];
@@ -1517,9 +1517,13 @@ function createVirtualField(L,fieldSize,playerBaseSec){
       finishSec:Math.max(
         60,
         playerBaseSec*relative*(
-          Number(game.current||0)>=18 ? 1.02 :
-          Number(game.current||0)>=11 ? 1.06 :
-          1.10
+          // Результат теперь реально зависит от навыков игрока.
+          // Новичок получает сильное поле и обычно не борется за победу.
+          // По мере роста тренированности/уровня/тренера/ITRA соперники
+          // становятся относительно доступнее.
+          Math.max(0.82,Math.min(1.12,
+            0.84 + strength*0.28 - Math.max(0,L[5]-2)*0.006
+          ))
         )
       ),
       dnf:false
