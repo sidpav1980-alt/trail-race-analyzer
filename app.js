@@ -1,4 +1,4 @@
-const APP_VERSION='11.14';
+const APP_VERSION='11.15';
 
 
 
@@ -461,19 +461,25 @@ function createLeadersForAttempt(raceIndex=game.current){
    while((b===a || b===top) && guard++<20){
      b=randomFio(Math.floor(Math.random()*1000000));
    }
-   return [top,a,b];
+   
+   const extras=[];
+   while(extras.length<4){
+     const x=randomFio(Math.floor(Math.random()*1000000));
+     if(x!==top && x!==a && x!==b && !extras.includes(x)) extras.push(x);
+   }
+   return [top,a,b,...extras];
  }
  // С 10 уровня: каждый новый старт получает новую тройку из TOP ITRA.
- return shuffledCopy(TOP_ITRA_LEADERS).slice(0,3);
+ return shuffledCopy(TOP_ITRA_LEADERS).slice(0,7);
 }
 
 function leadersForRace(raceIndex=game.current){
  // Во время конкретной попытки состав фиксирован, чтобы не менялся на каждом кадре.
- if(run && Array.isArray(run.raceLeaders) && run.raceLeaders.length===3){
+ if(run && Array.isArray(run.raceLeaders) && run.raceLeaders.length>=7){
    return run.raceLeaders;
  }
  // До старта показываем только неизвестных; реальные имена создаются в момент старта.
- return ['Неизвестный участник','Неизвестный участник','Неизвестный участник'];
+ return Array(7).fill('Неизвестный участник');
 }
 function visibleLeaderName(name){
  return (run && run.running===true && run.startedByUser===true)
@@ -2397,7 +2403,7 @@ function showPlayerInsideTop3(){
 
  const playerIndex=standings.findIndex(r=>r && r.player);
  const rank=playerIndex>=0 ? playerIndex+1 : 0;
- if(rank<1 || rank>3) return;
+ if(rank<1 || rank>7) return;
 
  const name=safeProfileNameForRace();
  const box=document.getElementById('raceLeaders')||document.querySelector('.race-leaders');
