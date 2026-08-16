@@ -1,4 +1,4 @@
-const APP_VERSION='11.19';
+const APP_VERSION='1.0';
 
 
 
