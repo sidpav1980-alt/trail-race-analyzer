@@ -1,4 +1,4 @@
-const APP_VERSION='10.99';
+const APP_VERSION='11.01';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -432,12 +432,20 @@ function leaderKmForPosition(rank,L,playerKm,playerPos){
 }
 
 function leaderKmFor(rank,L,playerKm){
- if(!run || !run.running) return 0;
- const rows=currentRaceStandings().filter(r=>!r.player);
+ if(!run) return 0;
+ const rows=dynamicLeaderRows(L);
  const row=rows[Math.max(0,rank-1)];
- return row ? Math.max(0,Math.min(L[1],row.km)) : 0;
+ return row ? Math.max(0,Math.min(L[1],row.liveKm)) : 0;
 }
 function renderRaceLeaders(playerKm=0){
+ const _L=levelData();
+ const _liveRows=dynamicLeaderRows(_L);
+ const _pool=Array.isArray(run?.raceLeaders)?run.raceLeaders:[];
+ const _dynamicLeaderNames=_liveRows.slice(0,3).map((r,i)=>{
+   const mappedIndex=Math.abs(Number(r.c?.id ?? r.idx ?? i)) % Math.max(1,_pool.length||1);
+   return _pool[mappedIndex] || _pool[i] || `Участник ${i+1}`;
+ });
+
  const box=$('raceLeaders'); if(!box)return;
  const L=levelData(),names=leadersForRace();
  if($('leadersRaceName')) $('leadersRaceName').textContent=`${game.current+1}. ${L[0]}`;
@@ -481,6 +489,13 @@ function renderPreStartRaceState(L){
  if($('position')) $('position').textContent='—';
  if($('penalties')) $('penalties').textContent='+0:00';
  if($('condition')) $('condition').textContent='ГОТОВ';
+ if($('liveGain')){
+   const _L=levelData();
+   $('liveGain').textContent='0 м';
+   $('liveGainTotal').textContent=`из ${Number(_L[2]||0).toLocaleString('ru-RU')} м`;
+   $('liveSlope').textContent='0%';
+   $('liveSlopeType').textContent='ровно';
+ }
  if($('liveDnfStatus')) $('liveDnfStatus').textContent='🚫 Сошли: 0';
 }
 
@@ -1289,18 +1304,47 @@ function updateLiveDnfs(){
  }
 }
 
+
+function dynamicLeaderRows(L){
+  if(!run) return [];
+
+  // Build rows from the live virtual field, excluding DNF runners.
+  const dist=Math.max(1,Number(L[1]||1));
+  let rows=(run.virtualField||[])
+    .filter(c=>!c.dnf)
+    .map((c,idx)=>({
+      c,
+      idx,
+      km:Math.max(0,Math.min(dist,competitorProgressAt(c,run.elapsed||0,L)*dist))
+    }));
+
+  // Add small phase-dependent surges so top runners can trade places naturally
+  // instead of staying in one fixed order all race.
+  const p=Math.max(0,Math.min(1,Number(run.p||0)));
+  rows.forEach((r,i)=>{
+    const seed=(Number(r.c?.id||i)+1)*0.83 + (i+1)*0.37;
+    const surge=
+      Math.sin(p*Math.PI*(5.5 + (i%4)*.7) + seed)*dist*.0045 +
+      Math.sin(p*Math.PI*(11.0 + (i%3)*.9) + seed*.63)*dist*.0022;
+
+    // Surges are visual/live race dynamics only; keep bounded.
+    r.liveKm=Math.max(0,Math.min(dist,r.km+surge));
+  });
+
+  rows.sort((a,b)=>b.liveKm-a.liveKm);
+  return rows;
+}
+
 function currentRaceStandings(){
   if(!run || !run.running) return [];
   const L=levelData();
   const dist=Number(L[1]||0);
   const playerKm=Math.max(0,Math.min(dist,(run.p||0)*dist));
 
-  const rows=(run.virtualField||[])
-    .filter(c=>!c.dnf)
-    .map(c=>({
-      id:c.id,
+  const rows=dynamicLeaderRows(L).map(r=>({
+      id:r.c.id,
       player:false,
-      km:Math.max(0,Math.min(dist,competitorProgressAt(c,run.elapsed,L)*dist))
+      km:r.liveKm
     }));
 
   rows.push({id:'player',player:true,km:playerKm});
@@ -1684,41 +1728,90 @@ function showEvent(ev,sec,extra){
  const cls=sec<0?'good':sec>0?'bad':'neutral';
  $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>${(run.p*levelData()[1]).toFixed(1)} км</span><b>${ev.emoji} ${ev.name}${extra}</b><span class="${cls}">${sec>=0?'+':'−'}${fmt(Math.abs(sec))}</span></div>`);
 }
+
+function terrainStateForProgress(L,p){
+  p=Math.max(0,Math.min(1,Number(p||0)));
+  const distKm=Math.max(1,Number(L[1]||1));
+  const totalGain=Math.max(0,Number(L[2]||0));
+  const difficulty=Math.max(1,Number(L[5]||1));
+  const avgClimbPct=totalGain/(distKm*1000)*100;
+
+  // Deterministic changing profile for each race: uphill/downhill/rolling sections.
+  const phase=distKm*.071 + difficulty*.63;
+  const wave=
+    Math.sin(p*Math.PI*(7+difficulty)+phase)*.72 +
+    Math.sin(p*Math.PI*19+phase*.47)*.28;
+
+  // Bigger total climbing and harder races produce steeper local grades.
+  const amplitude=Math.min(20,Math.max(4.5,avgClimbPct*2.35+difficulty*1.15));
+  let slope=wave*amplitude;
+
+  // Avoid unrealistic cliffs while still allowing steep trail sections.
+  slope=Math.max(-18,Math.min(24,slope));
+
+  const gainDone=Math.round(totalGain*p);
+  let slopeType='ровно';
+  if(slope>=12) slopeType='крутой подъём';
+  else if(slope>=5) slopeType='подъём';
+  else if(slope>=2) slopeType='лёгкий подъём';
+  else if(slope<=-12) slopeType='крутой спуск';
+  else if(slope<=-5) slopeType='спуск';
+  else if(slope<=-2) slopeType='лёгкий спуск';
+
+  return {slope,gainDone,totalGain,slopeType};
+}
+
 function updateRun(){
  const L=levelData(),km=run.p*L[1],total=Math.max(1,run.base+run.penalty);
  $('progressKm').textContent=`${km.toFixed(1)} / ${L[1].toFixed(1)} км`;
  $('clock').textContent=fmt(run.elapsed);
  $('progressBar').style.width=(run.p*100)+'%';
- // Live pace must change during the race instead of showing one fixed
- // average pace for the whole distance (especially noticeable on 200–300 km races).
- // The final simulation time is unchanged: this is the current segment pace.
+ // Live climb and gradient.
+ const terrain=terrainStateForProgress(L,run.p||0);
+ if($('liveGain')){
+   $('liveGain').textContent=`${terrain.gainDone.toLocaleString('ru-RU')} м`;
+   $('liveGainTotal').textContent=`из ${terrain.totalGain.toLocaleString('ru-RU')} м`;
+ }
+ if($('liveSlope')){
+   const sign=terrain.slope>0?'+':'';
+   $('liveSlope').textContent=`${sign}${terrain.slope.toFixed(1)}%`;
+   $('liveSlopeType').textContent=terrain.slopeType;
+ }
+
+ // Current pace is directly affected by the current gradient.
  const avgPaceSec=total/Math.max(.1,L[1]);
  const progress=Math.max(0,Math.min(1,Number(run.p||0)));
- const difficulty=Math.max(1,Number(L[5]||1));
+ const slope=terrain.slope;
 
- // Terrain/profile variation: climbs slower, descents/flatter parts faster.
- const terrainWave=
-   Math.sin(progress*Math.PI*8 + difficulty*.55)*.105 +
-   Math.sin(progress*Math.PI*19 + L[1]*.017)*.045;
+ let slopeFactor=1;
+ if(slope>=0){
+   // Uphill: roughly +2.7% pace time per 1% grade, capped for very steep climbs.
+   slopeFactor += Math.min(.58,slope*.027);
+ }else{
+   const down=Math.abs(slope);
+   // Moderate descents are faster; very steep descents become technical and slow again.
+   if(down<=8) slopeFactor -= down*.018;
+   else slopeFactor -= .144 - (down-8)*.012;
+ }
 
- // Ultra fatigue gradually becomes visible in current pace.
- // Almost neutral at the start, increasingly important after halfway.
+ // Ultra fatigue gradually slows pace later in the race.
  const distanceFatigue=Math.max(0,Number(L[1]||0)-30)/270;
  const lateRace=Math.pow(progress,1.7);
- const fatigueWave=lateRace*(.05 + .15*Math.min(1,distanceFatigue));
+ const fatigueFactor=1 + lateRace*(.04 + .14*Math.min(1,distanceFatigue));
 
- // Small deterministic stride variation prevents a frozen number on long flat pieces.
- const strideWave=Math.sin(progress*Math.PI*53)*.018;
+ // Small natural variation so identical slopes do not look mechanically fixed.
+ const strideFactor=1 + Math.sin(progress*Math.PI*53)*.012;
 
- let livePaceSec=avgPaceSec*(1+terrainWave+fatigueWave+strideWave);
+ let livePaceSec=avgPaceSec*slopeFactor*fatigueFactor*strideFactor;
 
- // Current bad condition is reflected immediately in the shown pace.
  if(run.condition==='сильная усталость') livePaceSec*=1.08;
  else if(run.condition==='травма') livePaceSec*=1.12;
  else if(run.condition==='проблема с экипировкой') livePaceSec*=1.06;
 
- livePaceSec=Math.max(avgPaceSec*.72,Math.min(avgPaceSec*1.42,livePaceSec));
+ livePaceSec=Math.max(avgPaceSec*.72,Math.min(avgPaceSec*1.75,livePaceSec));
  run.livePaceSec=livePaceSec;
+ run.liveSlope=terrain.slope;
+ run.liveGain=terrain.gainDone;
  $('pace').textContent=fmt(livePaceSec).replace(':',' : ')+' /км';
 
  // Realistic live position from virtual competitors.
