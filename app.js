@@ -1,6 +1,18 @@
-const APP_VERSION='11.18';
+const APP_VERSION='11.19';
 
 
+
+
+function setWaterBottlesIndependent(value){
+  game.waterBottles=Math.max(0,Number(value||0));
+  saveGame();
+  render();
+}
+function setGelsIndependent(value){
+  game.gels=Math.max(0,Number(value||0));
+  saveGame();
+  render();
+}
 
 function dynamicLeaderGroupExchange(run){
   if(!run) return;
@@ -750,7 +762,7 @@ function render(){
  $('fatigueBar').style.width=Math.min(100,game.fatigue)+'%';
  $('fatigueBar').className=game.fatigue>=80?'danger-fatigue':game.fatigue>=55?'warn-fatigue':'';
  $('restText').textContent=restMs>0?'отдых ещё '+fmtRest(restMs):game.fatigue>=70?'нужен отдых':'готов к гонке';
- $('gelCount').textContent=game.resources.gels;
+ $('gelCount').textContent=String(game.gels||0);
  const gelNeedNow=gelsNeeded(L);
  $('gelNeedText').textContent='на эту гонку нужно ≈ '+gelNeedNow;
  const gelQuick=$('quickBuyGels');
@@ -803,7 +815,7 @@ function render(){
  if($('itraRankText'))$('itraRankText').textContent=`место в базе: ${ELITE_RUNNERS.filter(r=>r.itra>game.itra).length+1}`;
  const raceWeather=weatherForLevel();
  const waterNeedNow=waterBottlesNeeded(L,raceWeather);
- if($('waterCount')) $('waterCount').textContent=`${game.resources.waterBottles||0} × 0,5 л`;
+ if($('waterCount')) $('waterCount').textContent=String(game.waterBottles||0);
  if($('waterNeedText')) $('waterNeedText').textContent=`на эту гонку нужно ≈ ${waterNeedNow} × 0,5 л`;
  const waterQuick=$('quickBuyWater');
  if(waterQuick){
@@ -2042,6 +2054,18 @@ function terrainStateForProgress(L,p){
 }
 
 function updateRun(){
+ try{
+   if(run && run.running && (game.waterBottles||0)<=0){
+     run.noWaterTicks=(run.noWaterTicks||0)+1;
+     // Occasional penalty instead of start prohibition.
+     if(run.noWaterTicks%45===0){
+       run.penalty=(run.penalty||0)+30;
+       run.condition='жажда';
+       addRaceEvent?.('💧 Нет воды · +0:30');
+     }
+   }
+ }catch(e){}
+
   try{ dynamicLeaderGroupExchange(typeof run!=='undefined'?run:(typeof game!=='undefined'?game.run:null)); }catch(e){}
 
  const L=levelData(),km=run.p*L[1],total=Math.max(1,run.base+run.penalty);
