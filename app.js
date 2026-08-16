@@ -1922,8 +1922,7 @@ function startRace(){
  if((raceWeather.rain||raceWeather.cold) && durability('jacket')<=0) brokenRequired.push(`Мембранка: ${item('jacket')[0]} сломана.`);
  if(lampHours>0 && durability('lamp')<=0) brokenRequired.push(`Фонарик: ${item('lamp')[0]} сломан.`);
  if(brokenRequired.length){
-   showStartRequirementsError('Нельзя стартовать — экипировка неисправна',brokenRequired);
-   return;
+   warnings.push(...brokenRequired.map(x=>`неисправность: ${x}`));
  }
 
  // Water shortage is only a warning; start is still allowed.
@@ -1938,15 +1937,11 @@ function startRace(){
    const equippedMembrane=membraneEquippedLevel();
    if(requiredMembrane>0 && !hasMembrane(requiredMembrane)){
      const equippedName=GEAR.jacket[Number(game.gear.jacket||0)]?.[0]||'Нет мембранки';
-     $('raceResourceWarning').textContent='';
-     showStartRequirementsError('Не подходит экипировка для этой гонки',[
-       `${raceWeather.emoji} ${raceWeather.name}, ${raceWeather.temp}°C.`,
-       `Мембранка: нужна ур. ${requiredMembrane}/7 или выше.`,
-       `Мембранка: ${equippedMembrane <= 1 ? 'отсутствует' : equippedName + ' · ур. ' + equippedMembrane + '/7'}.`
-     ]);
-     activeShopCategory='jacket';
-     renderShop();
-     return;
+     warnings.push(
+       `мембранка: нужна ур. ${requiredMembrane}/7+, сейчас ${
+         equippedMembrane <= 1 ? 'нет' : equippedName+' · ур. '+equippedMembrane+'/7'
+       }`
+     );
    }
  }
 
@@ -1969,8 +1964,8 @@ function startRace(){
  if(warnings.length){
    const important=warnings.map(x=>`⚠️ ${x}`);
    const el=$('startRequirementsError');
-   if(el && el.style.display==='none'){
-     el.innerHTML=`<b>Перед стартом обратите внимание:</b><ul>${important.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+   if(el){
+     el.innerHTML=`<b>⚠️ Обратите внимание — гонка всё равно будет запущена:</b><ul>${important.map(x=>`<li>${x}</li>`).join('')}</ul>`;
      el.style.display='block';
    }
  }
@@ -2091,7 +2086,7 @@ function startRace(){
 
  run.startedByUser=true;
  run.weatherDnfPlanned=Math.random()<run.weatherDnfRisk;
- run.otherDnfCount=simulateOtherDnfs(run.fieldSize,L,raceWeather);
+ run.otherDnfCount=Math.floor(simulateOtherDnfs(run.fieldSize,L,raceWeather)/2);
  run.liveDnfCount=0;
  run.otherDnfPoints=Array.from({length:run.otherDnfCount},(_,i)=>{
    const base=(i+1)/(run.otherDnfCount+1);
@@ -2149,17 +2144,19 @@ function updateAidStationsAndWater(){
     const rate=Math.max(0.001,Number(run.waterNeed||1)/dist);
     const refill=Math.max(1,Math.ceil(rate*70));
     run.waterRemaining=refill;
+    // Stop at aid station to refill water: costs 1 minute.
+    run.penalty=(Number(run.penalty)||0)+60;
     run.waterSegmentStartKm=ppKm;
     run.waterSegmentStartAmount=refill;
     run.waterEmptyNotified=false;
     if(run.condition==='жажда') run.condition='нормально';
 
-    const msg=`ПП ${ppKm.toFixed(1)} км · вода пополнена: ${refill} × 0,5 л`;
-    showEvent({emoji:'🥤',name:'Пункт питания'},0,` · ${msg}`);
+    const msg=`ПП ${ppKm.toFixed(1)} км · вода пополнена: ${refill} × 0,5 л · остановка +1:00`;
+    showEvent({emoji:'🥤',name:'Пункт питания'},60,` · вода пополнена: ${refill} × 0,5 л`);
     try{
       $('eventLog').insertAdjacentHTML(
         'afterbegin',
-        `<div class="event-row"><span>${ppKm.toFixed(1)} км</span><b>🥤 Пункт питания</b><span class="good">вода пополнена: ${refill} × 0,5 л</span></div>`
+        `<div class="event-row"><span>${ppKm.toFixed(1)} км</span><b>🥤 Пункт питания · вода пополнена: ${refill} × 0,5 л</b><span class="bad">+1:00</span></div>`
       );
     }catch(e){}
   }
