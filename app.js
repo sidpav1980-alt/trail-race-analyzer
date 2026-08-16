@@ -1,4 +1,4 @@
-const APP_VERSION='1.11';
+const APP_VERSION='1.0';
 
 
 
@@ -170,7 +170,7 @@ const COACHES=[
  {name:'Горный тренер',price:12500,mult:1.90,maxDifficulty:4,trainingGain:3.0,desc:'Готовит к гонкам сложности до ★★★★.'},
  {name:'Elite Coach',price:22500,mult:2.35,maxDifficulty:5,trainingGain:4.2,desc:'Готовит ко всем гонкам, включая ★★★★★.'}
 ];
-const ELITE_RUNNERS=[{name:'Алексей Береснев',itra:905,country:'RU'},{name:'Антонина Юшина',itra:890,country:'RU'},
+const ELITE_RUNNERS=[
 {name:'Алексей Береснев',itra:905,country:'🇷🇺'},{name:'Антонина Юшина',itra:890,country:'🇷🇺'},
 {name:'Алексей Толстенко',itra:865,country:'🇷🇺'},{name:'Константин Иванов',itra:850,country:'🇷🇺'},
 {name:'Елена Носкова',itra:840,country:'🇷🇺'},{name:'Василий Корыткин',itra:835,country:'🇷🇺'},
@@ -451,7 +451,9 @@ function medkitScore(){
   const r=game.resources;
   return ['bandage','gauze','peroxide','plaster','cream'].reduce((a,k)=>a+(Number(r[k])>0?1:0),0);
 }
-function useResource(k,n=1){game.resources[k]=Math.max(0,(Number(game.resources[k])||0)-n)}
+function useResource(k,n=1){game.resources[k]=Math.max(0,(Number(game.resources[k])||0)-n)
+ try{notifyWaterEndedDuringRace();}catch(e){}
+}
 
 function fmt(sec){
  sec=Math.max(0,Math.round(sec)); const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;
@@ -1803,14 +1805,10 @@ function startRace(){
    return;
  }
 
- // Water becomes mandatory starting with level 4.
- if(game.current>=3 && (game.resources.waterBottles||0)<needWater){
-   const have=game.resources.waterBottles||0;
-   $('raceResourceWarning').textContent='';
-   showStartRequirementsError('Не хватает обязательного снаряжения / расходников',[
-     `Вода: есть ${have} × 0,5 л, нужно минимум ${needWater} × 0,5 л.`
-   ]);
-   return;
+ // Water shortage is only a warning; start is still allowed.
+ if((game.resources.waterBottles||0)<needWater){
+   const have=Number(game.resources.waterBottles||0);
+   warnings.push(`воды ${have}/${needWater} × 0,5 л`);
  }
 
  // In cold/rainy weather the required membrane level rises with race difficulty.
@@ -1860,10 +1858,15 @@ function startRace(){
    $('preRaceNote').textContent=`⚠️ Рекомендуемый уровень трейлраннера: ${Math.max(1, Math.round((Math.max(1,game.current*3-2))*0.5))}. Можно стартовать, но будет сложнее.`;
  }
 
- // Reserve mandatory water for this race.
- if(game.current>=3 && needWater>0){
-   useResource('waterBottles',needWater);
-   $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>💧 Вода взята: ${needWater} × 0,5 л · солнце ${raceWeather.sun}%</b><span class="neutral">обязательно</span></div>`);
+ // Water is a per-race consumable: whatever is carried is consumed/reset at start.
+ const waterAvailable=Math.max(0,Number(game.resources.waterBottles||0));
+ const waterUsed=Math.min(waterAvailable,needWater);
+ const waterShortage=Math.max(0,needWater-waterAvailable);
+ game.resources.waterBottles=0;
+ if(waterAvailable>0){
+   $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>💧 Вода на гонку: ${waterAvailable} × 0,5 л</b><span class="neutral">${waterShortage>0?'не хватает '+waterShortage:'запас использован'}</span></div>`);
+ }else{
+   $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>💧 Старт без воды</b><span class="bad">риск обезвоживания</span></div>`);
  }
 
  // Consume gels gradually through the race, but reserve the planned amount here.
@@ -1930,7 +1933,7 @@ function startRace(){
    startPenalty:fatiguePenaltySec+gelPenaltySec+lightPenaltySec+(raceWeather.sun>=80?Math.round((raceWeather.sun-70)*L[3]/1200):0)+Math.round(coachDifficultyGap*L[3]*0.04),
    positionDrift:0,
    condition:game.fatigue>=75?'сильная усталость':'нормально',
-   gelShortage,lightShortageHours,
+   waterShortage,gelShortage,lightShortageHours,
    fractureRisk:Math.min(.42, Math.max(0,(game.fatigue-55)/140) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08 : 0)),
    dnf:false
  };
@@ -1989,6 +1992,33 @@ function startRace(){
  lastTs=performance.now();
  timer=requestAnimationFrame(tick);
 }
+
+function notifyWaterEndedDuringRace(){
+  try{
+    if(!run || !run.running) return;
+    ensureResources();
+    const waterNow=Math.max(0,Number(game.resources.waterBottles||0));
+
+    if(waterNow>0){
+      run.waterEmptyNotified=false;
+      return;
+    }
+
+    if(run.waterEmptyNotified) return;
+    run.waterEmptyNotified=true;
+    run.condition='жажда';
+
+    const ev={emoji:'💧',name:'Вода закончилась'};
+    showEvent(ev,0,' · дальше без воды');
+    try{
+      $('eventLog').insertAdjacentHTML(
+        'afterbegin',
+        `<div class="event-row"><span>${((run.p||0)*levelData()[1]).toFixed(1)} км</span><b>💧 Вода закончилась</b><span class="bad">дальше без воды</span></div>`
+      );
+    }catch(e){}
+  }catch(e){}
+}
+
 function tick(ts){
  if(!run||!run.running)return;
  const L=levelData();
@@ -2002,6 +2032,7 @@ function tick(ts){
    updateLiveDnfs();
    updateRealisticPosition();
    updateRun();
+   notifyWaterEndedDuringRace();
    renderRaceLeaders((run.p||0)*Number((run&&run.raceDistance)||L[1]||5));
    drawTrack(run.p||0);
  }
