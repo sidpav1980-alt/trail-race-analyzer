@@ -1,4 +1,4 @@
-const APP_VERSION='10.97';
+const APP_VERSION='10.99';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -1409,7 +1409,6 @@ function startRace(){
  }
  if(medkitScore()<3) warnings.push('аптечка неполная');
  if(game.fatigue>=70) warnings.push(`усталость ${Math.round(game.fatigue)}%`);
- if(coachDifficultyGap>0) warnings.push(`тренер слабее сложности гонки на ${coachDifficultyGap} ур.`);
 
  $('raceResourceWarning').textContent=warnings.length
    ? '⚠️ Риски перед стартом: '+warnings.join(' · ')
@@ -1690,7 +1689,37 @@ function updateRun(){
  $('progressKm').textContent=`${km.toFixed(1)} / ${L[1].toFixed(1)} км`;
  $('clock').textContent=fmt(run.elapsed);
  $('progressBar').style.width=(run.p*100)+'%';
- $('pace').textContent=fmt(total/L[1]).replace(':',' : ')+' /км';
+ // Live pace must change during the race instead of showing one fixed
+ // average pace for the whole distance (especially noticeable on 200–300 km races).
+ // The final simulation time is unchanged: this is the current segment pace.
+ const avgPaceSec=total/Math.max(.1,L[1]);
+ const progress=Math.max(0,Math.min(1,Number(run.p||0)));
+ const difficulty=Math.max(1,Number(L[5]||1));
+
+ // Terrain/profile variation: climbs slower, descents/flatter parts faster.
+ const terrainWave=
+   Math.sin(progress*Math.PI*8 + difficulty*.55)*.105 +
+   Math.sin(progress*Math.PI*19 + L[1]*.017)*.045;
+
+ // Ultra fatigue gradually becomes visible in current pace.
+ // Almost neutral at the start, increasingly important after halfway.
+ const distanceFatigue=Math.max(0,Number(L[1]||0)-30)/270;
+ const lateRace=Math.pow(progress,1.7);
+ const fatigueWave=lateRace*(.05 + .15*Math.min(1,distanceFatigue));
+
+ // Small deterministic stride variation prevents a frozen number on long flat pieces.
+ const strideWave=Math.sin(progress*Math.PI*53)*.018;
+
+ let livePaceSec=avgPaceSec*(1+terrainWave+fatigueWave+strideWave);
+
+ // Current bad condition is reflected immediately in the shown pace.
+ if(run.condition==='сильная усталость') livePaceSec*=1.08;
+ else if(run.condition==='травма') livePaceSec*=1.12;
+ else if(run.condition==='проблема с экипировкой') livePaceSec*=1.06;
+
+ livePaceSec=Math.max(avgPaceSec*.72,Math.min(avgPaceSec*1.42,livePaceSec));
+ run.livePaceSec=livePaceSec;
+ $('pace').textContent=fmt(livePaceSec).replace(':',' : ')+' /км';
 
  // Realistic live position from virtual competitors.
  let estimatedPos=updateRealisticPosition() || Math.max(1,run.currentPosition||run.position||1);
