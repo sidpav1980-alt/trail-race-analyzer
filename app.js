@@ -1,4 +1,4 @@
-const APP_VERSION='1.05';
+const APP_VERSION='1.08';
 
 
 
@@ -444,6 +444,7 @@ const TOP_ITRA_LEADERS=[
 ];
 
 const RUSSIAN_ITRA_RIVALS=[
+ {name:'Артем Чернов',itra:920},
  {name:'Алексей Береснев',itra:905},
  {name:'Антонина Юшина',itra:890},
  {name:'Алексей Толстенко',itra:865},
@@ -1494,6 +1495,13 @@ function competitorProgressAt(c,elapsed,L){
   // but the wiggle is intentionally mild to avoid position flicker.
   const wave=Math.sin((elapsed/180)+(c.id%7))*0.004;
   p=Math.max(0,Math.min(1,p+wave));
+
+  // В Армагеддоне Артём Чернов обычно держит лидерство почти до финиша.
+  // В редких проигрышных попытках он проседает только на последних ~12%.
+  if(c.armageddonStar && !c.armageddonWins && p>0.88){
+    const late=(p-0.88)/0.12;
+    p=Math.max(0,Math.min(1,p-late*0.035));
+  }
   return p;
 }
 
@@ -1601,6 +1609,27 @@ function dynamicLeaderRows(L){
   });
 
   rows.sort((a,b)=>b.liveKm-a.liveKm);
+
+  // Levels 12-19: Beresnev and Yushina appear near the leaders much more often.
+  // Level 20 is reserved for Artem Chernov's special Armageddon behavior.
+  const shownLevel=Number(game.current||0);
+  if(shownLevel>=12 && shownLevel<20){
+    const stars=rows.filter(r=>{
+      const n=String(r?.c?.name||'');
+      return n==='Алексей Береснев' || n==='Антонина Юшина';
+    });
+    if(stars.length){
+      const leaderKm=Number(rows[0]?.liveKm||0);
+      stars.forEach((r,i)=>{
+        // Usually keep them in/around the leading pack, with small oscillation
+        // so they can swap places and occasionally drop a little.
+        const wobble=(Math.sin((Number(run.elapsed||0)/95)+(i*2.1))+1)/2;
+        const gap=Number(L[1]||1)*(0.0015+0.006*wobble);
+        r.liveKm=Math.max(r.liveKm, Math.max(0,leaderKm-gap));
+      });
+      rows.sort((a,b)=>b.liveKm-a.liveKm);
+    }
+  }
 
   // From level 8, guarantee at least four REAL Russian rivals in live TOP-7.
   if(Number(game.current||0)>=7 && rows.length>=7){
@@ -1837,6 +1866,24 @@ function startRace(){
  };
  run.virtualField=createVirtualField(L,run.fieldSize,Math.max(60,run.base+run.penalty));
  attachRivalNamesToVirtualField();
+
+ // Армагеддон: Артём Чернов — главный соперник.
+ // В большинстве попыток он ведёт почти всю гонку и часто выигрывает.
+ if(Number(game.current||0)===20 && Array.isArray(run.virtualField) && run.virtualField.length){
+   const field=[...run.virtualField].sort((a,b)=>a.finishSec-b.finishSec);
+   const artem=field[0];
+   artem.name='Артем Чернов';
+   artem.country='RU';
+   artem.itra=920;
+   artem.armageddonStar=true;
+   artem.armageddonWins=Math.random()<0.72; // примерно 72% побед
+   const expectedPlayer=Math.max(60,Number(run.base||0)+Number(run.penalty||0));
+   artem.finishSec=expectedPlayer*(artem.armageddonWins ? (0.91+Math.random()*0.045) : (1.015+Math.random()*0.035));
+   // Остальных не пускаем слишком далеко вперёд Артёма.
+   field.slice(1,7).forEach((c,i)=>{
+     c.finishSec=Math.max(c.finishSec, artem.finishSec*(1.012+i*0.006));
+   });
+ }
  run.p=0;
  run.elapsed=0;
  const expectedStart=Math.max(1,Math.min(run.fieldSize,
