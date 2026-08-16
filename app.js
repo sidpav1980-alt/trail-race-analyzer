@@ -1583,6 +1583,15 @@ function isItraDnfProtectedRunner(c){
 }
 
 function updateLiveDnfs(){
+ const raceKmNow=Number(run.p||0)*Number(levelData()?.[1]||0);
+ if(raceKmNow<30){
+   const box=$('liveDnfStatus');
+   if(box){
+     const total=Math.max(1,Number(run.fieldSize||0));
+     box.textContent=`🚫 Сошли: ${Number(run.liveDnfCount||0)} из ${total}`;
+   }
+   return;
+ }
  if(!run || !run.running) return;
 
  const points=Array.isArray(run.otherDnfPoints)?run.otherDnfPoints:[];
@@ -1716,6 +1725,8 @@ function enforceMinRussianTop7(L){
 }
 
 function maybeLeaderDNF(){
+  const leaderDnfKm=Number(run.p||0)*Number(levelData()?.[1]||0);
+  if(leaderDnfKm<30) return;
   if(!run || !run.running || !Array.isArray(run.virtualField)) return;
   const elapsed=Number(run.elapsed||0);
   if(elapsed<240) return; // no leader DNFs immediately after start
