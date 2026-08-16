@@ -1509,7 +1509,14 @@ function createVirtualField(L,fieldSize,playerBaseSec){
     field.push({
       id:i,
       relative:Math.max(0.72,Math.min(1.34,relative)),
-      finishSec:Math.max(60,playerBaseSec*relative*1.20),
+      finishSec:Math.max(
+        60,
+        playerBaseSec*relative*(
+          Number(game.current||0)>=18 ? 1.02 :
+          Number(game.current||0)>=11 ? 1.06 :
+          1.10
+        )
+      ),
       dnf:false
     });
   }
@@ -1556,7 +1563,7 @@ function updateLiveDnfs(){
    const el=$('eventLog');
    if(el){
      el.insertAdjacentHTML('afterbegin',
-       `<div class="event-row"><span>${Math.round((run.p||0)*100)}%</span><b>🚫 Сход участника</b><span>всего ${run.liveDnfCount}</span></div>`);
+       `<div class="event-row"><span>${Math.round((run.p||0)*100)}%</span><b>🚫 ${dnfName} сошёл</b><span>всего ${run.liveDnfCount}</span></div>`);
    }
  }
 
