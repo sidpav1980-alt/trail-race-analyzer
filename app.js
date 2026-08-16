@@ -1574,25 +1574,40 @@ function updateLiveDnfs(){
  const points=Array.isArray(run.otherDnfPoints)?run.otherDnfPoints:[];
  let count=0;
  for(const p of points) if((run.p||0)>=p) count++;
+
  if(count>Number(run.liveDnfCount||0)){
    const newly=count-Number(run.liveDnfCount||0);
    run.liveDnfCount=count;
 
-   // Remove approximately the same number of virtual competitors from the active field.
+   // Remove the same number of virtual competitors and report each exact name.
    const active=(run.virtualField||[]).filter(c=>!c.dnf);
+   const names=[];
+
    for(let i=0;i<newly && active.length;i++){
      const idx=Math.floor(Math.random()*active.length);
      const dnfRunner=active[idx];
      dnfRunner.dnf=true;
-     const dnfName=String(dnfRunner.name||dnfRunner.runnerName||dnfRunner.fullName||'Неизвестный участник');
+
+     const dnfName=String(
+       dnfRunner.name ||
+       dnfRunner.runnerName ||
+       dnfRunner.fullName ||
+       'Неизвестный участник'
+     );
+
+     names.push(dnfName);
      active.splice(idx,1);
+
+     // This notice does not pause the race.
      showDnfNotice(dnfName);
    }
 
-   const el=$('eventLog');
-   if(el){
-     el.insertAdjacentHTML('afterbegin',
-       `<div class="event-row"><span>${Math.round((run.p||0)*100)}%</span><b>🚫 ${dnfName} сошёл</b><span>всего ${run.liveDnfCount}</span></div>`);
+   // IMPORTANT: no reference to loop-local dnfName here.
+   // The old code caused a ReferenceError on the first DNF and stopped the race.
+   const box=$('liveDnfStatus');
+   if(box){
+     const total=Math.max(1,Number(run.fieldSize||0));
+     box.textContent=`🚫 Сошли: ${Number(run.liveDnfCount||0)} из ${total}`;
    }
  }
 
