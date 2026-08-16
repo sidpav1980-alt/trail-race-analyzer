@@ -793,7 +793,7 @@ function render(){
  $('fatigueBar').style.width=Math.min(100,game.fatigue)+'%';
  $('fatigueBar').className=game.fatigue>=80?'danger-fatigue':game.fatigue>=55?'warn-fatigue':'';
  $('restText').textContent=restMs>0?'отдых ещё '+fmtRest(restMs):game.fatigue>=70?'нужен отдых':'готов к гонке';
- $('gelCount').textContent=String(game.gels||0);
+ $('gelCount').textContent=String(game.resources.gels||0);
  const gelNeedNow=gelsNeeded(L);
  $('gelNeedText').textContent='на эту гонку нужно ≈ '+gelNeedNow;
  const gelQuick=$('quickBuyGels');
@@ -2642,6 +2642,10 @@ function quickBuyWater(){
  if(game.money<cost){ showGameError(`Не хватает рублей: нужно ${fmtMoney(cost)}`); return; }
  game.money-=cost;
  game.resources.waterBottles=Number(game.resources.waterBottles||0)+missing;
+ const req=$('startRequirementsError');
+ if(req && /Перед стартом обратите внимание|Риски перед стартом|воды|гелей/i.test(req.textContent||'')){
+   req.innerHTML=''; req.style.display='none';
+ }
  saveGame(); render();
 }
 
@@ -2654,6 +2658,10 @@ function quickBuyGels(){
  if(game.money<cost){ showGameError(`Не хватает рублей: нужно ${fmtMoney(cost)}`); return; }
  game.money-=cost;
  game.resources.gels=Number(game.resources.gels||0)+missing;
+ const req=$('startRequirementsError');
+ if(req && /Перед стартом обратите внимание|Риски перед стартом|воды|гелей/i.test(req.textContent||'')){
+   req.innerHTML=''; req.style.display='none';
+ }
  saveGame(); render();
 }
 
