@@ -1,4 +1,4 @@
-const APP_VERSION='11.19';
+const APP_VERSION='1.03';
 
 
 
@@ -117,7 +117,7 @@ const GEAR={"shoes":[["Базовые кроссовки",0,1.0,65,0.0],["Trail 
 const CATEGORY_NAMES={shoes:'Кроссовки',pack:'Рюкзак / жилет',jacket:'Мембранка',lamp:'Фонарик',poles:'Палки',watch:'Часы',medkit:'Аптечка',hydration:'Вода'};
 const RESOURCE_CATALOG={
   waterBottles:{name:'Вода 0,5 л',price:80,unit:'бут.',desc:'Обязательна с 4 уровня. Расход зависит от дистанции, жары и солнца.'},
-  gels:{name:'Энергетический гель',price:60,unit:'шт.',desc:'Снижает голод и потерю темпа на длинной гонке.'},
+  gels:{name:'Энергетический гель «УГЛИ»',price:60,unit:'шт.',desc:'Снижает голод и потерю темпа на длинной гонке.'},
   batteries:{name:'Комплект батареек',price:130,unit:'компл.',desc:'Для фонарей 1–4 уровня. Один комплект ≈ 5 часов света.'},
   bandage:{name:'Бинт',price:40,unit:'шт.',desc:'Сильные ссадины и растяжения.'},
   gauze:{name:'Марля',price:22,unit:'уп.',desc:'Кровь и глубокие царапины.'},
@@ -815,7 +815,7 @@ function render(){
  if($('itraRankText'))$('itraRankText').textContent=`место в базе: ${ELITE_RUNNERS.filter(r=>r.itra>game.itra).length+1}`;
  const raceWeather=weatherForLevel();
  const waterNeedNow=waterBottlesNeeded(L,raceWeather);
- if($('waterCount')) $('waterCount').textContent=String(game.waterBottles||0);
+ if($('waterCount')) $('waterCount').textContent=String(game.resources.waterBottles||0);
  if($('waterNeedText')) $('waterNeedText').textContent=`на эту гонку нужно ≈ ${waterNeedNow} × 0,5 л`;
  const waterQuick=$('quickBuyWater');
  if(waterQuick){
@@ -1368,7 +1368,7 @@ function buildEvents(L){
   ['🎵','Музыка на ПП придала сил',-75,null],
   ['😫','Накрыла усталость',300,null],
   ['🤢','Гель не зашёл',120,null],
-  ['🍯','Гель сработал идеально',-90,null],
+  ['🔥','Кофеиновый гель «УГЛИ» сработал!',-90,'ugli'],
   ['🌬️','Попутный ветер',-120,null],
   ['💨','Сильный встречный ветер',180,null],
   ['☀️','Стало жарко',120,'hydration'],
@@ -1910,8 +1910,22 @@ function fireEvents(){
    run.fired.add(i);
    let sec=ev.sec,extra='';
 
+   // Gel «УГЛИ»: событие возможно в пуле, но бонус работает только при наличии геля.
+   if(ev.cat==='ugli'){
+     ensureResources();
+     if(Number(game.resources.gels||0)>0){
+       useResource('gels');
+       // Небольшая вариативность эффекта: примерно 1–3 минуты выигрыша.
+       const bonuses=[60,90,120,180];
+       sec=-bonuses[Math.floor(Math.random()*bonuses.length)];
+       extra=' · израсходован 1 гель «УГЛИ»';
+       saveGame();
+     }else{
+       sec=0;
+       extra=' · гелей «УГЛИ» нет';
+     }
    // Medical events.
-   if(ev.cat==='medkit'){
+   }else if(ev.cat==='medkit'){
      if(game.resources.bandage>0 && game.resources.peroxide>0){
        useResource('bandage');useResource('peroxide');sec=0;
        extra=' · бинт + перекись → обработано';
