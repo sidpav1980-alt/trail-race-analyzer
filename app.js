@@ -1548,6 +1548,27 @@ function competitorProgressAt(c,elapsed,L){
 }
 
 
+
+function showDnfNotice(name, extra=''){
+  try{
+    const ov=$('eventOverlay');
+    if(ov){
+      ov.innerHTML=`<div class="overlay-box"><div class="emoji">🚫</div><b>${name} сошёл</b><span>${extra||'гонка продолжается'}</span></div>`;
+      ov.classList.add('show');
+      setTimeout(()=>ov.classList.remove('show'),2000);
+    }
+    const el=$('eventLog');
+    if(el){
+      el.insertAdjacentHTML(
+        'afterbegin',
+        `<div class="event-row"><span>${((run?.p||0)*levelData()[1]).toFixed(1)} км</span><b>🚫 ${name} сошёл</b><span class="neutral">${extra||''}</span></div>`
+      );
+    }
+    // Important: opponent DNF must never pause the race.
+    if(run) run.eventPause=false;
+  }catch(e){}
+}
+
 function updateLiveDnfs(){
  if(!run || !run.running) return;
  const points=Array.isArray(run.otherDnfPoints)?run.otherDnfPoints:[];
@@ -1561,8 +1582,11 @@ function updateLiveDnfs(){
    const active=(run.virtualField||[]).filter(c=>!c.dnf);
    for(let i=0;i<newly && active.length;i++){
      const idx=Math.floor(Math.random()*active.length);
-     active[idx].dnf=true;
+     const dnfRunner=active[idx];
+     dnfRunner.dnf=true;
+     const dnfName=String(dnfRunner.name||dnfRunner.runnerName||dnfRunner.fullName||'Неизвестный участник');
      active.splice(idx,1);
+     showDnfNotice(dnfName);
    }
 
    const el=$('eventLog');
@@ -1662,7 +1686,7 @@ function maybeLeaderDNF(){
   c.dnfKm=Math.max(0,Math.min(Number(L[1]||0),competitorProgressAt(c,elapsed,L)*Number(L[1]||0)));
   const reasons=['травма','сильная усталость','проблемы с желудком','падение','переохлаждение'];
   c.dnfReason=reasons[Math.floor(Math.random()*reasons.length)];
-  try{ addRaceEvent?.(`⛔ ${n||'Лидер'} сошёл · ${c.dnfReason}`); }catch(e){}
+  try{ showDnfNotice(n||'Лидер',c.dnfReason||''); }catch(e){}
 }
 
 function dynamicLeaderRows(L){
