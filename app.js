@@ -1492,20 +1492,44 @@ function playerItraPlace(){
   return ELITE_RUNNERS.filter(r=>Number(r.itra||0)>Number(game.itra||0)).length+1;
 }
 
-function top3ItraEarlyRaceBoost(){
+function itraEarlyRaceBoost(){
   const place=playerItraPlace();
   const earlyRace=Number(game.current||0)<10; // уровни 1–10
-  if(!earlyRace || place>3) return {active:false,place,chance:0,mult:1};
 
-  // Чем выше игрок в ITRA, тем чаще он получает реально выгодный расклад гонки.
-  const chance=place===1 ? 0.70 : place===2 ? 0.55 : 0.42;
-  const active=Math.random()<chance;
+  if(!earlyRace) return {active:false,place,chance:0,mult:1,tier:'off'};
 
-  // Это не гарантированная победа: события, штрафы, вода, травмы и погода
-  // всё ещё могут испортить гонку.
-  const mult=active ? (place===1 ? 1.075 : place===2 ? 1.060 : 1.045) : 1;
-  return {active,place,chance,mult};
+  // Плавная шкала бонуса по месту в ITRA.
+  // Чем выше место, тем чаще игрок получает выгодный расклад соперников.
+  let chance=0;
+  let mult=1;
+  let tier='none';
+
+  if(place===1){
+    chance=0.72; mult=1.080; tier='1';
+  }else if(place===2){
+    chance=0.62; mult=1.068; tier='2';
+  }else if(place===3){
+    chance=0.52; mult=1.055; tier='3';
+  }else if(place<=5){
+    chance=0.40; mult=1.042; tier='4-5';
+  }else if(place<=10){
+    chance=0.28; mult=1.030; tier='6-10';
+  }else if(place<=15){
+    chance=0.17; mult=1.018; tier='11-15';
+  }else{
+    chance=0; mult=1; tier='16+';
+  }
+
+  const active=chance>0 && Math.random()<chance;
+  return {
+    active,
+    place,
+    chance,
+    mult:active ? mult : 1,
+    tier
+  };
 }
+
 
 function seededNoise01(seed){
   // deterministic pseudo-random 0..1 for this race/competitor
@@ -1515,7 +1539,7 @@ function seededNoise01(seed){
 
 function createVirtualField(L,fieldSize,playerBaseSec){
   const n=Math.max(20,Math.min(124,fieldSize||50));
-  const itraBoost=top3ItraEarlyRaceBoost();
+  const itraBoost=itraEarlyRaceBoost();
   const strength=Math.max(0,Math.min(1,
     (Number(game.fitness||0)/100)*0.52 +
     (Number(game.level||1)/100)*0.24 +
@@ -2123,6 +2147,10 @@ function startRace(){
  };
  run.virtualField=createVirtualField(L,run.fieldSize,Math.max(60,run.base+run.penalty));
  run.playerItraPlace=playerItraPlace();
+ run.itraBoostTier=(run.playerItraPlace<=3?'TOP-3':
+                    run.playerItraPlace<=5?'TOP-5':
+                    run.playerItraPlace<=10?'TOP-10':
+                    run.playerItraPlace<=15?'TOP-15':'обычный');
  attachRivalNamesToVirtualField();
 
  // Армагеддон: Артём Чернов — главный соперник.
