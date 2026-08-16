@@ -501,18 +501,17 @@ function attachRivalNamesToVirtualField(){
 
  let names=[];
  if(levelIndex>=7){
-   // From level 8: put the Russian ITRA roster into the REAL race field,
-   // not only into the visual leaderboard.
-   const ru=shuffledCopy(RUSSIAN_ITRA_RIVALS.map(r=>r.name));
-   const intl=shuffledCopy(TOP_ITRA_LEADERS.filter(n=>!isRussianEliteName(n)));
+   // Первые 7 имён — ровно те же, что показаны до старта.
+   const shown=[...(run.raceLeaders||leadersForRace(game.current))].slice(0,7);
+   names=[...shown];
 
-   // First seven start with 5 RU + 2 international.
-   // This leaves one spare Russian even if the player enters TOP-7.
-   names=[...ru.slice(0,5),...intl.slice(0,2)];
+   const ru=shuffledCopy(RUSSIAN_ITRA_RIVALS.map(r=>r.name))
+     .filter(n=>!names.includes(n));
+   const intl=shuffledCopy(TOP_ITRA_LEADERS)
+     .filter(n=>!names.includes(n));
 
-   // Remaining Russian elites are also present in the front pack and can attack TOP-7.
-   names.push(...ru.slice(5));
-   names.push(...intl.filter(n=>!names.includes(n)));
+   names.push(...ru);
+   names.push(...intl);
  }else{
    names=[...(run.raceLeaders||[])];
  }
@@ -549,8 +548,8 @@ function shuffledCopy(arr){
 }
 
 function createLeadersForAttempt(raceIndex=game.current){
- // 1–9: один случайный атлет из TOP ITRA + два новых случайных соперника.
- if(raceIndex<9){
+ // 1–7: один атлет TOP ITRA + случайные соперники.
+ if(raceIndex<7){
    const top=TOP_ITRA_LEADERS[Math.floor(Math.random()*TOP_ITRA_LEADERS.length)];
    let a=randomFio(Math.floor(Math.random()*1000000));
    let b=randomFio(Math.floor(Math.random()*1000000));
@@ -558,7 +557,6 @@ function createLeadersForAttempt(raceIndex=game.current){
    while((b===a || b===top) && guard++<20){
      b=randomFio(Math.floor(Math.random()*1000000));
    }
-   
    const extras=[];
    while(extras.length<4){
      const x=randomFio(Math.floor(Math.random()*1000000));
@@ -566,8 +564,12 @@ function createLeadersForAttempt(raceIndex=game.current){
    }
    return [top,a,b,...extras];
  }
- // С 10 уровня: каждый новый старт получает новую тройку из TOP ITRA.
- return shuffledCopy(TOP_ITRA_LEADERS).slice(0,7);
+
+ // С 8 уровня до старта сразу показываем тот же тип состава,
+ // который будет и после старта: 5 российских ITRA + 2 международных.
+ const ru=shuffledCopy(RUSSIAN_ITRA_RIVALS.map(r=>r.name));
+ const intl=shuffledCopy(TOP_ITRA_LEADERS);
+ return [...ru.slice(0,5),...intl.slice(0,2)];
 }
 
 function leadersForRace(raceIndex=game.current){
@@ -1459,6 +1461,8 @@ function showStartRequirementsError(title,items=[]){
 }
 
 function weatherDnfRisk(L,w){
+ // На дистанциях до 20 км плохая погода сама по себе не вызывает DNF игрока.
+ if(Number(L[1]||0)<=20) return 0;
  let risk=0.01 + Math.max(0,game.fatigue-55)*0.0015;
  if(w.temp>=30) risk += 0.12 + L[5]*0.018;
  if(w.name==='Ливень') risk += 0.16 + L[5]*0.015;
@@ -2127,7 +2131,7 @@ function startRace(){
  run.running=true;
 
  run.startedByUser=true;
- run.weatherDnfPlanned=Math.random()<run.weatherDnfRisk;
+ run.weatherDnfPlanned=run.weatherDnfRisk>0 && Math.random()<run.weatherDnfRisk;
  run.otherDnfCount=Math.floor(simulateOtherDnfs(run.fieldSize,L,raceWeather)/2);
  run.liveDnfCount=0;
  run.otherDnfPoints=Array.from({length:run.otherDnfCount},(_,i)=>{
@@ -2321,8 +2325,8 @@ function fireEvents(){
        extra=' · израсходован 1 гель «УГЛИ»';
        saveGame();
      }else{
-       sec=0;
-       extra=' · гелей «УГЛИ» нет';
+       // Нет геля — событие «УГЛИ сработал» не показываем вообще.
+       return;
      }
    // Medical events.
    }else if(ev.cat==='medkit'){
