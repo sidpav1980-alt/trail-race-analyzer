@@ -1,7 +1,29 @@
-const APP_VERSION='1.09';
+const APP_VERSION='1.11';
 
 
 
+
+
+function realLeaderBattleName(){
+  try{
+    if(!run || !run.running) return '';
+    const L=levelData();
+    const pKm=Math.max(0,Math.min(Number(L[1]||0),Number(run.p||0)*Number(L[1]||0)));
+    const rows=dynamicLeaderRows(L).filter(r=>r && r.c && !r.c.dnf);
+    if(!rows.length) return '';
+
+    // Prefer the closest real rival ahead of the player.
+    const ahead=rows
+      .filter(r=>Number(r.liveKm||0)>=pKm)
+      .sort((a,b)=>Number(a.liveKm||0)-Number(b.liveKm||0));
+    const rival=ahead[0] || rows.sort((a,b)=>Number(b.liveKm||0)-Number(a.liveKm||0))[0];
+    return String(rival?.c?.name||'').trim();
+  }catch(e){ return ''; }
+}
+function leaderBattleLabel(){
+  const name=realLeaderBattleName();
+  return name ? `Борьба с лидером: ${name}` : 'Борьба с лидером';
+}
 
 function setWaterBottlesIndependent(value){
   game.waterBottles=Math.max(0,Number(value||0));
@@ -617,7 +639,13 @@ function renderRaceLeaders(playerKm=0){
    const allRows=[
      ...npcRows,
      {player:true,name:safeProfileNameForRace(),liveKm:pKm}
-   ].sort((a,b)=>b.liveKm-a.liveKm);
+   ].sort((a,b)=>{
+     if(run.finishWinnerHold){
+       if(a.player) return -1;
+       if(b.player) return 1;
+     }
+     return b.liveKm-a.liveKm;
+   });
 
    const top7=allRows.slice(0,7);
 
@@ -2245,12 +2273,17 @@ function updateRun(){
 }
 function finishRace(forceDnf=false,dnfReason='fracture'){
  if(!run||!run.running)return;
- run.running=false;cancelAnimationFrame(timer);$('pauseBtn').disabled=true;$('startBtn').disabled=false;
- drawTrack(0);
- renderRaceLeaders(0); updateRestUi();
+ cancelAnimationFrame(timer);$('pauseBtn').disabled=true;$('startBtn').disabled=false;
  const L=levelData();
+ // Keep the finished race visible while the result overlay is shown.
+ // run.running remains true temporarily so TOP-7 can still include the player.
+ run.finishHold=true;
+ run.p=1;
+ drawTrack(1);
+ renderRaceLeaders(Number(L[1]||0)); updateRestUi();
 
  if(forceDnf || run.dnf){
+   run.running=false; run.finishHold=false;
    // DNF never gives race money.
    game.fatigue=Math.min(100,game.fatigue+18+L[5]*3);
    game.lastFinishAt=Date.now();
@@ -2297,6 +2330,15 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  let pos=Math.max(1,Math.min(run.fieldSize||50,Math.round(Number(run.currentPosition||run.position||1))));
  run.currentPosition=pos;
  if($('position')) $('position').textContent=pos;
+
+ // On victory, hold the player as #1 in the visible TOP-7 until the result closes.
+ if(pos===1){
+   run.finishWinnerHold=true;
+   run.p=1;
+   if($('position')) $('position').textContent='1';
+   drawTrack(1);
+   renderRaceLeaders(Number(L[1]||0));
+ }
 
  const quality=Math.max(.45,Math.min(1.55,ratio));
  let reward=Math.round(L[4]*Math.max(.35,Math.min(1.55,.55+quality*.55))*(pos===1?1.35:pos<=3?1.18:1));
@@ -2349,7 +2391,16 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  const totalDnfs=Math.min(run.fieldSize,run.liveDnfCount??run.otherDnfCount??0);
  ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br>🚫 Сошло с дистанции: ${totalDnfs} из ${run.fieldSize}<br>Тренированность: ${Math.round(game.fitness)}/100<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}${coachAdvice}</span></div>`;
  ov.classList.add('show');
- setTimeout(()=>{ov.classList.remove('show');render()},champ?7000:4200);
+ setTimeout(()=>{
+   ov.classList.remove('show');
+   if(run){
+     run.running=false;
+     run.finishHold=false;
+     run.finishWinnerHold=false;
+     run.p=0;
+   }
+   render();
+ }, pos===1 ? (champ?9500:7000) : (champ?7000:4200));
 }
 $('startBtn').onclick=startRace;
 $('pauseBtn').onclick=()=>{if(!run)return;run.paused=!run.paused;$('pauseBtn').textContent=run.paused?'▶ Продолжить':'Ⅱ Пауза';lastTs=performance.now()};
