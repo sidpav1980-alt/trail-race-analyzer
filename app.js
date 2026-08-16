@@ -1,4 +1,4 @@
-const APP_VERSION='11.16';
+const APP_VERSION='11.17';
 
 
 
@@ -430,6 +430,61 @@ const TOP_ITRA_LEADERS=[
  'François D’Haene','Jonathan Albon','Hannes Namberger','Ruth Croft',
  'Courtney Dauwalter','Katie Schide','Blandine L’Hirondel','Judith Wyder'
 ];
+
+const RUSSIAN_ITRA_RIVALS=[
+ {name:'Алексей Береснев',itra:905},
+ {name:'Антонина Юшина',itra:890},
+ {name:'Алексей Толстенко',itra:865},
+ {name:'Константин Иванов',itra:850},
+ {name:'Елена Носкова',itra:840},
+ {name:'Василий Корыткин',itra:835},
+ {name:'Алексей Макалюкин',itra:825},
+ {name:'Алексей Бабушкин',itra:815},
+ {name:'Павел Тарасов',itra:805},
+ {name:'Виктория Жукова',itra:795},
+ {name:'Мария Гостева',itra:785},
+ {name:'Вера Чекалина',itra:775}
+];
+
+function isRussianEliteName(name){
+ const n=String(name||'').trim().toLowerCase();
+ return RUSSIAN_ITRA_RIVALS.some(r=>r.name.toLowerCase()===n);
+}
+
+function attachRivalNamesToVirtualField(){
+ if(!run || !Array.isArray(run.virtualField)) return;
+
+ const levelIndex=Number(game.current||0);
+ const field=[...run.virtualField].sort((a,b)=>a.finishSec-b.finishSec);
+
+ let names=[];
+ if(levelIndex>=7){
+   // From level 8: put the Russian ITRA roster into the REAL race field,
+   // not only into the visual leaderboard.
+   const ru=shuffledCopy(RUSSIAN_ITRA_RIVALS.map(r=>r.name));
+   const intl=shuffledCopy(TOP_ITRA_LEADERS.filter(n=>!isRussianEliteName(n)));
+
+   // First seven start with 5 RU + 2 international.
+   // This leaves one spare Russian even if the player enters TOP-7.
+   names=[...ru.slice(0,5),...intl.slice(0,2)];
+
+   // Remaining Russian elites are also present in the front pack and can attack TOP-7.
+   names.push(...ru.slice(5));
+   names.push(...intl.filter(n=>!names.includes(n)));
+ }else{
+   names=[...(run.raceLeaders||[])];
+ }
+
+ let seed=(game.current+1)*10000+(game.completed||0)*101;
+ for(let i=0;i<field.length;i++){
+   const c=field[i];
+   c.name=names[i] || randomFio(seed+i*37);
+   c.country=isRussianEliteName(c.name)?'RU':'';
+   const ruData=RUSSIAN_ITRA_RIVALS.find(r=>r.name===c.name);
+   if(ruData) c.itra=ruData.itra;
+ }
+}
+
 const RANDOM_FIRST_NAMES=['Алексей','Илья','Дмитрий','Сергей','Максим','Андрей','Никита','Роман','Антон','Егор','Мария','Анна','Елена','Ольга','Дарья','Ирина','Алина','Виктория'];
 const RANDOM_LAST_NAMES=['Волков','Орлов','Соколов','Лебедев','Морозов','Крылов','Белов','Громов','Зайцев','Титов','Смирнова','Орлова','Волкова','Белова','Морозова','Крылова','Соколова','Лебедева'];
 function seededIndex(seed,n){ return Math.abs((seed*9301+49297)%233280)%n; }
@@ -532,23 +587,25 @@ function updateRaceTerrainOverlay(){
 }
 
 function renderRaceLeaders(playerKm=0){
-setTimeout(()=>{updateRaceTerrainOverlay();showPlayerInsideTop3();},0);
- const _L=levelData();
- const _liveRows=dynamicLeaderRows(_L);
- const _pool=Array.isArray(run?.raceLeaders)?run.raceLeaders:[];
- const _dynamicLeaderNames=_liveRows.slice(0,3).map((r,i)=>{
-   const mappedIndex=Math.abs(Number(r.c?.id ?? r.idx ?? i)) % Math.max(1,_pool.length||1);
-   return _pool[mappedIndex] || _pool[i] || `Участник ${i+1}`;
- });
-
+ setTimeout(()=>{updateRaceTerrainOverlay();showPlayerInsideTop3();},0);
  const box=$('raceLeaders'); if(!box)return;
- const L=levelData(),names=leadersForRace();
+ const L=levelData();
  if($('leadersRaceName')) $('leadersRaceName').textContent=`${game.current+1}. ${L[0]}`;
- box.innerHTML=names.map((name,i)=>{
-   const km=run&&run.running?leaderKmFor(i+1,L,playerKm):0;
-   const status=run&&run.running?(km>=L[1]?'Финиш':`${km.toFixed(1)} км`):'на старте';
-   return `<div class="race-leader-row"><b>${i+1}</b><span>${name}</span><strong>${status}</strong></div>`;
- }).join('');
+
+ if(run && run.running){
+   const rows=dynamicLeaderRows(L).slice(0,7);
+   box.innerHTML=rows.map((r,i)=>{
+     const name=String(r?.c?.name||`Участник ${i+1}`);
+     const km=Math.max(0,Math.min(L[1],Number(r.liveKm||0)));
+     const status=km>=L[1]?'Финиш':`${km.toFixed(1)} км`;
+     return `<div class="race-leader-row"><b>${i+1}</b><span>${name}</span><strong>${status}</strong></div>`;
+   }).join('');
+ }else{
+   const names=leadersForRace();
+   box.innerHTML=names.slice(0,7).map((name,i)=>
+     `<div class="race-leader-row"><b>${i+1}</b><span>${name}</span><strong>на старте</strong></div>`
+   ).join('');
+ }
 }
 function xpNeeded(lvl){return 100+Math.floor(lvl*18)}
 function addXp(n){
@@ -1499,7 +1556,6 @@ function dynamicLeaderRows(L){
       .map((c,idx)=>({c,idx,km:0,liveKm:0}));
   }
 
-  // Build rows from the live virtual field, excluding DNF runners.
   const dist=Math.max(1,Number(L[1]||1));
   let rows=(run.virtualField||[])
     .filter(c=>!c.dnf)
@@ -1509,26 +1565,42 @@ function dynamicLeaderRows(L){
       km:Math.max(0,Math.min(dist,competitorProgressAt(c,run.elapsed||0,L)*dist))
     }));
 
-  // Add small phase-dependent surges so top runners can trade places naturally
-  // instead of staying in one fixed order all race.
   const p=Math.max(0,Math.min(1,Number(run.p||0)));
   rows.forEach((r,i)=>{
     const seed=(Number(r.c?.id||i)+1)*0.83 + (i+1)*0.37;
     const surge=
       Math.sin(p*Math.PI*(5.5 + (i%4)*.7) + seed)*dist*.0045 +
       Math.sin(p*Math.PI*(11.0 + (i%3)*.9) + seed*.63)*dist*.0022;
-
-    // Surges are visual/live race dynamics only; keep bounded.
     r.liveKm=Math.max(0,Math.min(dist,r.km+surge));
   });
 
   rows.sort((a,b)=>b.liveKm-a.liveKm);
+
+  // From level 8, guarantee at least four REAL Russian rivals in live TOP-7.
+  if(Number(game.current||0)>=7 && rows.length>=7){
+    const isRu=r=>isRussianEliteName(r?.c?.name);
+    let top=rows.slice(0,7);
+    let ruCount=top.filter(isRu).length;
+
+    if(ruCount<4){
+      const outsiders=rows.slice(7).filter(isRu);
+      const nonRuTop=top.filter(r=>!isRu(r)).sort((a,b)=>a.liveKm-b.liveKm);
+      let need=Math.min(4-ruCount,outsiders.length,nonRuTop.length);
+
+      for(let i=0;i<need;i++){
+        const promote=outsiders[i];
+        const replace=nonRuTop[i];
+        // Put the Russian rival just above the runner being replaced.
+        promote.liveKm=Math.min(dist,replace.liveKm+0.015+i*0.003);
+      }
+      rows.sort((a,b)=>b.liveKm-a.liveKm);
+    }
+  }
+
   return rows;
 }
 
 function currentRaceStandings(){
-  try{ enforceMinRussianTop7(levelData()); }catch(e){}
-
   if(!run || !run.running) return [];
   const L=levelData();
   const dist=Number(L[1]||0);
@@ -1738,6 +1810,7 @@ function startRace(){
    dnf:false
  };
  run.virtualField=createVirtualField(L,run.fieldSize,Math.max(60,run.base+run.penalty));
+ attachRivalNamesToVirtualField();
  run.p=0;
  run.elapsed=0;
  const expectedStart=Math.max(1,Math.min(run.fieldSize,
