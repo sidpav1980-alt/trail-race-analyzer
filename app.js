@@ -1569,6 +1569,19 @@ function showDnfNotice(name, extra=''){
   }catch(e){}
 }
 
+const ITRA_DNF_PROTECTED_NAMES=new Set([
+ 'Алексей Береснев','Антонина Юшина','Алексей Толстенко','Константин Иванов',
+ 'Елена Носкова','Василий Корыткин','Алексей Макалюкин','Артем Чернов',
+ 'Jim Walmsley','Ruth Croft','Hannes Namberger','Judith Wyder','Kilian Jornet',
+ 'Jonathan Albon','Katie Schide','Courtney Dauwalter','Tom Evans',
+ 'Mathieu Blanchard',"François D’Haene","Francois D'Haene"
+].map(n=>n.toLowerCase()));
+
+function isItraDnfProtectedRunner(c){
+ const n=String(c?.name||c?.runnerName||c?.fullName||'').trim().toLowerCase();
+ return ITRA_DNF_PROTECTED_NAMES.has(n);
+}
+
 function updateLiveDnfs(){
  if(!run || !run.running) return;
  const points=Array.isArray(run.otherDnfPoints)?run.otherDnfPoints:[];
@@ -1600,6 +1613,19 @@ function updateLiveDnfs(){
        pool=active.filter(c=>!top7.has(c));
        if(!pool.length) pool=active;
      }
+
+     // Любой соперник из ТОП ITRA не может сойти раньше отметки 70 км.
+     const raceKm=(Number(run.p||0) * Number(levelData()?.[1]||0));
+     if(raceKm < 70){
+       const withoutItra=pool.filter(c=>!isItraDnfProtectedRunner(c));
+       if(withoutItra.length) pool=withoutItra;
+       else{
+         const anyNonItra=active.filter(c=>!isItraDnfProtectedRunner(c));
+         if(anyNonItra.length) pool=anyNonItra;
+         else continue; // некому сходить безопасно — пропускаем событие
+       }
+     }
+
      const dnfRunner=pool[Math.floor(Math.random()*pool.length)];
      const idx=active.indexOf(dnfRunner);
      dnfRunner.dnf=true;
