@@ -1,4 +1,4 @@
-const APP_VERSION='11.09';
+const APP_VERSION='11.11';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -976,6 +976,20 @@ function finishTrainingIfReady(){
  }
  return false;
 }
+
+function coachRaceBonuses(){
+  const idx=Math.max(0,Number(game.coach||0));
+  // Persistent race value even at 100/100 fitness.
+  const table=[
+    {pace:0.00,fatigue:0.00,climb:0.00}, // no coach
+    {pace:0.02,fatigue:0.04,climb:0.03},
+    {pace:0.04,fatigue:0.08,climb:0.06},
+    {pace:0.06,fatigue:0.11,climb:0.08},
+    {pace:0.08,fatigue:0.15,climb:0.10}  // Elite Coach
+  ];
+  return table[Math.min(idx,table.length-1)]||table[0];
+}
+
 function coachSupportsCurrentRace(){
  const coach=COACHES[game.coach]||COACHES[0];
  const diff=levelData()[5];
@@ -1010,6 +1024,7 @@ function renderTraining(){
        Уровень подготовки: <b>${stars}</b><br>
        Прокачка за финиш: ×${coach.mult}<br>
        Тренировка 1 мин: +${coach.trainingGain.toFixed(1)} к тренированности<br>
+       ${(()=>{const b=coachRaceBonuses();return `Бонус в гонке: темп −${Math.round(b.pace*100)}% · усталость −${Math.round(b.fatigue*100)}% · подъёмы −${Math.round(b.climb*100)}%`;})()}<br>
        ${i===0?'Бесплатно':`Цена: <span class="money">${fmtMoney(coach.price)}</span>`}
      </div>
      <button class="${active?'secondary':'primary'}" ${active||(!owned&&game.money<coach.price)?'disabled':''} data-coach="${i}">
@@ -1559,7 +1574,7 @@ function startRace(){
 
  saveGame();
 
- const fatiguePenaltySec=Math.round(Math.max(0,game.fatigue-35)*L[3]/1000);
+ const fatiguePenaltySec=Math.round(Math.max(0,game.fatigue-35)*L[3]/1000*(1-coachRaceBonuses().fatigue));
  const gelPenaltySec=Math.round(gelShortage*Math.min(420,120+L[5]*45));
  const lightPenaltySec=Math.round(lightShortageHours*600);
 
@@ -1572,7 +1587,7 @@ function startRace(){
  }
 
  run={
-   running:true,startedByUser:true,paused:false,p:0,base:L[3]*gearTimeFactor(),
+   running:true,startedByUser:true,paused:false,p:0,base:L[3]*gearTimeFactor()*(1-coachRaceBonuses().pace),
    weatherDnfRisk:weatherDnfRisk(L,raceWeather),
    weatherDnfPlanned:false,
    weatherDnfTriggered:false,
@@ -1834,8 +1849,9 @@ function updateRun(){
 
  let slopeFactor=1;
  if(slope>=0){
-   // Uphill: roughly +2.7% pace time per 1% grade, capped for very steep climbs.
-   slopeFactor += Math.min(.58,slope*.027);
+   // Uphill: coach reduces the climbing penalty.
+   const climbReduction=coachRaceBonuses().climb;
+   slopeFactor += Math.min(.58,slope*.027)*(1-climbReduction);
  }else{
    const down=Math.abs(slope);
    // Moderate descents are faster; very steep descents become technical and slow again.
@@ -1853,7 +1869,7 @@ function updateRun(){
 
  let livePaceSec=avgPaceSec*slopeFactor*fatigueFactor*strideFactor;
 
- if(run.condition==='сильная усталость') livePaceSec*=1.08;
+ if(run.condition==='сильная усталость') livePaceSec*=1+(0.08*(1-coachRaceBonuses().fatigue));
  else if(run.condition==='травма') livePaceSec*=1.12;
  else if(run.condition==='проблема с экипировкой') livePaceSec*=1.06;
 
