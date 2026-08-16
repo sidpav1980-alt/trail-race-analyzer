@@ -1997,14 +1997,6 @@ function startRace(){
    $('preRaceNote').textContent=`⚠️ Рекомендуемый уровень трейлраннера: ${Math.max(1, Math.round((Math.max(1,game.current*3-2))*0.5))}. Можно стартовать, но будет сложнее.`;
  }
 
- // The pre-start warning is only for the preparation screen.
- // As soon as the race starts, hide it (including the "not enough water" warning).
- clearStartRequirementsError();
- const startWarn=$('startRequirementsError');
- if(startWarn){ startWarn.innerHTML=''; startWarn.style.display='none'; }
- const resourceWarn=$('raceResourceWarning');
- if(resourceWarn){ resourceWarn.textContent=''; resourceWarn.style.display='none'; }
-
  // Water is transferred into the current race and consumed gradually.
  const waterAvailable=Math.max(0,Number(game.resources.waterBottles||0),Number(game.waterBottles||0));
  const waterUsed=Math.min(waterAvailable,needWater);
