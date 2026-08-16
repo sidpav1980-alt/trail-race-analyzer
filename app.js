@@ -1,4 +1,4 @@
-const APP_VERSION='1.01';
+const APP_VERSION='11.19';
 
 
 
@@ -815,7 +815,7 @@ function render(){
  if($('itraRankText'))$('itraRankText').textContent=`место в базе: ${ELITE_RUNNERS.filter(r=>r.itra>game.itra).length+1}`;
  const raceWeather=weatherForLevel();
  const waterNeedNow=waterBottlesNeeded(L,raceWeather);
- if($('waterCount')) $('waterCount').textContent=String(game.resources.waterBottles||0);
+ if($('waterCount')) $('waterCount').textContent=String(game.waterBottles||0);
  if($('waterNeedText')) $('waterNeedText').textContent=`на эту гонку нужно ≈ ${waterNeedNow} × 0,5 л`;
  const waterQuick=$('quickBuyWater');
  if(waterQuick){
