@@ -1,4 +1,4 @@
-const APP_VERSION='11.17';
+const APP_VERSION='11.18';
 
 
 
@@ -587,18 +587,32 @@ function updateRaceTerrainOverlay(){
 }
 
 function renderRaceLeaders(playerKm=0){
- setTimeout(()=>{updateRaceTerrainOverlay();showPlayerInsideTop3();},0);
+ setTimeout(()=>{updateRaceTerrainOverlay();},0);
  const box=$('raceLeaders'); if(!box)return;
  const L=levelData();
  if($('leadersRaceName')) $('leadersRaceName').textContent=`${game.current+1}. ${L[0]}`;
 
  if(run && run.running){
-   const rows=dynamicLeaderRows(L).slice(0,7);
-   box.innerHTML=rows.map((r,i)=>{
-     const name=String(r?.c?.name||`Участник ${i+1}`);
+   const npcRows=dynamicLeaderRows(L).map(r=>({
+     player:false,
+     c:r.c,
+     name:String(r?.c?.name||'Участник'),
+     liveKm:Number(r.liveKm||0)
+   }));
+
+   const pKm=Math.max(0,Math.min(Number(L[1]||0),Number(run.p||0)*Number(L[1]||0)));
+   const allRows=[
+     ...npcRows,
+     {player:true,name:safeProfileNameForRace(),liveKm:pKm}
+   ].sort((a,b)=>b.liveKm-a.liveKm);
+
+   const top7=allRows.slice(0,7);
+
+   box.innerHTML=top7.map((r,i)=>{
      const km=Math.max(0,Math.min(L[1],Number(r.liveKm||0)));
      const status=km>=L[1]?'Финиш':`${km.toFixed(1)} км`;
-     return `<div class="race-leader-row"><b>${i+1}</b><span>${name}</span><strong>${status}</strong></div>`;
+     const cls=r.player?' race-leader-player':'';
+     return `<div class="race-leader-row${cls}"><b>${i+1}</b><span>${r.name}</span><strong>${status}</strong></div>`;
    }).join('');
  }else{
    const names=leadersForRace();
