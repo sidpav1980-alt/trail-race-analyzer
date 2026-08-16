@@ -1858,13 +1858,14 @@ function startRace(){
    $('preRaceNote').textContent=`⚠️ Рекомендуемый уровень трейлраннера: ${Math.max(1, Math.round((Math.max(1,game.current*3-2))*0.5))}. Можно стартовать, но будет сложнее.`;
  }
 
- // Water is a per-race consumable: whatever is carried is consumed/reset at start.
+ // Water is transferred into the current race and consumed gradually.
  const waterAvailable=Math.max(0,Number(game.resources.waterBottles||0));
  const waterUsed=Math.min(waterAvailable,needWater);
  const waterShortage=Math.max(0,needWater-waterAvailable);
  game.resources.waterBottles=0;
+
  if(waterAvailable>0){
-   $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>💧 Вода на гонку: ${waterAvailable} × 0,5 л</b><span class="neutral">${waterShortage>0?'не хватает '+waterShortage:'запас использован'}</span></div>`);
+   $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>💧 Вода взята: ${waterAvailable} × 0,5 л</b><span class="neutral">${waterShortage>0?'не хватает '+waterShortage:'запас готов'}</span></div>`);
  }else{
    $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>💧 Старт без воды</b><span class="bad">риск обезвоживания</span></div>`);
  }
@@ -1933,7 +1934,7 @@ function startRace(){
    startPenalty:fatiguePenaltySec+gelPenaltySec+lightPenaltySec+(raceWeather.sun>=80?Math.round((raceWeather.sun-70)*L[3]/1200):0)+Math.round(coachDifficultyGap*L[3]*0.04),
    positionDrift:0,
    condition:game.fatigue>=75?'сильная усталость':'нормально',
-   waterShortage,gelShortage,lightShortageHours,
+   waterStart:waterAvailable,waterRemaining:waterAvailable,waterNeed:needWater,waterEmptyNotified:(waterAvailable<=0),waterShortage,gelShortage,lightShortageHours,
    fractureRisk:Math.min(.42, Math.max(0,(game.fatigue-55)/140) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08 : 0)),
    dnf:false
  };
@@ -1996,20 +1997,13 @@ function startRace(){
 function notifyWaterEndedDuringRace(){
   try{
     if(!run || !run.running) return;
-    ensureResources();
-    const waterNow=Math.max(0,Number(game.resources.waterBottles||0));
-
-    if(waterNow>0){
-      run.waterEmptyNotified=false;
-      return;
-    }
-
+    if((run.p||0)<=0) return;
+    const waterNow=Math.max(0,Number(run.waterRemaining||0));
+    if(waterNow>0) return;
     if(run.waterEmptyNotified) return;
     run.waterEmptyNotified=true;
     run.condition='жажда';
-
-    const ev={emoji:'💧',name:'Вода закончилась'};
-    showEvent(ev,0,' · дальше без воды');
+    showEvent({emoji:'💧',name:'Вода закончилась'},0,' · дальше без воды');
     try{
       $('eventLog').insertAdjacentHTML(
         'afterbegin',
@@ -2031,6 +2025,17 @@ function tick(ts){
    fireEvents();
    updateLiveDnfs();
    updateRealisticPosition();
+
+   // Gradually consume race water. If exactly the recommended amount was taken,
+   // it reaches zero only at the finish. If less was taken, it can run out earlier.
+   if(Number(run.waterStart||0)>0){
+     const need=Math.max(1,Number(run.waterNeed||1));
+     const consumed=Math.min(Number(run.waterStart||0), Math.floor((run.p||0)*need + 1e-9));
+     run.waterRemaining=Math.max(0,Number(run.waterStart||0)-consumed);
+   }else{
+     run.waterRemaining=0;
+   }
+
    updateRun();
    notifyWaterEndedDuringRace();
    renderRaceLeaders((run.p||0)*Number((run&&run.raceDistance)||L[1]||5));
