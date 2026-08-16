@@ -1569,88 +1569,98 @@ function showDnfNotice(name, extra=''){
   }catch(e){}
 }
 
-const ITRA_DNF_PROTECTED_NAMES=new Set([
- 'Алексей Береснев','Антонина Юшина','Алексей Толстенко','Константин Иванов',
- 'Елена Носкова','Василий Корыткин','Алексей Макалюкин','Артем Чернов',
- 'Jim Walmsley','Ruth Croft','Hannes Namberger','Judith Wyder','Kilian Jornet',
- 'Jonathan Albon','Katie Schide','Courtney Dauwalter','Tom Evans',
- 'Mathieu Blanchard',"François D’Haene","Francois D'Haene"
-].map(n=>n.toLowerCase()));
-
 function isItraDnfProtectedRunner(c){
  const n=String(c?.name||c?.runnerName||c?.fullName||'').trim().toLowerCase();
- return ITRA_DNF_PROTECTED_NAMES.has(n);
+ if(!n) return false;
+
+ const intl=(Array.isArray(TOP_ITRA_LEADERS)?TOP_ITRA_LEADERS:[])
+   .some(x=>String(x||'').trim().toLowerCase()===n);
+
+ const ru=(Array.isArray(RUSSIAN_ITRA_RIVALS)?RUSSIAN_ITRA_RIVALS:[])
+   .some(x=>String(x?.name||'').trim().toLowerCase()===n);
+
+ return intl || ru;
 }
 
 function updateLiveDnfs(){
  if(!run || !run.running) return;
+
  const points=Array.isArray(run.otherDnfPoints)?run.otherDnfPoints:[];
- let count=0;
- for(const p of points) if((run.p||0)>=p) count++;
+ let targetCount=0;
+ for(const p of points) if((run.p||0)>=p) targetCount++;
 
- if(count>Number(run.liveDnfCount||0)){
-   const newly=count-Number(run.liveDnfCount||0);
-   run.liveDnfCount=count;
+ const already=Number(run.liveDnfCount||0);
+ if(targetCount>already){
+   const requested=targetCount-already;
+   const active=(run.virtualField||[]).filter(c=>c && !c.dnf);
 
-   // Remove the same number of virtual competitors and report each exact name.
-   const active=(run.virtualField||[]).filter(c=>!c.dnf);
-   const names=[];
+   if(!(run.dnfNames instanceof Set)){
+     run.dnfNames=new Set(Array.isArray(run.dnfNames)?run.dnfNames:[]);
+   }
 
-   for(let i=0;i<newly && active.length;i++){
-     // Текущий ТОП-7 гонки сходит очень редко.
-     // В 98% случаев выбираем участника вне ТОП-7, если такой есть.
+   let actuallyAdded=0;
+
+   for(let i=0;i<requested && active.length;i++){
+     const L=levelData();
+     const raceKm=Number(run.p||0)*Number(L?.[1]||0);
+
+     // Rank by actual live progress, not empty c.km fields.
      const ranked=[...active].sort((a,b)=>{
-       const da=Number(a.km ?? a.distance ?? a.progress ?? a.p ?? 0);
-       const db=Number(b.km ?? b.distance ?? b.progress ?? b.p ?? 0);
-       return db-da;
+       const pa=competitorProgressAt(a,Number(run.elapsed||0),L);
+       const pb=competitorProgressAt(b,Number(run.elapsed||0),L);
+       return pb-pa;
      });
-     const top7=new Set(ranked.slice(0,7));
-     let pool;
-     if(Math.random()<0.02){
-       pool=active.filter(c=>top7.has(c));
-       if(!pool.length) pool=active;
-     }else{
-       pool=active.filter(c=>!top7.has(c));
-       if(!pool.length) pool=active;
+     const currentTop7=new Set(ranked.slice(0,7));
+
+     // Never use a name that has already appeared in a DNF event.
+     const unseen=c=>{
+       const n=String(c?.name||c?.runnerName||c?.fullName||'').trim();
+       return n && !run.dnfNames.has(n.toLowerCase());
+     };
+
+     let pool=active.filter(unseen);
+
+     // Before 70 km, absolutely exclude EVERY runner from the actual ITRA rosters.
+     if(raceKm < 70){
+       pool=pool.filter(c=>!isItraDnfProtectedRunner(c));
      }
 
-     // Любой соперник из ТОП ITRA не может сойти раньше отметки 70 км.
-     const raceKm=(Number(run.p||0) * Number(levelData()?.[1]||0));
-     if(raceKm < 70){
-       const withoutItra=pool.filter(c=>!isItraDnfProtectedRunner(c));
-       if(withoutItra.length) pool=withoutItra;
-       else{
-         const anyNonItra=active.filter(c=>!isItraDnfProtectedRunner(c));
-         if(anyNonItra.length) pool=anyNonItra;
-         else continue; // некому сходить безопасно — пропускаем событие
+     // TOP-7 may DNF only rarely. Prefer anyone outside current TOP-7.
+     if(pool.length){
+       if(Math.random()<0.02){
+         const topPool=pool.filter(c=>currentTop7.has(c));
+         if(topPool.length) pool=topPool;
+       }else{
+         const outside=pool.filter(c=>!currentTop7.has(c));
+         if(outside.length) pool=outside;
        }
      }
 
+     // If no legal unique candidate exists, skip this DNF instead of breaking the rules.
+     if(!pool.length) continue;
+
      const dnfRunner=pool[Math.floor(Math.random()*pool.length)];
      const idx=active.indexOf(dnfRunner);
-     dnfRunner.dnf=true;
+     if(idx<0) continue;
 
      const dnfName=String(
        dnfRunner.name ||
        dnfRunner.runnerName ||
        dnfRunner.fullName ||
        'Неизвестный участник'
-     );
+     ).trim();
 
-     names.push(dnfName);
+     dnfRunner.dnf=true;
      active.splice(idx,1);
+     run.dnfNames.add(dnfName.toLowerCase());
+     actuallyAdded++;
 
-     // This notice does not pause the race.
-     try{ showDnfNotice(dnfName); }catch(e){ console.warn('DNF notice error',e); }
+     try{ showDnfNotice(dnfName); }
+     catch(e){ console.warn('DNF notice error',e); }
    }
 
-   // IMPORTANT: no reference to loop-local dnfName here.
-   // The old code caused a ReferenceError on the first DNF and stopped the race.
-   const box=$('liveDnfStatus');
-   if(box){
-     const total=Math.max(1,Number(run.fieldSize||0));
-     box.textContent=`🚫 Сошли: ${Number(run.liveDnfCount||0)} из ${total}`;
-   }
+   // Count only DNF events that were really allowed and created.
+   run.liveDnfCount=already+actuallyAdded;
  }
 
  const box=$('liveDnfStatus');
@@ -1732,6 +1742,12 @@ function maybeLeaderDNF(){
 
   let c=candidates[Math.floor(Math.random()*candidates.length)].c;
   const n=String(c.name||'');
+  if(!(run.dnfNames instanceof Set)) run.dnfNames=new Set(Array.isArray(run.dnfNames)?run.dnfNames:[]);
+  if(run.dnfNames.has(n.trim().toLowerCase())) return;
+
+  // TOP ITRA may not DNF before 70 km, including the separate leader-DNF path.
+  const leaderRaceKm=Number(run.p||0)*Number(levelData()?.[1]||0);
+  if(leaderRaceKm<70 && isItraDnfProtectedRunner(c)) return;
 
   // Star leaders can also DNF, but more rarely.
   let chance=1;
@@ -1743,6 +1759,7 @@ function maybeLeaderDNF(){
   c.dnfKm=Math.max(0,Math.min(Number(L[1]||0),competitorProgressAt(c,elapsed,L)*Number(L[1]||0)));
   const reasons=['травма','сильная усталость','проблемы с желудком','падение','переохлаждение'];
   c.dnfReason=reasons[Math.floor(Math.random()*reasons.length)];
+  run.dnfNames.add(n.trim().toLowerCase());
   try{ showDnfNotice(n||'Лидер',c.dnfReason||''); }catch(e){}
 }
 
