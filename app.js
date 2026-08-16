@@ -575,8 +575,14 @@ function leadersForRace(raceIndex=game.current){
  if(run && Array.isArray(run.raceLeaders) && run.raceLeaders.length>=7){
    return run.raceLeaders;
  }
- // До старта показываем только неизвестных; реальные имена создаются в момент старта.
- return Array(7).fill('Неизвестный участник');
+ // До старта показываем реальный состав будущей группы лидеров.
+ // Состав стабилен до нажатия "Старт".
+ if(!game.preStartLeadersByRace) game.preStartLeadersByRace={};
+ const key=String(raceIndex);
+ if(!Array.isArray(game.preStartLeadersByRace[key]) || game.preStartLeadersByRace[key].length<7){
+   game.preStartLeadersByRace[key]=createLeadersForAttempt(raceIndex);
+ }
+ return game.preStartLeadersByRace[key];
 }
 function visibleLeaderName(name){
  return (run && run.running===true && run.startedByUser===true)
@@ -2080,7 +2086,7 @@ function startRace(){
    raceDistance:Number(L[1]||5),
    fieldSize:Math.min(250,Math.max(35,Math.round(42+L[5]*18+L[1]*.55))),
    otherDnfCount:0,
-   raceLeaders:createLeadersForAttempt(game.current),
+   raceLeaders:[...leadersForRace(game.current)],
    elapsed:0,penalty:fatiguePenaltySec+gelPenaltySec+lightPenaltySec+(raceWeather.sun>=80?Math.round((raceWeather.sun-70)*L[3]/1200):0)+Math.round(coachDifficultyGap*L[3]*0.04),
    events:buildEvents(L),fired:new Set(),
    position:Math.max(1,Math.round(12+L[5]*6-game.level/4+Math.random()*8)),
@@ -2140,11 +2146,15 @@ function startRace(){
  if(lightShortageHours>0) $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>🔦 Не хватает света: ${lightShortageHours} ч</b><span class="bad">+${fmt(lightPenaltySec)}</span></div>`);
  if(fatiguePenaltySec>0) $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>😫 Накопленная усталость ${Math.round(game.fatigue)}%</b><span class="bad">+${fmt(fatiguePenaltySec)}</span></div>`);
  $('startBtn').disabled=true;$('pauseBtn').disabled=false;
- updateRun();
- renderRaceLeaders(0);
- drawTrack(0);
+
+ // Start the simulation loop first. A rendering error must never prevent
+ // the race from actually starting.
  lastTs=performance.now();
  timer=requestAnimationFrame(tick);
+
+ try{ updateRun(); }catch(e){ console.warn('initial updateRun error',e); }
+ try{ renderRaceLeaders(0); }catch(e){ console.warn('initial leaders render error',e); }
+ try{ drawTrack(0); }catch(e){ console.warn('initial track render error',e); }
 }
 
 
@@ -2675,7 +2685,17 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
    render();
  }, pos===1 ? (champ?9500:7000) : (champ?7000:4200));
 }
-$('startBtn').onclick=startRace;
+$('startBtn').onclick=()=>{
+  try{
+    startRace();
+  }catch(e){
+    console.error('Race start error',e);
+    showStartRequirementsError(
+      'Ошибка запуска гонки',
+      [String(e?.message||e||'Неизвестная ошибка')]
+    );
+  }
+};
 $('pauseBtn').onclick=()=>{if(!run)return;run.paused=!run.paused;$('pauseBtn').textContent=run.paused?'▶ Продолжить':'Ⅱ Пауза';lastTs=performance.now()};
 $('resetGameBtn').onclick=()=>{if(confirm('Сбросить весь прогресс, деньги и экипировку?')){localStorage.removeItem('trailArmageddonSave');game=loadGame();render()}};
 
