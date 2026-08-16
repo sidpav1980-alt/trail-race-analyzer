@@ -1,4 +1,4 @@
-const APP_VERSION='10.96';
+const APP_VERSION='10.97';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -1989,7 +1989,8 @@ function drawTrack(p){
  }
 
  // TOP-3 icons follow actual virtual kilometres.
- if(pos>1){
+ // Keep leaders visible for the whole race, even when the player is 1st.
+ if(run){
    const ly=ground-70;
    for(let i=0;i<3;i++){
      drawOpponent(ctx,leaderXs[i],ly+i* Number((run&&run.raceDistance)||L[1]||5),.96,leaderColors[i],i+1);
