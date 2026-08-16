@@ -1412,7 +1412,7 @@ function buildEvents(L){
   ['🎵','Музыка на ПП придала сил',-75,null],
   ['😫','Накрыла усталость',300,null],
   ['🤢','Гель не зашёл',120,null],
-  ['🔥','Кофеиновый гель «УГЛИ» сработал!',-90,'ugli'],
+  ['🔥','Кофеиновый гель «УГЛИ» сработал!',-300,'ugli'],
   ['🌬️','Попутный ветер',-120,null],
   ['💨','Сильный встречный ветер',180,null],
   ['☀️','Стало жарко',120,'hydration'],
@@ -1442,7 +1442,20 @@ function buildEvents(L){
    const x=injuryNames[Math.floor(Math.random()*injuryNames.length)];
    ev.push({p:.22+Math.random()*.68,...x});
  }
- return ev.sort((a,b)=>a.p-b.p);
+ // Гелевые события не должны идти рядом.
+ // Если «УГЛИ сработал» и «Гель не зашёл» ближе чем на 12% дистанции,
+ // оставляем только первое из них.
+ const sorted=ev.sort((a,b)=>a.p-b.p);
+ const filtered=[];
+ for(const e of sorted){
+   const isGel=(e.cat==='ugli' || e.name==='Гель не зашёл');
+   if(isGel){
+     const prevGel=[...filtered].reverse().find(x=>x.cat==='ugli' || x.name==='Гель не зашёл');
+     if(prevGel && Math.abs(Number(e.p)-Number(prevGel.p))<0.12) continue;
+   }
+   filtered.push(e);
+ }
+ return filtered;
 }
 function clearStartRequirementsError(){
  const el=$('startRequirementsError');
@@ -1498,36 +1511,28 @@ function itraEarlyRaceBoost(){
 
   if(!earlyRace) return {active:false,place,chance:0,mult:1,tier:'off'};
 
-  // Плавная шкала бонуса по месту в ITRA.
-  // Чем выше место, тем чаще игрок получает выгодный расклад соперников.
   let chance=0;
   let mult=1;
   let tier='none';
 
   if(place===1){
-    chance=0.72; mult=1.080; tier='1';
+    // Первое место ITRA: игрок на первых 10 уровнях должен регулярно
+    // бороться минимум за TOP-5 и часто за победу.
+    chance=0.88; mult=1.125; tier='1';
   }else if(place===2){
-    chance=0.62; mult=1.068; tier='2';
+    chance=0.68; mult=1.078; tier='2';
   }else if(place===3){
-    chance=0.52; mult=1.055; tier='3';
+    chance=0.56; mult=1.060; tier='3';
   }else if(place<=5){
-    chance=0.40; mult=1.042; tier='4-5';
+    chance=0.42; mult=1.044; tier='4-5';
   }else if(place<=10){
-    chance=0.28; mult=1.030; tier='6-10';
+    chance=0.30; mult=1.032; tier='6-10';
   }else if(place<=15){
-    chance=0.17; mult=1.018; tier='11-15';
-  }else{
-    chance=0; mult=1; tier='16+';
+    chance=0.18; mult=1.020; tier='11-15';
   }
 
   const active=chance>0 && Math.random()<chance;
-  return {
-    active,
-    place,
-    chance,
-    mult:active ? mult : 1,
-    tier
-  };
+  return {active,place,chance,mult:active?mult:1,tier};
 }
 
 
@@ -1583,6 +1588,16 @@ function createVirtualField(L,fieldSize,playerBaseSec){
       dnf:false
     });
   }
+  // Если игрок №1 в ITRA на уровнях 1–10, не даём случайной генерации
+  // слишком часто выбрасывать его далеко за TOP-5.
+  if(Number(game.current||0)<10 && playerItraPlace()===1){
+    const sorted=[...field].sort((a,b)=>a.finishSec-b.finishSec);
+    const top5Cut=Math.max(60,playerBaseSec*0.995);
+    for(let i=4;i<Math.min(sorted.length,12);i++){
+      sorted[i].finishSec=Math.max(sorted[i].finishSec, top5Cut+(i-4)*6);
+    }
+  }
+
   return field.sort((a,b)=>a.finishSec-b.finishSec);
 }
 
