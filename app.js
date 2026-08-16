@@ -353,6 +353,11 @@ function ensureTraining(){
  if(game.playerName==null) game.playerName='';
 }
 function ensureResources(){
+ if(game && Number(game.waterBottles||0)>0 && Number(game.resources?.waterBottles||0)<=0){
+   game.resources.waterBottles=Number(game.waterBottles||0);
+   game.waterBottles=0;
+ }
+
   if(!game.resources) game.resources={};
   const defaults={waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0};
   Object.entries(defaults).forEach(([k,v])=>{if(game.resources[k]==null)game.resources[k]=v});
@@ -451,8 +456,8 @@ function medkitScore(){
   const r=game.resources;
   return ['bandage','gauze','peroxide','plaster','cream'].reduce((a,k)=>a+(Number(r[k])>0?1:0),0);
 }
-function useResource(k,n=1){game.resources[k]=Math.max(0,(Number(game.resources[k])||0)-n)
- try{notifyWaterEndedDuringRace();}catch(e){}
+function useResource(k,n=1){
+ game.resources[k]=Math.max(0,(Number(game.resources[k])||0)-n);
 }
 
 function fmt(sec){
@@ -1866,10 +1871,11 @@ function startRace(){
  }
 
  // Water is transferred into the current race and consumed gradually.
- const waterAvailable=Math.max(0,Number(game.resources.waterBottles||0));
+ const waterAvailable=Math.max(0,Number(game.resources.waterBottles||0),Number(game.waterBottles||0));
  const waterUsed=Math.min(waterAvailable,needWater);
  const waterShortage=Math.max(0,needWater-waterAvailable);
  game.resources.waterBottles=0;
+ game.waterBottles=0;
 
  if(waterAvailable>0){
    $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>💧 Вода взята: ${waterAvailable} × 0,5 л</b><span class="neutral">${waterShortage>0?'не хватает '+waterShortage:'запас готов'}</span></div>`);
@@ -2053,9 +2059,30 @@ function updateAidStationsAndWater(){
 function notifyWaterEndedDuringRace(){
   try{
     if(!run || !run.running) return;
-    if((run.p||0)<=0) return;
-    const waterNow=Math.max(0,Number(run.waterRemaining||0));
-    if(waterNow>0) return;
+    const p=Number(run.p||0);
+    if(p<=0) return;
+
+    // Ignore transitional/undefined state: it must not create thirst.
+    if(run.waterRemaining===undefined || run.waterRemaining===null) return;
+
+    const waterNow=Math.max(0,Number(run.waterRemaining));
+    if(waterNow>0){
+      run.waterEmptyNotified=false;
+      if(run.condition==='жажда') run.condition='нормально';
+      return;
+    }
+
+    // If the runner started with water, only declare thirst after the
+    // calculated section has actually consumed it.
+    const startAmount=Math.max(0,Number(run.waterSegmentStartAmount||run.waterStart||0));
+    const L=levelData();
+    const dist=Math.max(1,Number(L[1]||1));
+    const playerKm=Math.max(0,Math.min(dist,p*dist));
+    const segKm=Math.max(0,Number(run.waterSegmentStartKm||0));
+    const rate=Math.max(0.001,Number(run.waterNeed||1)/dist);
+    const consumed=Math.floor(Math.max(0,playerKm-segKm)*rate + 1e-9);
+    if(startAmount>0 && consumed<startAmount) return;
+
     if(run.waterEmptyNotified) return;
     run.waterEmptyNotified=true;
     run.condition='жажда';
@@ -2063,7 +2090,7 @@ function notifyWaterEndedDuringRace(){
     try{
       $('eventLog').insertAdjacentHTML(
         'afterbegin',
-        `<div class="event-row"><span>${((run.p||0)*levelData()[1]).toFixed(1)} км</span><b>💧 Вода закончилась</b><span class="bad">дальше без воды</span></div>`
+        `<div class="event-row"><span>${playerKm.toFixed(1)} км</span><b>💧 Вода закончилась</b><span class="bad">дальше без воды</span></div>`
       );
     }catch(e){}
   }catch(e){}
