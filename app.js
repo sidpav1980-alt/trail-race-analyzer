@@ -2628,6 +2628,43 @@ function drawTrack(p){
  const leaderColors=['#fbbf24','#cbd5e1','#d97706'];
  const leaderXs=leaderKms.map(km=>65+(km/L[1])*(W-160));
 
+ // Пункты питания на длинных дистанциях: показываем прямо на схеме трассы.
+ if(run && Number(L[1]||0)>=100 && Array.isArray(run.aidStations)){
+   const passed=run.aidStationsPassed instanceof Set ? run.aidStationsPassed : new Set();
+   run.aidStations.forEach((ppKm,idx)=>{
+     const ppX=65+(Number(ppKm)/Number(L[1]))*(W-160);
+     const ppY=H*.61 + (idx%2)*34;
+     const isPassed=passed.has(String(ppKm));
+
+     // Вертикальный ориентир до линии трассы.
+     ctx.save();
+     ctx.setLineDash([5,5]);
+     ctx.strokeStyle=isPassed?'rgba(74,222,128,.45)':'rgba(255,255,255,.42)';
+     ctx.lineWidth=2;
+     ctx.beginPath();
+     ctx.moveTo(ppX,ppY+28);
+     ctx.lineTo(ppX,H*.72);
+     ctx.stroke();
+     ctx.restore();
+
+     // Компактная плашка ПП.
+     const pw=104,ph=42;
+     const bx=Math.max(5,Math.min(W-pw-5,ppX-pw/2));
+     const by=ppY-22;
+     ctx.fillStyle=isPassed?'rgba(6,55,35,.94)':'rgba(8,26,42,.95)';
+     ctx.beginPath();ctx.roundRect(bx,by,pw,ph,10);ctx.fill();
+     ctx.strokeStyle=isPassed?'rgba(74,222,128,.8)':'rgba(56,189,248,.72)';
+     ctx.lineWidth=2;ctx.stroke();
+
+     ctx.textAlign='center';
+     ctx.fillStyle=isPassed?'#86efac':'#e0f2fe';
+     ctx.font='bold 14px sans-serif';
+     ctx.fillText(isPassed?'✓ ПП':'🥤 ПП',bx+pw/2,by+17);
+     ctx.font='12px sans-serif';
+     ctx.fillText(`${Number(ppKm).toFixed(0)} км`,bx+pw/2,by+34);
+   });
+ }
+
  // Main pack stays visible for the whole race. Previously it was tied to
  // pos>6, so it disappeared/reappeared whenever the player crossed 6th place.
  // Keep drawing it while a race state exists; its km is still recalculated live.
