@@ -1,5 +1,38 @@
-const APP_VERSION='11.13';
+const APP_VERSION='11.14';
 
+
+
+function dynamicLeaderGroupExchange(run){
+  if(!run) return;
+  const arr=Array.isArray(run.participants)?run.participants:
+            Array.isArray(run.runners)?run.runners:null;
+  if(!arr || arr.length<4) return;
+
+  const distOf=r=>Number(r.distance ?? r.km ?? r.progressKm ?? r.dist ?? 0);
+  const active=arr.filter(r=>r && !r.dnf && !r.dropped);
+  if(active.length<4) return;
+
+  active.sort((a,b)=>distOf(b)-distOf(a));
+
+  // Small live variation around the front pack. This allows a runner from the
+  // main group to attack into top-3 and a current leader to fall back.
+  const front=active.slice(0,Math.min(10,active.length));
+  for(const r of front){
+    if(r.isPlayer) continue;
+    const swing=(Math.random()-.5)*0.18; // temporary speed variation
+    if('speedFactor' in r) r.speedFactor=Math.max(.82,Math.min(1.28,(Number(r.speedFactor)||1)+swing*.08));
+    if('paceFactor' in r) r.paceFactor=Math.max(.72,Math.min(1.18,(Number(r.paceFactor)||1)-swing*.07));
+  }
+
+  // Always derive leader/group membership from current distance, never from
+  // a fixed list selected at race start.
+  active.sort((a,b)=>distOf(b)-distOf(a));
+  active.forEach((r,i)=>{
+    r.liveRank=i+1;
+    r.isLeader=(i<3);
+    r.inMainGroup=(i>=3 && i<10);
+  });
+}
 
 function ensureRussianElitesAfterLevel7(race, runners){
   const raceLevel=Number((race&&(race.level ?? race.difficulty ?? race.stars ?? race.requiredLevel))||0);
@@ -1870,6 +1903,8 @@ function terrainStateForProgress(L,p){
 }
 
 function updateRun(){
+  try{ dynamicLeaderGroupExchange(typeof run!=='undefined'?run:(typeof game!=='undefined'?game.run:null)); }catch(e){}
+
  const L=levelData(),km=run.p*L[1],total=Math.max(1,run.base+run.penalty);
  $('progressKm').textContent=`${km.toFixed(1)} / ${L[1].toFixed(1)} км`;
  $('clock').textContent=fmt(run.elapsed);
