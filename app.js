@@ -1,4 +1,4 @@
-const APP_VERSION='1.08';
+const APP_VERSION='1.09';
 
 
 
@@ -1582,8 +1582,50 @@ function enforceMinRussianTop7(L){
   }
 }
 
+function maybeLeaderDNF(){
+  if(!run || !run.running || !Array.isArray(run.virtualField)) return;
+  const elapsed=Number(run.elapsed||0);
+  if(elapsed<240) return; // no leader DNFs immediately after start
+
+  const bucket=Math.floor(elapsed/180); // check about once per 3 race minutes
+  if(run.lastLeaderDnfBucket===bucket) return;
+  run.lastLeaderDnfBucket=bucket;
+
+  const active=run.virtualField.filter(c=>c && !c.dnf);
+  if(active.length<8) return;
+
+  const L=levelData();
+  const ranked=active.map(c=>({
+    c,
+    p:competitorProgressAt(c,elapsed,L)
+  })).sort((a,b)=>b.p-a.p);
+
+  // Only someone currently in the front 7 can suffer a leader DNF.
+  const candidates=ranked.slice(0,7);
+  if(!candidates.length) return;
+
+  // Usually nothing happens. Approx. 4% chance per check.
+  if(Math.random()>=0.04) return;
+
+  let c=candidates[Math.floor(Math.random()*candidates.length)].c;
+  const n=String(c.name||'');
+
+  // Star leaders can also DNF, but more rarely.
+  let chance=1;
+  if(n==='Алексей Береснев' || n==='Антонина Юшина') chance=.55;
+  if(n==='Артем Чернов') chance=.35;
+  if(Math.random()>chance) return;
+
+  c.dnf=true;
+  c.dnfKm=Math.max(0,Math.min(Number(L[1]||0),competitorProgressAt(c,elapsed,L)*Number(L[1]||0)));
+  const reasons=['травма','сильная усталость','проблемы с желудком','падение','переохлаждение'];
+  c.dnfReason=reasons[Math.floor(Math.random()*reasons.length)];
+  try{ addRaceEvent?.(`⛔ ${n||'Лидер'} сошёл · ${c.dnfReason}`); }catch(e){}
+}
+
 function dynamicLeaderRows(L){
   if(!run) return [];
+  maybeLeaderDNF();
   if(!run.running){
     return (run.virtualField||[])
       .filter(c=>!c.dnf)
