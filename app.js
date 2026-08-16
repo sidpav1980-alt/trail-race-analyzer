@@ -1,4 +1,4 @@
-const APP_VERSION='11.08';
+const APP_VERSION='11.09';
 
 function purchasesLockedDuringRace(){
   if(run && run.running){
@@ -538,7 +538,18 @@ function safeProfileNameForRace(){
 
 function safePlayerName(){const n=String(game.playerName||'').trim();return n&&!hasBadName(n)?n:'Трейлраннер';}
 
+
+function fitPlayerNameFont(){
+  try{
+    const el=document.querySelector('#playerName');
+    if(!el) return;
+    const n=String(el.value||'').trim().length;
+    el.style.fontSize = n>24 ? '17px' : n>18 ? '18px' : n>13 ? '20px' : '22px';
+  }catch(e){}
+}
+
 function render(){
+ fitPlayerNameFont();
  applyAppVersion();
  const raceShoppingLocked=!!(run&&run.running);
  const restRaceLocked=raceShoppingLocked;
@@ -2311,3 +2322,5 @@ function showPlayerInsideTop3(){
  if(kmEl && /км/i.test(kmEl.textContent||'')) kmEl.textContent=`${playerKm.toFixed(1)} км`;
 }
 
+
+try{const _pn=document.querySelector('#playerName');if(_pn){_pn.addEventListener('input',fitPlayerNameFont);_pn.addEventListener('change',fitPlayerNameFont);fitPlayerNameFont();}}catch(e){}
