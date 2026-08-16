@@ -1861,17 +1861,26 @@ function currentRaceStandings(){
   const rows=dynamicLeaderRows(L).map(r=>({
       id:r.c.id,
       player:false,
-      km:r.liveKm
+      km:r.liveKm,
+      finishSec:Number(r.c.finishSec||Infinity)
     }));
 
-  rows.push({id:'player',player:true,km:playerKm});
+  const playerFinishSec=Math.max(1,Number(run.base||0)+Number(run.penalty||0));
+  rows.push({id:'player',player:true,km:playerKm,finishSec:playerFinishSec});
 
-  // One and only source of truth for place/order:
-  // whoever is farther along the course is ahead.
+  // Основной критерий — фактическое продвижение по трассе.
+  // ВАЖНО: когда несколько участников уже на финише (100%),
+  // нельзя ставить игрока первым просто из-за равенства километров.
+  // Среди финишировавших сортируем по реальному времени финиша.
   rows.sort((a,b)=>{
+    const aFinished=a.km>=dist-0.0001;
+    const bFinished=b.km>=dist-0.0001;
+    if(aFinished && bFinished){
+      if(Math.abs(a.finishSec-b.finishSec)>0.001) return a.finishSec-b.finishSec;
+    }
     if(Math.abs(b.km-a.km)>0.0001) return b.km-a.km;
-    if(a.player&&!b.player) return -1;
-    if(!a.player&&b.player) return 1;
+    if(a.player&&!b.player) return 1;
+    if(!a.player&&b.player) return -1;
     return String(a.id).localeCompare(String(b.id));
   });
   return rows;
