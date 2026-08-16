@@ -1599,7 +1599,7 @@ function updateLiveDnfs(){
      active.splice(idx,1);
 
      // This notice does not pause the race.
-     showDnfNotice(dnfName);
+     try{ showDnfNotice(dnfName); }catch(e){ console.warn('DNF notice error',e); }
    }
 
    // IMPORTANT: no reference to loop-local dnfName here.
@@ -2137,6 +2137,11 @@ function notifyWaterEndedDuringRace(){
 
 function tick(ts){
  if(!run||!run.running)return;
+
+ // Schedule the next frame immediately. If a DNF/UI update throws later in this
+ // frame, the race loop will still continue on the next frame instead of freezing.
+ timer=requestAnimationFrame(tick);
+
  const L=levelData();
  // Визуальная скорость прохождения увеличена в 2 раза относительно предыдущей сборки; игровое финишное время не меняется.
  const dt=(ts-lastTs)/1000*Number($('speed').value||2);lastTs=ts;
@@ -2177,7 +2182,14 @@ function tick(ts){
     }
     return;
   }
-  if(run.dnf)return; if(run.p>=1)finishRace(false); else timer=requestAnimationFrame(tick);
+  if(run.dnf){
+    cancelAnimationFrame(timer);
+    return;
+  }
+  if(run.p>=1){
+    cancelAnimationFrame(timer);
+    finishRace(false);
+  }
 }
 function fireEvents(){
  run.events.forEach((ev,i)=>{
