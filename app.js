@@ -1,5 +1,49 @@
-const APP_VERSION='11.11';
+const APP_VERSION='11.13';
 
+
+function ensureRussianElitesAfterLevel7(race, runners){
+  const raceLevel=Number((race&&(race.level ?? race.difficulty ?? race.stars ?? race.requiredLevel))||0);
+  if(raceLevel<=7 || !Array.isArray(runners)) return runners;
+
+  // All Russian elite rivals from the in-game ITRA table are permanent from level 8.
+  const elites=[
+    {name:'Алексей Береснев',itra:905},
+    {name:'Антонина Юшина',itra:890},
+    {name:'Алексей Толстенко',itra:865},
+    {name:'Константин Иванов',itra:850},
+    {name:'Елена Носкова',itra:840},
+    {name:'Василий Корыткин',itra:835},
+    {name:'Алексей Макалюкин',itra:825},
+    {name:'Алексей Бабушкин',itra:815},
+    {name:'Павел Тарасов',itra:805},
+    {name:'Виктория Жукова',itra:795},
+    {name:'Мария Гостева',itra:785},
+    {name:'Вера Чекалина',itra:775}
+  ];
+  const norm=s=>String(s||'').trim().toLowerCase();
+
+  for(const elite of elites){
+    if(runners.some(r=>norm(r.name||r.fullName)===norm(elite.name))) continue;
+    const sample=runners.find(r=>r && typeof r==='object')||{};
+    const npc={...sample};
+    npc.name=elite.name;
+    if('fullName' in npc) npc.fullName=elite.name;
+    if('itra' in npc || !('rating' in npc)) npc.itra=elite.itra;
+    if('rating' in npc) npc.rating=elite.itra;
+    if('country' in npc) npc.country='RU';
+    if('isPlayer' in npc) npc.isPlayer=false;
+    if('dnf' in npc) npc.dnf=false;
+    if('dropped' in npc) npc.dropped=false;
+
+    // Scale competitive strength by ITRA: stronger names tend to run nearer the front,
+    // but live-race variation can still change their order.
+    const strength=Math.max(0,Math.min(1,(elite.itra-775)/(905-775)));
+    if('paceFactor' in npc) npc.paceFactor=0.86-(0.08*strength);
+    if('speedFactor' in npc) npc.speedFactor=1.10+(0.08*strength);
+    runners.push(npc);
+  }
+  return runners;
+}
 function purchasesLockedDuringRace(){
   if(run && run.running){
     showGameError('Во время гонки нельзя покупать или менять экипировку и расходники. Дождитесь финиша.');
@@ -59,7 +103,7 @@ const COACHES=[
  {name:'Горный тренер',price:12500,mult:1.90,maxDifficulty:4,trainingGain:3.0,desc:'Готовит к гонкам сложности до ★★★★.'},
  {name:'Elite Coach',price:22500,mult:2.35,maxDifficulty:5,trainingGain:4.2,desc:'Готовит ко всем гонкам, включая ★★★★★.'}
 ];
-const ELITE_RUNNERS=[
+const ELITE_RUNNERS=[{name:'Алексей Береснев',itra:905,country:'RU'},{name:'Антонина Юшина',itra:890,country:'RU'},
 {name:'Алексей Береснев',itra:905,country:'🇷🇺'},{name:'Антонина Юшина',itra:890,country:'🇷🇺'},
 {name:'Алексей Толстенко',itra:865,country:'🇷🇺'},{name:'Константин Иванов',itra:850,country:'🇷🇺'},
 {name:'Елена Носкова',itra:840,country:'🇷🇺'},{name:'Василий Корыткин',itra:835,country:'🇷🇺'},
