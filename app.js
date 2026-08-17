@@ -1,4 +1,4 @@
-const APP_VERSION='1.0';
+const APP_VERSION='1.1';
 
 
 
@@ -146,6 +146,8 @@ const RESOURCE_CATALOG={
   peroxide:{name:'Перекись',price:35,unit:'фл.',desc:'Обработка ран.'},
   plaster:{name:'Пластырь',price:28,unit:'уп.',desc:'Мелкие порезы и мозоли.'},
   cream:{name:'Крем от натирания',price:60,unit:'тюб.',desc:'Снижает риск натираний.'},
+  rescueBlanket:{name:'Спасательное одеяло',price:120,unit:'шт.',desc:'Теплозащита при переохлаждении, травме и вынужденной остановке.'},
+  medkits:{name:'Собранная аптечка',price:0,unit:'компл.',desc:'Готовый комплект: бинт + марля + перекись + пластырь + крем + спасательное одеяло.'},
   accumulator:{name:'Сменный аккумулятор фонаря',price:900,unit:'шт.',desc:'Для фонарей уровней 5–7. Можно заменить разряженный аккумулятор прямо в гонке.'},
   powerbank:{name:'Переносной powerbank',price:2250,unit:'шт.',desc:'Заряжает аккумулятор фонаря уровней 5–7.'}
 };
@@ -164,11 +166,21 @@ let game=loadGame();
 let run=null,timer=null,lastTs=0;
 
 const COACHES=[
- {name:'Без тренера',price:0,mult:1.00,maxDifficulty:1,trainingGain:1.0,desc:'Подготовка только к лёгким гонкам ★.'},
- {name:'Базовый тренер',price:2000,mult:1.25,maxDifficulty:2,trainingGain:1.5,desc:'Готовит к гонкам сложности до ★★.'},
- {name:'Трейл-тренер',price:6250,mult:1.55,maxDifficulty:3,trainingGain:2.2,desc:'Готовит к гонкам сложности до ★★★.'},
- {name:'Горный тренер',price:12500,mult:1.90,maxDifficulty:4,trainingGain:3.0,desc:'Готовит к гонкам сложности до ★★★★.'},
- {name:'Elite Coach',price:22500,mult:2.35,maxDifficulty:5,trainingGain:4.2,desc:'Готовит ко всем гонкам, включая ★★★★★.'}
+ {name:'Без тренера',price:0,mult:1.00,maxDifficulty:1,trainingGain:1.0,fitnessCap:30,
+  desc:'Самостоятельная база. Тренированность можно поднять только до 30/100.',
+  bonuses:'без тренера: нет специальных бонусов'},
+ {name:'Базовый тренер',price:2000,mult:1.25,maxDifficulty:2,trainingGain:1.0,fitnessCap:50,
+  bonuses:'−2% базового времени · −4% усталости · −3% штрафа за подъёмы',
+  desc:'Готовит до 50/100 и открывает стабильную работу на ★–★★.'},
+ {name:'Трейл-тренер',price:6250,mult:1.55,maxDifficulty:3,trainingGain:1.0,fitnessCap:65,
+  bonuses:'−4% базового времени · −8% усталости · −6% штрафа за подъёмы',
+  desc:'Готовит до 65/100 и специализируется на техничном трейле ★★–★★★.'},
+ {name:'Горный тренер',price:12500,mult:1.90,maxDifficulty:4,trainingGain:1.0,fitnessCap:80,
+  bonuses:'−6% базового времени · −11% усталости · −8% штрафа за подъёмы',
+  desc:'Готовит до 80/100 и усиливает работу на наборе ★★★–★★★★.'},
+ {name:'Elite Coach',price:22500,mult:2.35,maxDifficulty:5,trainingGain:1.0,fitnessCap:100,
+  bonuses:'−8% базового времени · −15% усталости · −10% штрафа за подъёмы · −5% риска травмы',
+  desc:'Готовит до 100/100 и даёт максимальные бонусы на ★★★★–★★★★★.'}
 ];
 const ELITE_RUNNERS=[
 {name:'Алексей Береснев',itra:905,country:'🇷🇺'},{name:'Антонина Юшина',itra:890,country:'🇷🇺'},
@@ -182,15 +194,15 @@ function loadGame(){
     const x=JSON.parse(localStorage.getItem('trailArmageddonSave')||'null');
     if(x) return Object.assign({
       money:1500,xp:0,level:1,completed:0,rep:0,wins:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
-      durability:{},best:{},playerName:'',fatigue:0,lastFinishAt:0,restUntil:0,
-      resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
+      durability:{},best:{},playerName:'',fatigue:0,lastFinishAt:0,restUntil:0,hospitalUntil:0,achievements:{},
+      resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,rescueBlanket:1,medkits:0,powerbank:0},
       lampCharge:100,gearOwned:{}
     },x);
   }catch(e){}
   return {
     money:1500,xp:0,level:1,completed:0,rep:0,wins:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
-    durability:{},best:{},playerName:'',fatigue:0,lastFinishAt:0,restUntil:0,
-    resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0},
+    durability:{},best:{},playerName:'',fatigue:0,lastFinishAt:0,restUntil:0,hospitalUntil:0,achievements:{},
+    resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,rescueBlanket:1,medkits:0,powerbank:0},
     lampCharge:100,gearOwned:{}
   };
 }
@@ -349,6 +361,8 @@ function ensureTraining(){
  if(!Array.isArray(game.coachOwned)) game.coachOwned=[0];
  if(!game.coachOwned.includes(0)) game.coachOwned.push(0);
  if(game.trainingUntil==null) game.trainingUntil=0;
+ const coach=COACHES[Number(game.coach)||0]||COACHES[0];
+ if(Number(game.fitness)>Number(coach.fitnessCap||100)) game.fitness=Number(coach.fitnessCap||100);
  if(game.itra==null) game.itra=250;
  if(game.playerName==null) game.playerName='';
 }
@@ -359,7 +373,7 @@ function ensureResources(){
  }
 
   if(!game.resources) game.resources={};
-  const defaults={waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,powerbank:0};
+  const defaults={waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,rescueBlanket:1,medkits:0,powerbank:0};
   Object.entries(defaults).forEach(([k,v])=>{if(game.resources[k]==null)game.resources[k]=v});
   if(game.fatigue==null)game.fatigue=0;
   if(game.restUntil==null)game.restUntil=0;
@@ -758,6 +772,46 @@ function fitPlayerNameFont(){
   }catch(e){}
 }
 
+function hospitalRemainingMs(){return Math.max(0,(game.hospitalUntil||0)-Date.now())}
+function isInHospital(){return hospitalRemainingMs()>0}
+function startHospitalTreatment(){
+ if(run&&run.running){showGameError('Во время гонки лечение недоступно');return}
+ if(isInHospital())return;
+ game.hospitalUntil=Date.now()+5*60*1000;
+ game.fatigue=Math.min(100,Math.max(0,Number(game.fatigue||0)+15));
+ saveGame();render();updateRestUi();
+}
+function finishHospitalIfReady(){
+ if((game.hospitalUntil||0)>0 && Date.now()>=game.hospitalUntil){
+   game.hospitalUntil=0;
+   game.fatigue=Math.min(100,Math.max(0,Number(game.fatigue||0)-15));
+   saveGame();
+ }
+}
+const LEVEL_ACHIEVEMENTS=[
+ 'Первые следы','Каменный характер','Дождевой волк','Ночная смена','Горный характер',
+ 'Без паники','Технический трейл','Охотник за километрами','Железные ноги','Десятка уровней',
+ 'Предел выносливости','Пыль и кровь','Упрямый трейлраннер','Сотня','Дальний рубеж',
+ 'Пустая трасса','Экспедиция','Полярная воля','ПредАрмагеддон','Армагеддон'
+];
+function tryAwardLevelAchievement(levelIndex=game.current){
+ const idx=Math.max(0,Math.min(19,Number(levelIndex||0)));
+ const key=String(idx+1);
+ if(game.achievements?.[key]) return false;
+ // Rare: guaranteed on first completion, then the special condition is stored.
+ if(Math.random()>0.72 && game.completed<=idx) return false;
+ if(!game.achievements)game.achievements={};
+ game.achievements[key]={name:LEVEL_ACHIEVEMENTS[idx],date:Date.now()};
+ return true;
+}
+function renderAchievements(){
+ const g=$('achievementsGrid');if(!g)return;
+ const a=game.achievements||{};
+ g.innerHTML=LEVEL_ACHIEVEMENTS.map((name,i)=>{
+   const got=a[String(i+1)];
+   return `<div class="achievement-item ${got?'earned':''}"><b>${got?'🏆':'🔒'} ${i+1}. ${name}</b><small>${got?'Редкая ачивка собрана':'Редкая ачивка этого уровня ещё не найдена'}</small></div>`;
+ }).join('');
+}
 function render(){
  fitPlayerNameFont();
  applyAppVersion();
@@ -897,7 +951,7 @@ function render(){
  $('difficultyBadge').textContent='★'.repeat(L[5])+'☆'.repeat(5-L[5]);
  $('raceDesc').textContent=L[6];
  renderPreStartRaceState(L);
- renderLevels();renderShop();renderGear();renderRaceGearSummary();renderResources();renderLampPower();updateRestUi();updateRaceStartTrainingLock();renderRaceLeaders(0);drawTrack(0);
+ renderLevels();renderShop();renderGear();renderAchievements();renderRaceGearSummary();renderResources();renderLampPower();updateRestUi();updateRaceStartTrainingLock();renderRaceLeaders(0);drawTrack(0);
 }
 function renderLevels(){
  const g=$('levelsGrid');g.innerHTML='';
@@ -934,8 +988,8 @@ function renderShop(){
  list.forEach((it,idx)=>{
    const equipped=game.gear[activeShopCategory]===idx;
    const purchased=(game.gearOwned[activeShopCategory]||[]).includes(idx);
-   const d=document.createElement('div');
-   d.className='shop-item';
+   const d=document.createElement('details');
+   d.className='shop-item equipment-detail';
    const lvl=idx+1;
    let label,disabled=false,cls='primary';
    if(equipped){
@@ -950,15 +1004,20 @@ function renderShop(){
    }else{
      label='Купить и надеть';
    }
-   d.innerHTML=`<h3>${CATEGORY_NAMES[activeShopCategory]} · ур. ${lvl}/7 · ${it[0]}</h3>
-     <div class="meta">
-       Цена: <span class="money">${fmtMoney(it[1])}</span><br>
-       Эффект: ${gearEffectText(activeShopCategory,idx,it)}<br>
-       Ресурс: ${it[3]} ед. · защита от поломки +${Math.round(it[4]*100)}%
-     </div>
-     <button class="${cls}" ${disabled?'disabled':''} data-buy="${activeShopCategory}:${idx}">
-       ${label}
-     </button>`;
+   const prep=equipmentPreparedness(activeShopCategory,levelData(),weatherForLevel());
+   d.open=equipped || idx===0;
+   d.innerHTML=`<summary>${CATEGORY_NAMES[activeShopCategory]} · ур. ${lvl}/7 · ${it[0]} ${equipped?'· НАДЕТО':''}</summary>
+     <div class="shop-item-detail-body">
+       <div class="meta">
+         Цена: <span class="money">${fmtMoney(it[1])}</span><br>
+         Эффект: ${gearEffectText(activeShopCategory,idx,it)}<br>
+         Прочность: ${it[3]} ед. · защита от поломки +${Math.round(it[4]*100)}%<br>
+         Для текущей гонки: желательно <b>${prep.required}/7</b> · у тебя <b>${prep.current}/7</b>${prep.gap?` · ⚠️ недобор ${prep.gap} ур.`:' · ✅ уровень подходит'}
+       </div>
+       <button class="${cls}" ${disabled?'disabled':''} data-buy="${activeShopCategory}:${idx}">
+         ${label}
+       </button>
+     </div>`;
    g.appendChild(d);
  });
 
@@ -1019,9 +1078,27 @@ function renderGear(){
   g.appendChild(d);
  });
 }
+function medkitComponentsReady(){
+ const r=game.resources||{};
+ return ['bandage','gauze','peroxide','plaster','cream','rescueBlanket'].every(k=>Number(r[k]||0)>0);
+}
+function assembleMedkit(){
+ if(purchasesLockedDuringRace()){showGameError('Во время гонки сборка аптечки недоступна');return}
+ if(!medkitComponentsReady()){showGameError('Нужны: бинт, марля, перекись, пластырь, крем и спасательное одеяло.');return}
+ ['bandage','gauze','peroxide','plaster','cream','rescueBlanket'].forEach(k=>useResource(k));
+ game.resources.medkits=(Number(game.resources.medkits)||0)+1;
+ saveGame();render();
+}
 function renderResources(){
  const g=$('resourceGrid');if(!g)return;g.innerHTML='';
- Object.entries(RESOURCE_CATALOG).forEach(([key,it])=>{
+ const kit=document.createElement('div');kit.className='shop-item medkit-assembly';
+ const kitCount=Number(game.resources.medkits||0);
+ kit.innerHTML=`<h3>🧰 Сборка аптечек</h3>
+   <div class="meta">Готовых комплектов: <b>${kitCount}</b><br>1 комплект = бинт + марля + перекись + пластырь + крем + спасательное одеяло.<br>На сложных гонках можно взять несколько комплектов.</div>
+   <button class="primary" id="assembleMedkitBtn" ${medkitComponentsReady()?'':'disabled'}>Собрать аптечку</button>`;
+ g.appendChild(kit);
+ $('assembleMedkitBtn')?.addEventListener('click',assembleMedkit);
+ Object.entries(RESOURCE_CATALOG).filter(([key])=>key!=='medkits').forEach(([key,it])=>{
    const count=Number(game.resources[key]||0);
    const d=document.createElement('div');d.className='shop-item';
    const oneOnly=key==='powerbank';
@@ -1067,6 +1144,7 @@ function renderLampPower(){
 }
 
 function updateRestUi(){
+ finishHospitalIfReady();
  // If a started rest has reached its end, apply the recovery exactly once.
  // Previously the timer ended but fatigue itself was never changed.
  if((game.restUntil||0)>0 && Date.now()>=(game.restUntil||0)){
@@ -1094,12 +1172,25 @@ function updateRestUi(){
      ? `До полного отдыха: ${fmtRest(restMs)}. Старт гонки заблокирован.`
      : '';
  }
+ if($('hospitalCard')){
+   $('hospitalCard').style.display='block';
+   const hs=$('hospitalStatus'),ht=$('hospitalTimer'),hb=$('hospitalBtn');
+   if(isInHospital()){
+     if(ht)ht.textContent=fmtRest(hospitalRemainingMs());
+     if(hs)hs.textContent=`🏥 Лечение идёт. Осталось ${fmtRest(hospitalRemainingMs())}. Старт заблокирован.`;
+     if(hb){hb.disabled=true;hb.textContent='🏥 Лечение идёт…';}
+   }else{
+     if(ht)ht.textContent='не требуется';
+     if(hs)hs.textContent='После перелома нажмите кнопку — лечение займёт 5 минут.';
+     if(hb){hb.disabled=!!(run&&run.running)||Number(game.hospitalUntil||0)>0;hb.textContent='🏥 Лечь на лечение · 5 минут';}
+   }
+ }
 
  const startBtn=$('startBtn');
  if(startBtn && !(run&&run.running)){
-   if(resting){
+   if(resting || isInHospital()){
      startBtn.disabled=true;
-     startBtn.textContent=`😴 Отдых ${fmtRest(restMs)}`;
+     startBtn.textContent=isInHospital()?`🏥 Лечение ${fmtRest(hospitalRemainingMs())}`:`😴 Отдых ${fmtRest(restMs)}`;
    }else if(!trainingActive()){
      startBtn.disabled=false;
      startBtn.textContent='▶ Старт';
@@ -1108,7 +1199,10 @@ function updateRestUi(){
 
  const req=$('startRequirementsError');
  if(req && !(run&&run.running)){
-   if(resting){
+   if(isInHospital()){
+     req.innerHTML=`<b>🏥 Лечение перелома</b><ul><li>До окончания лечения: ${fmtRest(hospitalRemainingMs())}.</li><li>Старт гонки заблокирован.</li></ul>`;
+     req.style.display='block';
+   }else if(resting){
      req.innerHTML=`<b>😴 Отдых идёт</b><ul><li>До полного отдыха: ${fmtRest(restMs)}.</li><li>Старт гонки заблокирован до окончания отдыха.</li></ul>`;
      req.style.display='block';
    }else if(/Отдых идёт/.test(req.textContent||'')){
@@ -1120,7 +1214,7 @@ function updateRestUi(){
 setInterval(()=>{
  if($('restBtn')){
    updateRestUi();
-   if($('restText')) $('restText').textContent=isResting()?'отдых ещё '+fmtRest(restRemainingMs()):game.fatigue>=70?'нужен отдых':'готов к гонке';
+   if($('restText')) $('restText').textContent=isInHospital()?'лечение ещё '+fmtRest(hospitalRemainingMs()):isResting()?'отдых ещё '+fmtRest(restRemainingMs()):game.fatigue>=70?'нужен отдых':'готов к гонке';
  }
  if($('startTrainingBtn')) renderTraining();
 },1000);
@@ -1134,6 +1228,8 @@ $('playerNameInput')?.addEventListener('change',e=>{
   if(hasBadName(v)){ e.target.setCustomValidity('Мат и оскорбительные слова запрещены'); e.target.reportValidity(); e.target.value=game.playerName||''; return; }
   e.target.setCustomValidity(''); game.playerName=v; e.target.value=v; if($('itraNameText')) $('itraNameText').textContent=safePlayerName(); saveGame();
 });
+
+$('hospitalBtn')?.addEventListener('click',startHospitalTreatment);
 
 $('restBtn')?.addEventListener('click',()=>{
   if(run && run.running){ showGameError('Во время гонки отдых недоступен. Сначала завершите гонку.'); return; }
@@ -1178,11 +1274,13 @@ function finishTrainingIfReady(){
  ensureTraining();
  if(game.trainingUntil && game.trainingUntil<=Date.now()){
    const coach=COACHES[game.coach]||COACHES[0];
-   const gain=coach.trainingGain;
-   game.fitness=Math.min(100,game.fitness+gain);
+   const cap=Math.min(100,Number(coach.fitnessCap||100));
+   const before=Math.round(Number(game.fitness||0));
+   const gain=before<cap ? 1 : 0;
+   game.fitness=Math.min(cap,Math.max(0,Number(game.fitness||0)+gain));
    game.trainingUntil=0;
    saveGame();
-   return true;
+   return gain;
  }
  return false;
 }
@@ -1191,11 +1289,11 @@ function coachRaceBonuses(){
   const idx=Math.max(0,Number(game.coach||0));
   // Persistent race value even at 100/100 fitness.
   const table=[
-    {pace:0.00,fatigue:0.00,climb:0.00}, // no coach
-    {pace:0.02,fatigue:0.04,climb:0.03},
-    {pace:0.04,fatigue:0.08,climb:0.06},
-    {pace:0.06,fatigue:0.11,climb:0.08},
-    {pace:0.08,fatigue:0.15,climb:0.10}  // Elite Coach
+    {pace:0.00,fatigue:0.00,climb:0.00,injury:0.00},
+    {pace:0.02,fatigue:0.04,climb:0.03,injury:0.02},
+    {pace:0.04,fatigue:0.08,climb:0.06,injury:0.05},
+    {pace:0.06,fatigue:0.11,climb:0.08,injury:0.08},
+    {pace:0.08,fatigue:0.15,climb:0.10,injury:0.12}
   ];
   return table[Math.min(idx,table.length-1)]||table[0];
 }
@@ -1233,8 +1331,8 @@ function renderTraining(){
        ${coach.desc}<br>
        Уровень подготовки: <b>${stars}</b><br>
        Прокачка за финиш: ×${coach.mult}<br>
-       Тренировка 1 мин: +${coach.trainingGain.toFixed(1)} к тренированности<br>
-       ${(()=>{const b=coachRaceBonuses();return `Бонус в гонке: темп −${Math.round(b.pace*100)}% · усталость −${Math.round(b.fatigue*100)}% · подъёмы −${Math.round(b.climb*100)}%`;})()}<br>
+       Максимум тренированности: <b>${coach.fitnessCap}/100</b><br>1 завершённая тренировка: <b>+1</b> к тренированности<br>
+       ${(()=>{const b=coachRaceBonuses();return `Бонусы перед гонкой: ${coach.bonuses}<br>Реально в механике: темп −${Math.round(b.pace*100)}% · усталость −${Math.round(b.fatigue*100)}% · подъёмы −${Math.round(b.climb*100)}% · травмы −${Math.round(b.injury*100)}%`;})()}<br>
        ${i===0?'Бесплатно':`Цена: <span class="money">${fmtMoney(coach.price)}</span>`}
      </div>
      <button class="${active?'secondary':'primary'}" ${active||(!owned&&game.money<coach.price)?'disabled':''} data-coach="${i}">
@@ -1268,7 +1366,7 @@ function renderTraining(){
  const coach=COACHES[game.coach]||COACHES[0];
  if($('fitnessPanelText')){
    $('fitnessPanelText').textContent=
-     `Тренированность растёт и за прохождение гонок. Текущий тренер: ${coach.name}. Подготовка до ${'★'.repeat(coach.maxDifficulty)}.`;
+     `Тренированность растёт и за прохождение гонок. Текущий тренер: ${coach.name}. Подготовка до ${'★'.repeat(coach.maxDifficulty)} · максимум ${coach.fitnessCap}/100.`;
  }
 
  const btn=$('startTrainingBtn');
@@ -1368,19 +1466,50 @@ function gearTimeFactor(){
  if(game.gear.poles===4 && durability('poles')>0) f*=0.97;
  const fit=Math.max(1,Math.min(100,game.fitness||1));f*=1-(fit-1)*.00152;return Math.max(.58,f);
 }
+function requiredGearLevel(cat,L=levelData(),w=weatherForLevel()){
+  const raceNo=Math.max(1,Number(game.current||0)+1);
+  const diff=Math.max(1,Number(L[5]||1));
+  const dist=Number(L[1]||0);
+  const climb=Number(L[2]||0);
+  let req=1;
+  if(['shoes','pack','watch'].includes(cat)) req=1+Math.floor((raceNo-1)/3);
+  if(cat==='hydration') req=1+Math.floor((raceNo-1)/4);
+  if(cat==='medkit') req=1+Math.floor((raceNo-1)/3);
+  if(cat==='poles') req=(diff>=2||climb>=500)?1+Math.floor((raceNo-1)/4):1;
+  if(cat==='lamp') req=(game.current>=4||L[3]>=3*3600)?1+Math.floor((raceNo-4)/3):1;
+  if(cat==='jacket'){
+    const weatherReq=membraneRequiredLevel(L,w);
+    req=Math.max(1,weatherReq||1);
+  }
+  return Math.max(1,Math.min(7,req));
+}
+function equipmentPreparedness(cat,L=levelData(),w=weatherForLevel()){
+  const idx=Number(game.gear?.[cat]||0);
+  const current=idx+1;
+  const required=requiredGearLevel(cat,L,w);
+  return {current,required,gap:Math.max(0,required-current)};
+}
+
 function equipmentPenaltyChance(cat,diff,dist){
  const it=item(cat),cur=durability(cat),max=it[3];
  const wear=1-cur/max;
  const protect=it[4];
- return Math.min(.55,Math.max(.01,.025*diff + dist/3500 + wear*.22 - protect));
+ const prep=equipmentPreparedness(cat);
+ // Недостаточный уровень экипировки теперь напрямую повышает шанс сбоя.
+ const preparednessPenalty=prep.gap*.055;
+ // Неподготовленные палки ломаются особенно часто на наборе.
+ const polePenalty=cat==='poles' ? prep.gap*.045 : 0;
+ return Math.min(.72,Math.max(.008,.025*diff + dist/3500 + wear*.22 - protect + preparednessPenalty + polePenalty));
 }
 function wearFor(cat,L){
  const it=item(cat),diff=L[5],dist=L[1],gain=L[2];
  let base=dist/18 + gain/1800 + diff*.5;
- if(cat==='shoes')base*=1.35;
- if(cat==='poles')base*=1+gain/8000;
- if(cat==='jacket')base*=1+diff*.08;
- return base*(.75+Math.random()*.55);
+ if(cat==='shoes')base*=1.55;
+ if(cat==='poles')base*=1.15+gain/6500;
+ if(cat==='jacket')base*=1+diff*.12;
+ const prep=equipmentPreparedness(cat,L,weatherForLevel());
+ base*=1+prep.gap*.22;
+ return base*(.72+Math.random()*.62);
 }
 function buildEvents(L){
  const n=Math.max(3,Math.min(10,3+Math.floor(L[1]/80)+L[5]));
@@ -1421,6 +1550,7 @@ function buildEvents(L){
   ['🪵','Перепрыгнул поваленное дерево',-30,null],
   ['🧠','Идеально разложил силы',-150,null]
  ];
+
  const ev=[];
  for(let i=0;i<n;i++){
    const p=.08+(i+1)/(n+1)*.84;
@@ -1441,6 +1571,17 @@ function buildEvents(L){
    ];
    const x=injuryNames[Math.floor(Math.random()*injuryNames.length)];
    ev.push({p:.22+Math.random()*.68,...x});
+ }
+ // На каждой гонке есть шанс найти редкую экипировку. Она бесплатна и
+ // может быть надета прямо во время гонки, если её уровень выше текущего.
+ if(Math.random()<0.42){
+   const cats=['shoes','pack','jacket','poles','watch','medkit','hydration'];
+   const cat=cats[Math.floor(Math.random()*cats.length)];
+   const current=Number(game.gear?.[cat]||0);
+   const found=Math.min(6,current+1+Math.floor(Math.random()*2));
+   if(found>current){
+     ev.push({p:.12+Math.random()*.76,emoji:'🎒',name:`Найдена экипировка · ${CATEGORY_NAMES[cat]} ур. ${found+1}/7`,sec:-90,cat:'gearFind',foundCat:cat,foundLevel:found});
+   }
  }
  // Гелевые события не должны идти рядом.
  // Если «УГЛИ сработал» и «Гель не зашёл» ближе чем на 12% дистанции,
@@ -1983,6 +2124,12 @@ function startRace(){
  ensureResources();
  const L=levelData();
 
+ if(isInHospital()){
+   const left=fmtRest(hospitalRemainingMs());
+   showStartRequirementsError('🏥 Лечение перелома',[`До окончания лечения: ${left}.`]);
+   return;
+ }
+
  if(isResting()){
    const left=fmtRest(restRemainingMs());
    $('preRaceNote').textContent='😴 Вы отдыхаете. До следующего старта: '+left;
@@ -1995,9 +2142,28 @@ function startRace(){
  const activeCoach=COACHES[game.coach]||COACHES[0];
  const coachDifficultyGap=Math.max(0,L[5]-activeCoach.maxDifficulty);
  const raceWeather=weatherForLevel();
+ if(Number(game.fitness||0)>=Number(activeCoach.fitnessCap||100) && activeCoach.fitnessCap<100){
+   warnings.push(`тренированность упёрлась в предел ${activeCoach.fitnessCap}/100 — нужен более сильный тренер`);
+ }
  const needWater=waterBottlesNeeded(L,raceWeather);
  let warnings=[];
  let mandatoryGearWarnings=[];
+
+ // Каждый слот экипировки теперь имеет минимальный рабочий уровень для
+ // конкретной гонки. Недобор не всегда блокирует старт, но резко повышает
+ // риск событий и износа; критические слоты блокируют старт.
+ Object.keys(GEAR).forEach(cat=>{
+   const prep=equipmentPreparedness(cat,L,raceWeather);
+   if(prep.gap>0){
+     const text=`${CATEGORY_NAMES[cat]}: ур. ${prep.current}/7, желательно ${prep.required}/7`;
+     if(['shoes','jacket','lamp'].includes(cat) && (
+       (cat==='jacket' && (raceWeather.rain||raceWeather.cold)) ||
+       (cat==='lamp' && lampHours>0) ||
+       (cat==='shoes' && L[1]>=50)
+     )) mandatoryGearWarnings.push('⚠️ '+text);
+     else warnings.push(text);
+   }
+ });
 
  // Critical broken equipment is reported directly on the race screen.
  const brokenRequired=[];
@@ -2083,11 +2249,13 @@ function startRace(){
  const waterAvailable=Math.max(0,Number(game.resources.waterBottles||0),Number(game.waterBottles||0));
  const waterUsed=Math.min(waterAvailable,needWater);
  const waterShortage=Math.max(0,needWater-waterAvailable);
- game.resources.waterBottles=0;
+ // В стартовый сегмент берём только рассчитанный запас. Остальные бутылки
+ // остаются в инвентаре — прежняя версия списывала весь запас сразу.
+ game.resources.waterBottles=Math.max(0,waterAvailable-waterUsed);
  game.waterBottles=0;
 
  if(waterAvailable>0){
-   $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>💧 Вода взята: ${waterAvailable} × 0,5 л</b><span class="neutral">${waterShortage>0?'не хватает '+waterShortage:'запас готов'}</span></div>`);
+   $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>💧 Вода взята: ${waterUsed} × 0,5 л</b><span class="neutral">${waterShortage>0?'не хватает '+waterShortage:'запас готов'}</span></div>`);
  }else{
    $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>💧 Старт без воды</b><span class="bad">риск обезвоживания</span></div>`);
  }
@@ -2124,6 +2292,10 @@ function startRace(){
    }
  }
 
+ const requiredMedkits=Math.max(1,Math.min(6,Math.ceil((L[5]+(L[1]>100?1:0))/2)));
+ const medkitsForRace=Math.min(Number(game.resources.medkits||0),requiredMedkits);
+ game.resources.medkits=Math.max(0,Number(game.resources.medkits||0)-medkitsForRace);
+
  saveGame();
 
  const fatiguePenaltySec=Math.round(Math.max(0,game.fatigue-35)*L[3]/1000*(1-coachRaceBonuses().fatigue));
@@ -2156,8 +2328,8 @@ function startRace(){
    startPenalty:fatiguePenaltySec+gelPenaltySec+lightPenaltySec+(raceWeather.sun>=80?Math.round((raceWeather.sun-70)*L[3]/1200):0)+Math.round(coachDifficultyGap*L[3]*0.04),
    positionDrift:0,
    condition:game.fatigue>=75?'сильная усталость':'нормально',
-   waterStart:waterAvailable,waterRemaining:waterAvailable,waterNeed:needWater,waterSegmentStartKm:0,waterSegmentStartAmount:waterAvailable,waterEmptyNotified:(waterAvailable<=0),aidStations:buildAidStations(Number(L[1]||0)),aidStationsPassed:new Set(),waterShortage,gelShortage,lightShortageHours,
-   fractureRisk:Math.min(.42, Math.max(0,(game.fatigue-55)/140) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08 : 0)),
+   waterStart:waterUsed,waterRemaining:waterUsed,medkitsRemaining:medkitsForRace,waterNeed:needWater,waterSegmentStartKm:0,waterSegmentStartAmount:waterUsed,waterEmptyNotified:(waterAvailable<=0),aidStations:buildAidStations(Number(L[1]||0)),aidStationsPassed:new Set(),waterShortage,gelShortage,lightShortageHours,
+   fractureRisk:Math.min(.42, Math.max(0,((game.fatigue-55)/140) * (1-coachRaceBonuses().injury)) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08*(1-coachRaceBonuses().injury) : 0)),
    dnf:false
  };
  run.virtualField=createVirtualField(L,run.fieldSize,Math.max(60,run.base+run.penalty));
@@ -2408,9 +2580,12 @@ function fireEvents(){
      if(game.resources.cream>0){
        useResource('cream');sec=0;extra=' · крем помог';
      }else if(game.resources.plaster>0){
-       useResource('plaster');sec=Math.round(sec*.4);extra=' · пластырь помог частично';
+       useResource('plaster');sec=Math.round(sec*.4);extra=' · крем закончился, пластырь помог частично';
+     }else if(Number(run.medkitsRemaining||0)>0){
+       run.medkitsRemaining=Math.max(0,Number(run.medkitsRemaining)-1);
+       sec=Math.round(sec*.35);extra=' · крема нет, использована готовая аптечка';
      }else{
-       sec+=180;extra=' · нечем обработать натирание';
+       sec+=360;run.condition='сильное натирание';extra=' · крем и аптечка закончились → сильное натирание';
      }
      saveGame();
    }else if(ev.cat==='injury'){
@@ -2418,17 +2593,22 @@ function fireEvents(){
      const medItem=item('medkit');
      const medDur=durability('medkit');
      const medWorking=medDur>0;
+     const coachInjuryReduction=coachRaceBonuses().injury;
+     const kitsAvailable=Math.max(0,Number(run.medkitsRemaining||0));
+     if(kitsAvailable>0) run.medkitsRemaining=Math.max(0,kitsAvailable-1);
 
      // Higher-level medkits reduce both the chance of a severe injury and its time cost.
      // Level 1 gives almost no protection; level 7 is substantially safer, but never invulnerable.
      const injuryProtection=medWorking ? Math.min(.72,(medLevel-1)*.11 + (medItem?.[4]||0)*.8) : 0;
-     const severeRisk=Math.max(.015,run.fractureRisk*(1-injuryProtection));
+     const severeRisk=Math.max(.01,run.fractureRisk*(1-injuryProtection)*(1-coachInjuryReduction));
      const fracture=Math.random()<severeRisk;
 
      if(fracture){
        run.dnf=true;
        run.condition='перелом ноги';
-       showEvent({emoji:'🦴',name:'Перелом ноги'},0,` · аптечка ур. ${medLevel}/7 не спасла → DNF`);
+       game.hospitalUntil=0;
+       saveGame();
+       showEvent({emoji:'🦴',name:'Перелом ноги'},0,` · аптечка ур. ${medLevel}/7 не спасла → DNF · нужна больница`);
        setTimeout(()=>finishRace(true,'fracture'),1200);
        return;
      }
@@ -2443,8 +2623,12 @@ function fireEvents(){
        extra=' · аптечка сломана';
      }
 
-     // Consumables can reduce the remaining injury further.
-     if(game.resources.gauze>0 && game.resources.bandage>0){
+     // Готовый комплект расходует заранее собранную аптечку целиком.
+     // Если комплекты закончились, последствия повторных травм/натираний тяжелее.
+     if(kitsAvailable>0){
+       sec=Math.max(8,Math.round(sec*.62));
+       extra+=' · использован готовый комплект аптечки';
+     }else if(game.resources.gauze>0 && game.resources.bandage>0){
        useResource('gauze');useResource('bandage');
        sec=Math.max(10,Math.round(sec*.55));
        extra+=' · марля + бинт';
@@ -2459,15 +2643,39 @@ function fireEvents(){
      }
 
      run.condition=sec>=180?'травма':'нормально';
+   }else if(ev.cat==='gearFind'){
+     const cat=ev.foundCat,found=Number(ev.foundLevel||0);
+     if(cat && found>Number(game.gear?.[cat]||0)){
+       if(!game.gearOwned)game.gearOwned={};
+       if(!Array.isArray(game.gearOwned[cat]))game.gearOwned[cat]=[];
+       if(!game.gearOwned[cat].includes(found))game.gearOwned[cat].push(found);
+       if(game.durability[cat+'_'+found]==null)game.durability[cat+'_'+found]=GEAR[cat][found][3];
+       const oldLevel=Number(game.gear[cat]||0);
+       game.gear[cat]=found;
+       saveGame();
+       sec=-90;
+       extra=` · найдено бесплатно · ${CATEGORY_NAMES[cat]} ${found+1}/7 надета вместо ур. ${oldLevel+1}`;
+       showEvent(ev,sec,extra);
+       if(!game.achievements)game.achievements={};
+       game.achievements['found_'+cat+'_'+found]={name:`Охотник за ${CATEGORY_NAMES[cat]}`,date:Date.now()};
+       saveGame();
+       return;
+     }
    }else if(ev.cat){
      const currentMembraneReq=membraneRequiredLevel(levelData(),weatherForLevel());
      if(ev.cat==='jacket' && currentMembraneReq>0 &&
         (weatherForLevel().rain||weatherForLevel().cold) &&
         !hasMembrane(currentMembraneReq)){
-       run.dnf=true;run.condition='переохлаждение';
-       showEvent({emoji:'🥶',name:'Переохлаждение'},0,` · нужна мембранка ур. ${membraneRequiredLevel(levelData(),weatherForLevel())}/7+ → DNF`);
-       setTimeout(()=>finishRace(true,'freeze'),1200);
-       return;
+       if(Number(game.resources.rescueBlanket||0)>0){
+         useResource('rescueBlanket');
+         sec=Math.round(sec*.35);
+         extra=' · спасательное одеяло использовано, переохлаждение предотвращено';
+       }else{
+         run.dnf=true;run.condition='переохлаждение';
+         showEvent({emoji:'🥶',name:'Переохлаждение'},0,` · нужна мембранка ур. ${membraneRequiredLevel(levelData(),weatherForLevel())}/7+ и нет спасательного одеяла → DNF`);
+         setTimeout(()=>finishRace(true,'freeze'),1200);
+         return;
+       }
      }
      const broken=Math.random()<equipmentPenaltyChance(ev.cat,levelData()[5],levelData()[1]);
      const it=item(ev.cat),cur=durability(ev.cat);
@@ -2478,6 +2686,15 @@ function fireEvents(){
        if(ev.cat==='poles'){
          setDur('poles',0);
          extra+=' · палки сломаны';
+       }
+       // Полная поломка = предмет исчезает из инвентаря, его надо покупать заново.
+       const brokenLevel=Number(game.gear?.[ev.cat]||0);
+       if(brokenLevel>0 && Math.random()<0.55){
+         if(Array.isArray(game.gearOwned?.[ev.cat])){
+           game.gearOwned[ev.cat]=game.gearOwned[ev.cat].filter(x=>Number(x)!==brokenLevel);
+         }
+         game.gear[ev.cat]=0;
+         extra+=` · ${CATEGORY_NAMES[ev.cat]} уничтожена полностью — нужна новая`;
        }
      }else if(it[4]>.05 && sec>0){
        const saved=Math.round(sec*Math.min(.65,it[4]*3));
@@ -2537,14 +2754,10 @@ function terrainStateForProgress(L,p){
 
 function updateRun(){
  try{
-   if(run && run.running && (game.waterBottles||0)<=0){
-     run.noWaterTicks=(run.noWaterTicks||0)+1;
-     // Occasional penalty instead of start prohibition.
-     if(run.noWaterTicks%45===0){
-       run.penalty=(run.penalty||0)+30;
-       run.condition='жажда';
-       addRaceEvent?.('💧 Нет воды · +0:30');
-     }
+   if(run && run.running){
+     // Вода расходуется по фактическому прогрессу, а не потому, что
+     // стартовый инвентарь уже обнулён при переносе в race-state.
+     notifyWaterEndedDuringRace();
    }
  }catch(e){}
 
@@ -2668,8 +2881,17 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  let breaks=[];
  Object.keys(GEAR).forEach(cat=>{
   const before=durability(cat),loss=wearFor(cat,L),after=Math.max(0,before-loss);setDur(cat,after);
-  if(before>0&&after<=0)breaks.push(CATEGORY_NAMES[cat]);
+  if(before>0&&after<=0){
+    breaks.push(CATEGORY_NAMES[cat]);
+    if(Number(game.gear?.[cat]||0)>0 && Math.random()<0.45){
+      const destroyed=Number(game.gear[cat]);
+      if(Array.isArray(game.gearOwned?.[cat])) game.gearOwned[cat]=game.gearOwned[cat].filter(x=>Number(x)!==destroyed);
+      game.gear[cat]=0;
+      breaks[breaks.length-1]+=' (уничтожена, купить заново)';
+    }
+  }
  });
+ saveGame();
 
  updateRealisticPosition();
  const final=Math.max(1,run.base+run.penalty);
@@ -2702,7 +2924,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  const finishBase=1.0 + L[5]*0.35 + Math.min(2.0,L[1]/180);
  const placeBonus=pos===1?1.2:pos<=3?0.7:pos<=10?0.3:0;
  const fitnessGain=Math.max(0.4,(finishBase+placeBonus)*coach.mult*(1-game.fitness/140));
- game.fitness=Math.min(100,game.fitness+fitnessGain);
+ game.fitness=Math.min(Number(coach.fitnessCap||100),game.fitness+fitnessGain);
  const itraGain=Math.max(1,Math.round((ratio-.72)*22 + L[5]*1.4 + (pos===1?7:pos<=3?4:0)));
  game.itra=Math.min(950,Math.max(200,game.itra+itraGain));
  if(game.best[game.current]==null||final<game.best[game.current])game.best[game.current]=final;
@@ -2719,6 +2941,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  if(game.current<19 && firstClear)game.current++;
  saveGame();
 
+ const newRareAchievement=tryAwardLevelAchievement(game.current-(firstClear?1:0));
  const champ=game.completed>=20;
  const ov=$('finishOverlay');
 
@@ -2740,7 +2963,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  }
 
  const totalDnfs=Math.min(run.fieldSize,run.liveDnfCount??run.otherDnfCount??0);
- ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br>🚫 Сошло с дистанции: ${totalDnfs} из ${run.fieldSize}<br>Тренированность: ${Math.round(game.fitness)}/100<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}${coachAdvice}</span></div>`;
+ ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br>🚫 Сошло с дистанции: ${totalDnfs} из ${run.fieldSize}<br>Тренированность: ${Math.round(game.fitness)}/100<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}${newRareAchievement?'<br>🏆 Получена редкая ачивка уровня!':''}${coachAdvice}</span></div>`;
  ov.classList.add('show');
  setTimeout(()=>{
    ov.classList.remove('show');
@@ -3058,7 +3281,7 @@ function quickBuyLampPower(){
 
 function quickBuyMedkit(){
  if(purchasesLockedDuringRace()){ showGameError('Во время гонки покупки недоступны'); return; }
- const keys=['bandage','gauze','peroxide','plaster','cream'];
+ const keys=['bandage','gauze','peroxide','plaster','cream','rescueBlanket'];
  const missing=keys.filter(k=>Number(game.resources[k]||0)<=0);
  if(!missing.length){ showGameError('Аптечка уже укомплектована 5/5'); return; }
  const cost=missing.reduce((sum,k)=>sum+RESOURCE_CATALOG[k].price,0);

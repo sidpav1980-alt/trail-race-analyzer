@@ -177,22 +177,6 @@
   </section>
   <main>
     <section id="race" class="panel active game-main">
-      <div class="card rest-card">
-        <div class="row between">
-          <div>
-            <h2>😴 Отдых</h2>
-            <p class="muted">Если усталость высокая, отдохните 1 минуту реального времени перед следующей гонкой.</p>
-          </div>
-          <div class="rest-fatigue">
-            <span>Усталость</span>
-            <b id="restFatigueValue">0%</b>
-          </div>
-        </div>
-        <button id="restBtn" class="primary">😴 Отдыхать 1 минуту</button>
-        <div class="muted">Во время гонки отдых запустить нельзя.</div>
-        <div id="restStatus" class="notice">Можно стартовать.</div>
-      </div>
-
       <div class="card level-card">
         <div class="row between">
           <div>
@@ -274,7 +258,34 @@
         <div id="raceResourceWarning" class="notice warning-note compact-race-note"></div>
       </div>
 
-      <div class="card">
+      <div class="card rest-card">
+        <div class="row between">
+          <div>
+            <h2>😴 Отдых</h2>
+            <p class="muted">Если усталость высокая, отдохните 1 минуту реального времени перед следующей гонкой.</p>
+          </div>
+          <div class="rest-fatigue">
+            <span>Усталость</span>
+            <b id="restFatigueValue">0%</b>
+          </div>
+        </div>
+        <button id="restBtn" class="primary">😴 Отдыхать 1 минуту</button>
+        <div class="muted">Во время гонки отдых запустить нельзя.</div>
+        <div id="restStatus" class="notice">Можно стартовать.</div>
+      </div>
+
+      <div class="card hospital-card" id="hospitalCard" style="display:block">
+  <div class="row between">
+    <div>
+      <h2>🏥 Больница</h2>
+      <p class="muted">После перелома лечение занимает <b>5 минут реального времени</b>. До окончания лечения старт гонки заблокирован.</p>
+    </div>
+    <div class="badge" id="hospitalTimer">не требуется</div>
+  </div>
+  <button id="hospitalBtn" class="primary">🏥 Лечь на лечение · 5 минут</button>
+  <div id="hospitalStatus" class="notice">Больница появляется как обязательный этап после перелома.</div>
+</div>
+<div class="card">
         <h3>События этой гонки</h3>
         <div id="eventLog" class="event-log"><div class="muted">События появятся по ходу гонки.</div></div>
       </div>
@@ -296,7 +307,7 @@
       <details id="shop" class="game-drawer"><summary>🛒 Магазин экипировки</summary><div class="drawer-body">
       <div class="card">
         <h2>Магазин экипировки</h2>
-        <p class="muted">Экипировка теперь имеет 7 уровней. Дорогие вещи дают бонусы и медленнее ломаются. Покупка заменяет текущую вещь той же категории.</p>
+        <p class="muted">Экипировка имеет 7 уровней. Каждый уровень можно раскрыть отдельно: требования, бонусы, прочность и риск поломки. На сложных гонках неподходящий уровень реально ухудшает результат.</p>
         <div id="shopCategoryTabs" class="shop-category-tabs"></div><div id="shopGrid" class="shop-grid"></div>
       </div>
     </div></details>
@@ -327,6 +338,14 @@
 
       
     </div></details>
+      <details id="achievements" class="game-drawer"><summary>🏆 Коллекция редких ачивок</summary><div class="drawer-body">
+        <div class="card">
+          <h2>🏆 Редкие ачивки</h2>
+          <p class="muted">На каждом уровне есть своя редкая ачивка. Найденные остаются в коллекции навсегда. Дополнительные ачивки можно получить за найденную на трассе экипировку.</p>
+          <div id="achievementsGrid" class="achievements-grid"></div>
+        </div>
+      </div>
+
     </section>
   <section id="training" class="panel">
       <details id="coachShop" class="game-drawer">
@@ -346,8 +365,8 @@
           <div class="durability"><div id="fitnessPanelBar"></div></div>
         </div>
         <p id="fitnessPanelText" class="muted"></p>
-        <button id="startTrainingBtn" class="primary">▶ Начать тренировку на 5 минут</button>
-        <div id="trainingStatus" class="notice">Одна тренировка длится 5 минут реального времени.</div>
+        <button id="startTrainingBtn" class="primary">▶ Начать тренировку на 1 минуту</button>
+        <div id="trainingStatus" class="notice">Одна тренировка длится 1 минуту реального времени и даёт +1 к тренированности, пока не достигнут предел тренера.</div>
       </div>
 
       <div class="card">
@@ -379,6 +398,25 @@
 <div class="help-head"><div><div class="help-kicker">СИМУЛЯТОР ТРЕЙЛРАННЕРА · СПРАВОЧНИК</div><h2>Как играть</h2></div><button id="helpClose" class="help-close" type="button">✕</button></div>
 <div class="help-section help-focus"><b>🏁 Цель игры</b><p>Пройди 20 уровней кампании, развивай трейлраннера и доберись до финального «Армагеддона» на 1000 км. За успешные финиши ты получаешь рубли, XP, тренированность и игровой ITRA-рейтинг.</p></div>
 
+<div class="help-section help-focus">
+  <b>🎒 Экипировка 1–7</b>
+  <p>Каждый слот имеет 7 уровней. Для каждой гонки рассчитывается требуемый уровень. Недостаточная экипировка не просто показывается в подсказке: она повышает шанс событий, износ и поломку. Палки особенно чувствительны к неподготовленности.</p>
+  <p>Полная поломка может уничтожить предмет — тогда ремонт уже невозможен и его нужно покупать заново. Во время гонки можно найти экипировку и бесплатно надеть найденный уровень, если он выше текущего.</p>
+</div>
+<div class="help-section help-focus">
+  <b>🏃 Тренированность и тренеры</b>
+  <p>Одна завершённая тренировка даёт ровно +1. Без тренера предел — 30/100. Базовый тренер доводит до 50, Трейл — до 65, Горный — до 80, Elite Coach — до 100.</p>
+  <p>Перед стартом бонусы активного тренера реально влияют на время, усталость, подъёмы и риск травмы. В карточке каждого тренера показаны его предел и конкретные проценты.</p>
+</div>
+<div class="help-section help-focus">
+  <b>💧 Вода</b>
+  <p>Вода рассчитывается как стартовый запас, а не как полный объём на всю дистанцию. На длинных гонках вода пополняется на ПП. Стартовый инвентарь больше не списывается целиком из-за одной гонки: списывается только рассчитанный запас.</p>
+</div>
+<div class="help-section help-focus">
+  <b>🧰 Аптечка и спасательное одеяло</b>
+  <p>Готовая аптечка собирается из бинта, марли, перекиси, пластыря, крема и спасательного одеяла. На сложной гонке можно взять несколько готовых комплектов. Если расходники закончились, повторное натирание становится существенно тяжелее.</p>
+  <p>Спасательное одеяло может предотвратить переохлаждение при проблеме с мембранкой. Перелом отправляет в больницу: лечение занимает 5 минут.</p>
+</div>
 <div class="help-section help-focus">
   <b>📊 Сборка прогноза — как пользоваться</b>
   <p><strong>1.</strong> Выбери гонку. В карточке отображаются дистанция, набор высоты, сложность и целевое время — это базовая точка расчёта.</p>
