@@ -207,13 +207,25 @@ function loadGame(){
   };
 }
 let authUser={id:'local',nick:'Вы'},authMode='local',cloudSaveTimer=null,cloudSaving=false;
-function saveGame(){localStorage.setItem('trailArmageddonSave',JSON.stringify(game));}
-function scheduleCloudSave(){return;}
-async function saveProgressCloud(showStatus=true){return true;}
+function saveGame(){localStorage.setItem('trailArmageddonSave',JSON.stringify(game));scheduleCloudSave();}
+let cloudTimer=null;
+function scheduleCloudSave(){
+  clearTimeout(cloudTimer);
+  cloudTimer=setTimeout(()=>saveProgressCloud(false),700);
+}
+async function saveProgressCloud(showStatus=true){
+  if(!authUser || authMode==='local') return false;
+  try{
+    const r=await fetch('/api/progress',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({progress:game})});
+    if(!r.ok) throw new Error((await r.json().catch(()=>({}))).error||'Не удалось сохранить прогресс');
+    if(showStatus) setAuthStatus('✓ Прогресс сохранён на сервере','ok');
+    return true;
+  }catch(e){ if(showStatus) setAuthStatus('Ошибка синхронизации: '+(e.message||e),'error'); return false; }
+}
 function setAuthStatus(t,k=''){if(!$('authStatus'))return;$('authStatus').textContent=t;$('authStatus').className='auth-status '+k}
 function setAuthMode(m){authMode=m;$('authLoginTab')?.classList.toggle('active',m==='login');$('authRegisterTab')?.classList.toggle('active',m==='register');if($('authSubmitBtn'))$('authSubmitBtn').textContent=m==='login'?'Войти':'Создать профиль';setAuthStatus(m==='login'?'Введите ник и пароль.':'Регистрация: ник и пароль. Максимум 50 игроков.')}
-function showAuth(){return;}
-function hideAuth(){return;}
+function showAuth(){const a=$('authScreen');if(a){a.classList.add('show');a.setAttribute('aria-hidden','false');}}
+function hideAuth(){const a=$('authScreen');if(a){a.classList.remove('show');a.setAttribute('aria-hidden','true');}}
 function updateProfileUi(){
   if($('profileBtn')){
     $('profileBtn').textContent=authUser?`👤 ${(authUser?.nick||'Игрок')}`:'👤 Вход';
@@ -988,8 +1000,8 @@ function renderShop(){
  list.forEach((it,idx)=>{
    const equipped=game.gear[activeShopCategory]===idx;
    const purchased=(game.gearOwned[activeShopCategory]||[]).includes(idx);
-   const d=document.createElement('details');
-   d.className='shop-item equipment-detail';
+   const d=document.createElement('div');
+   d.className='shop-item equipment-card';
    const lvl=idx+1;
    let label,disabled=false,cls='primary';
    if(equipped){
@@ -1005,8 +1017,7 @@ function renderShop(){
      label='Купить и надеть';
    }
    const prep=equipmentPreparedness(activeShopCategory,levelData(),weatherForLevel());
-   d.open=equipped || idx===0;
-   d.innerHTML=`<summary>${CATEGORY_NAMES[activeShopCategory]} · ур. ${lvl}/7 · ${it[0]} ${equipped?'· НАДЕТО':''}</summary>
+   d.innerHTML=`<div class="equipment-card-title"><b>${CATEGORY_NAMES[activeShopCategory]} · ур. ${lvl}/7 · ${it[0]}</b>${equipped?'<span class="equipped-badge">НАДЕТО</span>':''}</div>
      <div class="shop-item-detail-body">
        <div class="meta">
          Цена: <span class="money">${fmtMoney(it[1])}</span><br>
@@ -3305,6 +3316,8 @@ bindQuickBuyCard('quickBuyGels',quickBuyGels);
 bindQuickBuyCard('quickBuyMedkit',quickBuyMedkit);
 
 render();
+setAuthMode('login');
+loadSession();
 
 (function(){
   function openHelp(){

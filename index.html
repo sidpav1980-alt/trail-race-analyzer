@@ -7,6 +7,18 @@
 <title>Trail Runner: Armageddon</title>
 <p class="registration-required-note"></p>
 <link rel="stylesheet" href="styles.css">
+<style id="online-auth-style">
+#authScreen{position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(3,9,18,.97)}
+#authScreen.show{display:flex}
+.auth-card{width:min(440px,100%);padding:24px;border:1px solid #294461;border-radius:22px;background:#081629;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.auth-card h2{margin:0 0 8px}.auth-card p{color:#9fb0c7}.auth-tabs{display:flex;gap:8px;margin:18px 0}.auth-tabs button{flex:1;padding:11px;border-radius:12px;border:1px solid #294461;background:#0d1d31;color:#fff}.auth-tabs button.active{border-color:#39bdf3;background:#12304a}.auth-card input{width:100%;box-sizing:border-box;margin:7px 0;padding:13px;border-radius:12px;border:1px solid #294461;background:#06101e;color:#fff;font-size:16px}.auth-submit{width:100%;padding:13px;margin-top:10px;border:0;border-radius:12px;background:#1797d2;color:#fff;font-weight:800;font-size:16px}.auth-status{min-height:22px;margin-top:12px}.auth-status.error{color:#ff7b7b}.auth-status.ok{color:#73d995}
+</style>
+<div id="authScreen" aria-hidden="true"><div class="auth-card">
+<h2>🏔️ Trail Runner: Armageddon</h2><p>Онлайн-версия. Прогресс сохраняется на сервере и доступен после входа.</p>
+<div class="auth-tabs"><button type="button" id="authLoginTab" class="active">Вход</button><button type="button" id="authRegisterTab">Регистрация</button></div>
+<form id="authForm"><input id="authNick" autocomplete="username" maxlength="30" placeholder="Ник" required><input id="authPassword" autocomplete="current-password" type="password" placeholder="Пароль" required><button id="authSubmitBtn" class="auth-submit" type="submit">Войти</button></form>
+<div id="authStatus" class="auth-status"></div></div></div>
+
 
 <style>
 .quick-buy-card{cursor:pointer;position:relative;transition:transform .12s ease,border-color .12s ease}
@@ -177,35 +189,6 @@
   </section>
   <main>
     <section id="race" class="panel active game-main">
-      <div class="card level-card">
-        <div class="row between">
-          <div>
-            <div class="muted">Текущий уровень</div>
-            <h2 id="raceTitle">1. Парковый трейл</h2>
-          </div>
-          <div class="badge" id="difficultyBadge">★☆☆☆☆</div>
-        </div>
-        <div class="race-meta">
-          <div><span>Дистанция</span><b id="raceDistance">5 км</b></div>
-          <div><span>Набор</span><b id="raceGain">80 м</b></div>
-          <div><span>Целевое время</span><b id="raceTarget">0:34:00</b></div>
-          <div><span>Награда</span><b id="raceReward">до ₽ 900</b></div>
-          <div><span>Вода на старт</span><b id="raceWaterNeed">не требуется</b></div>
-        </div>
-        <p id="raceDesc" class="muted"></p>
-      </div>
-
-      <div class="card race-equipment-card">
-        <div class="row between equipment-head">
-          <div>
-            <h2>Текущая экипировка</h2>
-            <p class="muted">Что надето сейчас и какие слоты вообще доступны. В каждом слоте — 7 уровней.</p>
-          </div>
-          <button id="scrollShopBtn" class="secondary compact-btn">🛒 Купить / сменить</button>
-        </div>
-        <div id="raceGearSummary" class="race-gear-summary"></div>
-      </div>
-
       <div class="card sim-card">
         <div class="row between">
           <div id="simulationRaceTitle" class="simulation-race-title">Текущая гонка</div><h2>Симуляция гонки</h2>
@@ -258,6 +241,38 @@
         <div id="raceResourceWarning" class="notice warning-note compact-race-note"></div>
       </div>
 
+      <details id="currentLevelSection" class="main-drawer" open><summary>🎯 Текущий уровень</summary><div class="drawer-body">
+      <div class="card level-card">
+        <div class="row between">
+          <div>
+            <div class="muted">Текущий уровень</div>
+            <h2 id="raceTitle">1. Парковый трейл</h2>
+          </div>
+          <div class="badge" id="difficultyBadge">★☆☆☆☆</div>
+        </div>
+        <div class="race-meta">
+          <div><span>Дистанция</span><b id="raceDistance">5 км</b></div>
+          <div><span>Набор</span><b id="raceGain">80 м</b></div>
+          <div><span>Целевое время</span><b id="raceTarget">0:34:00</b></div>
+          <div><span>Награда</span><b id="raceReward">до ₽ 900</b></div>
+          <div><span>Вода на старт</span><b id="raceWaterNeed">не требуется</b></div>
+        </div>
+        <p id="raceDesc" class="muted"></p>
+      </div></div></details>
+
+      <details id="currentEquipmentSection" class="main-drawer" open><summary>🎒 Текущая экипировка</summary><div class="drawer-body">
+      <div class="card race-equipment-card">
+        <div class="row between equipment-head">
+          <div>
+            <h2>Текущая экипировка</h2>
+            <p class="muted">Что надето сейчас и какие слоты вообще доступны. В каждом слоте — 7 уровней.</p>
+          </div>
+          <button id="scrollShopBtn" class="secondary compact-btn">🛒 Купить / сменить</button>
+        </div>
+        <div id="raceGearSummary" class="race-gear-summary"></div>
+      </div></div></details>
+
+      <details id="restSection" class="main-drawer" open><summary>😴 Отдых</summary><div class="drawer-body">
       <div class="card rest-card">
         <div class="row between">
           <div>
@@ -272,8 +287,9 @@
         <button id="restBtn" class="primary">😴 Отдыхать 1 минуту</button>
         <div class="muted">Во время гонки отдых запустить нельзя.</div>
         <div id="restStatus" class="notice">Можно стартовать.</div>
-      </div>
+      </div></div></details>
 
+      <details id="hospitalSection" class="main-drawer" open><summary>🏥 Больница</summary><div class="drawer-body">
       <div class="card hospital-card" id="hospitalCard" style="display:block">
   <div class="row between">
     <div>
@@ -284,11 +300,12 @@
   </div>
   <button id="hospitalBtn" class="primary">🏥 Лечь на лечение · 5 минут</button>
   <div id="hospitalStatus" class="notice">Больница появляется как обязательный этап после перелома.</div>
-</div>
+</div></div></details>
+<details id="raceEventsSection" class="main-drawer"><summary>📜 События этой гонки</summary><div class="drawer-body">
 <div class="card">
         <h3>События этой гонки</h3>
         <div id="eventLog" class="event-log"><div class="muted">События появятся по ходу гонки.</div></div>
-      </div>
+      </div></div></details>
     </section>
 
     <section class="game-tools">
@@ -307,7 +324,7 @@
       <details id="shop" class="game-drawer"><summary>🛒 Магазин экипировки</summary><div class="drawer-body">
       <div class="card">
         <h2>Магазин экипировки</h2>
-        <p class="muted">Экипировка имеет 7 уровней. Каждый уровень можно раскрыть отдельно: требования, бонусы, прочность и риск поломки. На сложных гонках неподходящий уровень реально ухудшает результат.</p>
+        <p class="muted">Экипировка имеет 7 уровней. Сам магазин можно раскрывать и закрывать целиком. Все 7 уровней выбранной экипировки показываются сразу: требования, бонусы, прочность и риск поломки. На сложных гонках неподходящий уровень реально ухудшает результат.</p>
         <div id="shopCategoryTabs" class="shop-category-tabs"></div><div id="shopGrid" class="shop-grid"></div>
       </div>
     </div></details>

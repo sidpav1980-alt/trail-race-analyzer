@@ -1,11 +1,14 @@
 services:
   - type: web
-    name: trail-race-analyzer2
-    runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn -w 1 -b 0.0.0.0:$PORT server:app
+    name: trail-runner-armageddon
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
     envVars:
-      - key: SECRET_KEY
-        generateValue: true
-      - key: SESSION_COOKIE_SECURE
-        value: "1"
+      - key: NODE_VERSION
+        value: 22
+    disk:
+      name: trail-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
