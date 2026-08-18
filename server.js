@@ -6,7 +6,7 @@ function send(res,status,obj,headers={}){
   res.end(JSON.stringify(obj));
 }
 async function api(req,res,p){
-  if(p==='/api/health') return send(res,200,{ok:true,version:'1.1-offline'});
+  if(p==='/api/health') return send(res,200,{ok:true,version:'1.001-offline'});
   return false;
 }
 const mime={
