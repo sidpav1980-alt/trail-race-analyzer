@@ -12,7 +12,7 @@ function currentUser(req){const t=cookies(req).tra_session,s=t&&db.sessions[t];i
 function session(res,userId){const t=crypto.randomBytes(32).toString('hex');db.sessions[t]={userId,expires:Date.now()+2592000000};save();res.setHeader('Set-Cookie',`tra_session=${t}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`)}
 async function api(req,res,p){
  try{
-  if(p==='/api/health')return send(res,200,{ok:true,version:'1.2-online'});
+  if(p==='/api/health')return send(res,200,{ok:true,version:'1.001-online'});
   if(p==='/api/user-exists'&&req.method==='POST'){const b=await body(req),nick=String(b.nick||'').trim();return send(res,200,{exists:db.users.some(u=>u.nick===nick)})}
   if(p==='/api/register'&&req.method==='POST'){const b=await body(req),nick=String(b.nick||'').trim(),password=String(b.password||'');if(nick.length<2||nick.length>30)return send(res,400,{error:'Ник должен быть от 2 до 30 символов.'});if(password.length<4)return send(res,400,{error:'Пароль должен быть от 4 символов.'});if(db.users.some(u=>u.nick===nick))return send(res,409,{error:'Такой пользователь уже зарегистрирован.'});const h=hash(password),u={id:crypto.randomUUID(),nick,password:`${h.s}:${h.h}`,created:Date.now()};db.users.push(u);db.progress[u.id]=null;save();session(res,u.id);return send(res,200,{ok:true,user:{id:u.id,nick:u.nick}})}
   if(p==='/api/login'&&req.method==='POST'){const b=await body(req),u=db.users.find(x=>x.nick===String(b.nick||'').trim());if(!u)return send(res,401,{error:'Пользователь не зарегистрирован.'});const [s,h]=u.password.split(':');if(!verify(String(b.password||''),s,h))return send(res,401,{error:'Неверный пароль.'});session(res,u.id);return send(res,200,{ok:true,user:{id:u.id,nick:u.nick},progress:db.progress[u.id]||null})}

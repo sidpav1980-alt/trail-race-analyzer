@@ -1,4 +1,4 @@
-const APP_VERSION='1.2';
+const APP_VERSION='1.001';
 
 
 
@@ -54,7 +54,7 @@ function dynamicLeaderGroupExchange(run){
   for(const r of front){
     if(r.isPlayer) continue;
     const swing=(Math.random()-.5)*0.18; // temporary speed variation
-    if('speedFactor' in r) r.speedFactor=Math.max(.82,Math.min(1.28,(Number(r.speedFactor)||1)+swing*.08));
+    if('speedFactor' in r) r.speedFactor=Math.max(.82,Math.min(1.0018,(Number(r.speedFactor)||1)+swing*.08));
     if('paceFactor' in r) r.paceFactor=Math.max(.72,Math.min(1.18,(Number(r.paceFactor)||1)-swing*.07));
   }
 
@@ -169,7 +169,7 @@ const COACHES=[
  {name:'Без тренера',price:0,mult:1.00,maxDifficulty:1,trainingGain:1.0,fitnessCap:30,
   desc:'Самостоятельная база. Тренированность можно поднять только до 30/100.',
   bonuses:'без тренера: нет специальных бонусов'},
- {name:'Базовый тренер',price:2000,mult:1.25,maxDifficulty:2,trainingGain:1.0,fitnessCap:50,
+ {name:'Базовый тренер',price:2000,mult:1.0015,maxDifficulty:2,trainingGain:1.0,fitnessCap:50,
   bonuses:'−2% базового времени · −4% усталости · −3% штрафа за подъёмы',
   desc:'Готовит до 50/100 и открывает стабильную работу на ★–★★.'},
  {name:'Трейл-тренер',price:6250,mult:1.55,maxDifficulty:3,trainingGain:1.0,fitnessCap:65,
@@ -2980,7 +2980,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  ensureTraining();
  const coach=COACHES[game.coach]||COACHES[0];
  const finishBase=1.0 + L[5]*0.35 + Math.min(2.0,L[1]/180);
- const placeBonus=pos===1?1.2:pos<=3?0.7:pos<=10?0.3:0;
+ const placeBonus=pos===1?1.001:pos<=3?0.7:pos<=10?0.3:0;
  const fitnessGain=Math.max(0.4,(finishBase+placeBonus)*coach.mult*(1-game.fitness/140));
  game.fitness=Math.min(Number(coach.fitnessCap||100),game.fitness+fitnessGain);
  const itraGain=Math.max(1,Math.round((ratio-.72)*22 + L[5]*1.4 + (pos===1?7:pos<=3?4:0)));
