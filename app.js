@@ -356,7 +356,7 @@ function attachRivalNamesToVirtualField(){
  let names=[];
  if(levelIndex>=7){
    // Первые 7 имён — ровно те же, что показаны до старта.
-   const shown=[...(run.raceLeaders||leadersForRace(game.current))].slice(0,7);
+   const shown=[...(run.raceLeaders||leadersForRace(game.current))].slice(0,14);
    names=[...shown];
 
    const ru=shuffledCopy(RUSSIAN_ITRA_RIVALS.map(r=>r.name))
@@ -412,30 +412,34 @@ function createLeadersForAttempt(raceIndex=game.current){
      b=randomFio(Math.floor(Math.random()*1000000));
    }
    const extras=[];
-   while(extras.length<4){
+   while(extras.length<11){
      const x=randomFio(Math.floor(Math.random()*1000000));
      if(x!==top && x!==a && x!==b && !extras.includes(x)) extras.push(x);
    }
    return [top,a,b,...extras];
  }
 
- // С 8 уровня до старта сразу показываем тот же тип состава,
- // который будет и после старта: 5 российских ITRA + 2 международных.
+ // С 8 уровня до старта показываем ТОП-14: российские ITRA + международные лидеры.
  const ru=shuffledCopy(RUSSIAN_ITRA_RIVALS.map(r=>r.name));
  const intl=shuffledCopy(TOP_ITRA_LEADERS);
- return [...ru.slice(0,5),...intl.slice(0,2)];
+ const combined=[...ru,...intl];
+ while(combined.length<14){
+   const x=randomFio(Math.floor(Math.random()*1000000));
+   if(!combined.includes(x)) combined.push(x);
+ }
+ return combined.slice(0,14);
 }
 
 function leadersForRace(raceIndex=game.current){
  // Во время конкретной попытки состав фиксирован, чтобы не менялся на каждом кадре.
- if(run && Array.isArray(run.raceLeaders) && run.raceLeaders.length>=7){
+ if(run && Array.isArray(run.raceLeaders) && run.raceLeaders.length>=14){
    return run.raceLeaders;
  }
  // До старта показываем реальный состав будущей группы лидеров.
  // Состав стабилен до нажатия "Старт".
  if(!game.preStartLeadersByRace) game.preStartLeadersByRace={};
  const key=String(raceIndex);
- if(!Array.isArray(game.preStartLeadersByRace[key]) || game.preStartLeadersByRace[key].length<7){
+ if(!Array.isArray(game.preStartLeadersByRace[key]) || game.preStartLeadersByRace[key].length<14){
    game.preStartLeadersByRace[key]=createLeadersForAttempt(raceIndex);
  }
  return game.preStartLeadersByRace[key];
@@ -516,9 +520,9 @@ function renderRaceLeaders(playerKm=0){
      return b.liveKm-a.liveKm;
    });
 
-   const top7=allRows.slice(0,7);
+   const top14=allRows.slice(0,14);
 
-   box.innerHTML=top7.map((r,i)=>{
+   box.innerHTML=top14.map((r,i)=>{
      const km=Math.max(0,Math.min(L[1],Number(r.liveKm||0)));
      const status=km>=L[1]?'Финиш':`${km.toFixed(1)} км`;
      const cls=r.player?' race-leader-player':'';
@@ -526,7 +530,7 @@ function renderRaceLeaders(playerKm=0){
    }).join('');
  }else{
    const names=leadersForRace();
-   box.innerHTML=names.slice(0,7).map((name,i)=>
+   box.innerHTML=names.slice(0,14).map((name,i)=>
      `<div class="race-leader-row"><b>${i+1}</b><span>${name}</span><strong>на старте</strong></div>`
    ).join('');
  }
