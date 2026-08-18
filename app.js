@@ -675,8 +675,15 @@ function render(){
  const restRaceLocked=raceShoppingLocked;
  const restBtnRace=$('restBtn');
  if(restBtnRace){
-   restBtnRace.disabled=restRaceLocked || isResting() || Number(game.fatigue||0)<=0;
-   restBtnRace.title=restRaceLocked?'Во время гонки отдых недоступен':'';
+   const hospitalLock=isInHospital() || needsHospitalTreatment();
+   restBtnRace.disabled=restRaceLocked || isResting() || hospitalLock || Number(game.fatigue||0)<=0;
+   restBtnRace.title=restRaceLocked
+     ? 'Во время гонки отдых недоступен'
+     : isInHospital()
+       ? `Во время лечения отдых недоступен. Осталось ${fmtRest(hospitalRemainingMs())}.`
+       : needsHospitalTreatment()
+         ? 'Сначала необходимо пройти лечение в больнице'
+         : '';
  }
  const shopJump=$('scrollShopBtn');
  if(shopJump){
