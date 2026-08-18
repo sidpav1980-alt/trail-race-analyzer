@@ -224,7 +224,7 @@
         </div>
         <div class="race-leaders-card">
           <div class="race-leaders-head">
-            <b>🏆 ТОП-7 гонки</b><span id="racePlayerName" style="display:block;margin-top:6px;font-size:14px;color:#91a5bd">Вы: <strong style="color:#eef5ff">Трейлраннер</strong></span>
+            <b>🏆 ТОП-14 гонки</b><span id="racePlayerName" style="display:block;margin-top:6px;font-size:14px;color:#91a5bd">Вы: <strong style="color:#eef5ff">Трейлраннер</strong></span>
             <span id="leadersRaceName">—</span>
           </div>
           <div id="raceLeaders" class="race-leaders-list"></div>
@@ -241,6 +241,7 @@
         <div id="raceResourceWarning" class="notice warning-note compact-race-note"></div>
       </div>
 
+      <details id="currentLevelSection" class="main-drawer" open><summary>🎯 Текущий уровень</summary><div class="drawer-body">
       <div class="card level-card">
         <div class="row between">
           <div>
@@ -257,8 +258,9 @@
           <div><span>Вода на старт</span><b id="raceWaterNeed">не требуется</b></div>
         </div>
         <p id="raceDesc" class="muted"></p>
-      </div>
+      </div></div></details>
 
+      <details id="currentEquipmentSection" class="main-drawer" open><summary>🎒 Текущая экипировка</summary><div class="drawer-body">
       <div class="card race-equipment-card">
         <div class="row between equipment-head">
           <div>
@@ -268,8 +270,9 @@
           <button id="scrollShopBtn" class="secondary compact-btn">🛒 Купить / сменить</button>
         </div>
         <div id="raceGearSummary" class="race-gear-summary"></div>
-      </div>
+      </div></div></details>
 
+      <details id="restSection" class="main-drawer" open><summary>😴 Отдых</summary><div class="drawer-body">
       <div class="card rest-card">
         <div class="row between">
           <div>
@@ -284,8 +287,9 @@
         <button id="restBtn" class="primary">😴 Отдыхать 1 минуту</button>
         <div class="muted">Во время гонки отдых запустить нельзя.</div>
         <div id="restStatus" class="notice">Можно стартовать.</div>
-      </div>
+      </div></div></details>
 
+      <details id="hospitalSection" class="main-drawer" open><summary>🏥 Больница</summary><div class="drawer-body">
       <div class="card hospital-card" id="hospitalCard" style="display:block">
   <div class="row between">
     <div>
@@ -296,11 +300,12 @@
   </div>
   <button id="hospitalBtn" class="primary">🏥 Лечь на лечение · 5 минут</button>
   <div id="hospitalStatus" class="notice">Больница появляется как обязательный этап после перелома.</div>
-</div>
+</div></div></details>
+<details id="raceEventsSection" class="main-drawer"><summary>📜 События этой гонки</summary><div class="drawer-body">
 <div class="card">
         <h3>События этой гонки</h3>
         <div id="eventLog" class="event-log"><div class="muted">События появятся по ходу гонки.</div></div>
-      </div>
+      </div></div></details>
     </section>
 
     <section class="game-tools">
@@ -319,7 +324,7 @@
       <details id="shop" class="game-drawer"><summary>🛒 Магазин экипировки</summary><div class="drawer-body">
       <div class="card">
         <h2>Магазин экипировки</h2>
-        <p class="muted">Экипировка имеет 7 уровней. Каждый уровень можно раскрыть отдельно: требования, бонусы, прочность и риск поломки. На сложных гонках неподходящий уровень реально ухудшает результат.</p>
+        <p class="muted">Экипировка имеет 7 уровней. Сам магазин можно раскрывать и закрывать целиком. Все 7 уровней выбранной экипировки показываются сразу: требования, бонусы, прочность и риск поломки. На сложных гонках неподходящий уровень реально ухудшает результат.</p>
         <div id="shopCategoryTabs" class="shop-category-tabs"></div><div id="shopGrid" class="shop-grid"></div>
       </div>
     </div></details>
@@ -470,10 +475,10 @@
 </div>
 
 <div class="help-section"><b>▶️ Гонка</b><p>Выбери доступный уровень, подготовься и нажми «Старт». Следи за километражем, темпом, позицией, штрафами и состоянием. Случайные события способны ускорить или замедлить тебя, повредить экипировку, вызвать травму или DNF.</p></div>
-<div class="help-section"><b>🏆 Соперники</b><p>Показываются три лидера и их текущий километраж. На уровнях 1–15 один из них — топовый трейлраннер, ещё двое имеют случайные ФИО. На уровнях 16–20 все три лидера — топовые спортсмены.</p></div>
+<div class="help-section"><b>🏆 Соперники</b><p>Показывается TOP-14 и текущий километраж участников. На уровнях 1–15 среди участников есть топовый трейлраннер и случайные соперники. На уровнях 16–20 поле усилено топовыми спортсменами.</p></div>
 <div class="help-section"><b>💪 Тренированность</b><p>Влияет на скорость и шанс успешно пройти сложную гонку. Растёт за финиши и тренировки. Слабую подготовку нельзя полностью компенсировать дорогой экипировкой.</p></div>
 <div class="help-section"><b>🏋️ Тренеры</b><p>Чем сильнее тренер, тем более сложные гонки он помогает готовить и тем быстрее растёт тренированность. Тренировка занимает 5 минут реального времени. После плохого результата игра может посоветовать нанять или сменить тренера.</p></div>
-<div class="help-section"><b>😴 Усталость и отдых</b><p>Частые старты накапливают усталость, ухудшают результат и повышают риск травм. Отдых находится в отдельном блоке и занимает 1 минуту. При усталости 0% отдых недоступен.</p></div>
+<div class="help-section"><b>😴 Усталость и отдых</b><p>Частые старты накапливают усталость, ухудшают результат и повышают риск травм. Отдых находится в отдельном блоке и занимает 1 минуту. Во время тренировки и гонки отдых недоступен. При усталости 0% отдых недоступен.</p></div>
 <div class="help-section"><b>👟 Экипировка 1–7 уровня</b><p>Кроссовки влияют на скорость, мембранка защищает от холода и дождя, палки помогают на сложном рельефе. Также следи за фонарём, рюкзаком/жилетом, часами и остальными слотами. У надетой вещи отображается «Надето».</p></div>
 <div class="help-section"><b>🔧 Износ и ремонт</b><p>Снаряжение теряет прочность. Чем тяжелее гонка и слабее вещь, тем выше риск поломки. Перед стартом проверяй состояние: повреждённая вещь может потерять бонус или подвести на трассе.</p></div>
 <div class="help-section"><b>💧 Вода</b><p>На серьёзных уровнях обязательна. Расход зависит от дистанции, температуры, солнца и погоды. В жару бери запас — недостаток воды ухудшает прохождение.</p></div>

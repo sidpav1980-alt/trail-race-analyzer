@@ -423,7 +423,7 @@ function weatherForLevel(){
   return game.weatherByLevel[key];
 }
 function waterLitersNeeded(L,w){
-  if(game.current<3) return 0; // mandatory only after level 3
+  if(game.current<2) return 0; // water becomes mandatory from level 3
   // Water means the realistic START/CARRY reserve between aid stations,
   // not enough water for the entire race from start to finish.
   const km=Number(L[1]||0);
@@ -688,9 +688,9 @@ function renderRaceLeaders(playerKm=0){
      return b.liveKm-a.liveKm;
    });
 
-   const top7=allRows.slice(0,7);
+   const top14=allRows.slice(0,14);
 
-   box.innerHTML=top7.map((r,i)=>{
+   box.innerHTML=top14.map((r,i)=>{
      const km=Math.max(0,Math.min(L[1],Number(r.liveKm||0)));
      const status=km>=L[1]?'Финиш':`${km.toFixed(1)} км`;
      const cls=r.player?' race-leader-player':'';
@@ -698,7 +698,7 @@ function renderRaceLeaders(playerKm=0){
    }).join('');
  }else{
    const names=leadersForRace();
-   box.innerHTML=names.slice(0,7).map((name,i)=>
+   box.innerHTML=names.slice(0,14).map((name,i)=>
      `<div class="race-leader-row"><b>${i+1}</b><span>${name}</span><strong>на старте</strong></div>`
    ).join('');
  }
@@ -1000,8 +1000,8 @@ function renderShop(){
  list.forEach((it,idx)=>{
    const equipped=game.gear[activeShopCategory]===idx;
    const purchased=(game.gearOwned[activeShopCategory]||[]).includes(idx);
-   const d=document.createElement('details');
-   d.className='shop-item equipment-detail';
+   const d=document.createElement('div');
+   d.className='shop-item equipment-card';
    const lvl=idx+1;
    let label,disabled=false,cls='primary';
    if(equipped){
@@ -1017,8 +1017,7 @@ function renderShop(){
      label='Купить и надеть';
    }
    const prep=equipmentPreparedness(activeShopCategory,levelData(),weatherForLevel());
-   d.open=equipped || idx===0;
-   d.innerHTML=`<summary>${CATEGORY_NAMES[activeShopCategory]} · ур. ${lvl}/7 · ${it[0]} ${equipped?'· НАДЕТО':''}</summary>
+   d.innerHTML=`<div class="equipment-card-title"><b>${CATEGORY_NAMES[activeShopCategory]} · ур. ${lvl}/7 · ${it[0]}</b>${equipped?'<span class="equipped-badge">НАДЕТО</span>':''}</div>
      <div class="shop-item-detail-body">
        <div class="meta">
          Цена: <span class="money">${fmtMoney(it[1])}</span><br>
@@ -1174,8 +1173,8 @@ function updateRestUi(){
  if($('restFatigueValue')) $('restFatigueValue').textContent=Math.round(Number(game.fatigue||0))+'%';
 
  if($('restBtn')){
-   $('restBtn').disabled = !!(run&&run.running) || resting || Number(game.fatigue||0)<=0;
-   $('restBtn').textContent = resting ? '😴 Отдых идёт…' : '😴 Отдых 1 минуту';
+   $('restBtn').disabled = !!(run&&run.running) || resting || trainingActive() || Number(game.fatigue||0)<=0;
+   $('restBtn').textContent = resting ? '😴 Отдых идёт…' : trainingActive() ? '🏃 Сначала закончите тренировку' : '😴 Отдых 1 минуту';
  }
 
  if($('restStatus')){
@@ -1245,6 +1244,7 @@ $('hospitalBtn')?.addEventListener('click',startHospitalTreatment);
 
 $('restBtn')?.addEventListener('click',()=>{
   if(run && run.running){ showGameError('Во время гонки отдых недоступен. Сначала завершите гонку.'); return; }
+  if(trainingActive()){ showGameError('Во время тренировки отдых недоступен. Сначала закончите тренировку.'); return; }
   if(isResting())return;
   if(Number(game.fatigue||0)<=0){updateRestUi();return;}
   game.restUntil=Date.now()+60*1000;saveGame();updateRestUi();renderTraining();
@@ -1587,7 +1587,7 @@ function buildEvents(L){
  // На каждой гонке есть шанс найти редкую экипировку. Она бесплатна и
  // может быть надета прямо во время гонки, если её уровень выше текущего.
  if(Math.random()<0.42){
-   const cats=['shoes','pack','jacket','poles','watch','medkit','hydration'];
+   const cats=['shoes','pack','jacket','lamp','poles','watch','medkit','hydration'];
    const cat=cats[Math.floor(Math.random()*cats.length)];
    const current=Number(game.gear?.[cat]||0);
    const found=Math.min(6,current+1+Math.floor(Math.random()*2));
@@ -1808,13 +1808,27 @@ function isItraDnfProtectedRunner(c){
  return intl || ru;
 }
 
+function actualDnfCount(){
+ try{
+   // Total number of actual DNFs in the whole race field.
+   // Do not derive this from TOP-14/TOP-N or the visible leaderboard.
+   const npcDnfs=Array.isArray(run?.virtualField)
+     ? run.virtualField.reduce((n,c)=>n+(c&&c.dnf?1:0),0)
+     : 0;
+   const playerDnf=run?.dnf ? 1 : 0;
+   const total=npcDnfs+playerDnf;
+   const fieldSize=Number(run?.fieldSize||0);
+   return fieldSize>0 ? Math.min(fieldSize,total) : total;
+ }catch(e){ return Number(run?.liveDnfCount||0); }
+}
+
 function updateLiveDnfs(){
  const raceKmNow=Number(run.p||0)*Number(levelData()?.[1]||0);
  if(raceKmNow<30){
    const box=$('liveDnfStatus');
    if(box){
      const total=Math.max(1,Number(run.fieldSize||0));
-     box.textContent=`🚫 Сошли: ${Number(run.liveDnfCount||0)} из ${total}`;
+     box.textContent=`🚫 Сошли: ${actualDnfCount()} из ${total}`;
    }
    return;
  }
@@ -1845,7 +1859,7 @@ function updateLiveDnfs(){
        const pb=competitorProgressAt(b,Number(run.elapsed||0),L);
        return pb-pa;
      });
-     const currentTop7=new Set(ranked.slice(0,7));
+     const currentTop14=new Set(ranked.slice(0,14));
 
      // Never use a name that has already appeared in a DNF event.
      const unseen=c=>{
@@ -1860,13 +1874,13 @@ function updateLiveDnfs(){
        pool=pool.filter(c=>!isItraDnfProtectedRunner(c));
      }
 
-     // TOP-7 may DNF only rarely. Prefer anyone outside current TOP-7.
+     // TOP-14 may DNF only rarely. Prefer anyone outside current TOP-14.
      if(pool.length){
        if(Math.random()<0.02){
-         const topPool=pool.filter(c=>currentTop7.has(c));
+         const topPool=pool.filter(c=>currentTop14.has(c));
          if(topPool.length) pool=topPool;
        }else{
-         const outside=pool.filter(c=>!currentTop7.has(c));
+         const outside=pool.filter(c=>!currentTop14.has(c));
          if(outside.length) pool=outside;
        }
      }
@@ -1901,7 +1915,7 @@ function updateLiveDnfs(){
  const box=$('liveDnfStatus');
  if(box){
    const total=Math.max(1,Number(run.fieldSize||0));
-   box.textContent=`🚫 Сошли: ${Number(run.liveDnfCount||0)} из ${total}`;
+   box.textContent=`🚫 Сошли: ${actualDnfCount()} из ${total}`;
  }
 }
 
@@ -1997,6 +2011,7 @@ function maybeLeaderDNF(){
   const reasons=['травма','сильная усталость','проблемы с желудком','падение','переохлаждение'];
   c.dnfReason=reasons[Math.floor(Math.random()*reasons.length)];
   run.dnfNames.add(n.trim().toLowerCase());
+  run.liveDnfCount=actualDnfCount();
   try{ showDnfNotice(n||'Лидер',c.dnfReason||''); }catch(e){}
 }
 
@@ -2852,7 +2867,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  cancelAnimationFrame(timer);$('pauseBtn').disabled=true;$('startBtn').disabled=false;
  const L=levelData();
  // Keep the finished race visible while the result overlay is shown.
- // run.running remains true temporarily so TOP-7 can still include the player.
+ // run.running remains true temporarily so TOP-14 can still include the player.
  run.finishHold=true;
  run.p=1;
  drawTrack(1);
@@ -2873,7 +2888,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
      const stronger=COACHES.findIndex((x,i)=>i>game.coach && x.maxDifficulty>=L[5]);
      if(stronger>=0) dnfCoachAdvice=`<br><br>💡 Рекомендация: сменить тренера на «${COACHES[stronger].name}» — текущий уровень подготовки ниже сложности гонки.`;
    }
-   const totalDnfs=Math.min(run.fieldSize,(run.liveDnfCount??run.otherDnfCount??0)+1);
+   const totalDnfs=Math.min(run.fieldSize,actualDnfCount()+(run.dnf?0:1));
    const dnfStats=`<br><br>🚫 Сошло с дистанции: ${totalDnfs} из ${run.fieldSize}.`;
    if(dnfReason==='freeze'){
      ov.innerHTML=`<div class="overlay-box"><div class="emoji">🥶</div><b>DNF · переохлаждение</b><span>Вы замёрзли до финиша.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
@@ -2916,7 +2931,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  run.currentPosition=pos;
  if($('position')) $('position').textContent=pos;
 
- // On victory, hold the player as #1 in the visible TOP-7 until the result closes.
+ // On victory, hold the player as #1 in the visible TOP-14 until the result closes.
  if(pos===1){
    run.finishWinnerHold=true;
    run.p=1;
@@ -2974,7 +2989,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
    }
  }
 
- const totalDnfs=Math.min(run.fieldSize,run.liveDnfCount??run.otherDnfCount??0);
+ const totalDnfs=actualDnfCount();
  ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br>🚫 Сошло с дистанции: ${totalDnfs} из ${run.fieldSize}<br>Тренированность: ${Math.round(game.fitness)}/100<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}${newRareAchievement?'<br>🏆 Получена редкая ачивка уровня!':''}${coachAdvice}</span></div>`;
  ov.classList.add('show');
  setTimeout(()=>{
