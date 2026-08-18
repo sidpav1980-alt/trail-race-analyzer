@@ -565,7 +565,7 @@ function renderPreStartRaceState(L){
  if($('progressKm')) $('progressKm').textContent=`0.0 / ${Number(L[1]).toFixed(1)} км`;
  if($('clock')) $('clock').textContent='0:00:00';
  if($('progressBar')) $('progressBar').style.width='0%';
- if($('pace')) $('pace').textContent=fmt(Math.max(1,L[3])/Math.max(1,L[1])).replace(':',' : ')+' /км';
+ if($('pace')) $('pace').textContent=fmt(Math.max(1,L[3])/Math.max(1,L[1]))+'/км';
  if($('position')) $('position').textContent='—';
  if($('penalties')) $('penalties').textContent='+0:00';
  if($('condition')) $('condition').textContent='ГОТОВ';
@@ -1500,19 +1500,19 @@ function itraEarlyRaceBoost(){
   let tier='none';
 
   if(place===1){
-    // Первое место ITRA: игрок на первых 10 уровнях должен регулярно
-    // бороться минимум за TOP-5 и часто за победу.
-    chance=0.88; mult=1.125; tier='1';
+    // Логика ранней 1.0: лидер ITRA на уровнях 1–10 почти всегда
+    // реально борется за подиум и часто за победу.
+    chance=0.92; mult=1.18; tier='1';
   }else if(place===2){
-    chance=0.68; mult=1.078; tier='2';
+    chance=0.78; mult=1.12; tier='2';
   }else if(place===3){
-    chance=0.56; mult=1.060; tier='3';
+    chance=0.68; mult=1.095; tier='3';
   }else if(place<=5){
-    chance=0.42; mult=1.044; tier='4-5';
+    chance=0.54; mult=1.07; tier='4-5';
   }else if(place<=10){
-    chance=0.30; mult=1.032; tier='6-10';
+    chance=0.38; mult=1.05; tier='6-10';
   }else if(place<=15){
-    chance=0.18; mult=1.020; tier='11-15';
+    chance=0.24; mult=1.03; tier='11-15';
   }
 
   const active=chance>0 && Math.random()<chance;
@@ -1524,6 +1524,46 @@ function seededNoise01(seed){
   // deterministic pseudo-random 0..1 for this race/competitor
   const x=Math.sin(seed*12.9898+78.233)*43758.5453;
   return x-Math.floor(x);
+}
+
+function applyEarlyItraWinnerDistribution(field,playerBaseSec){
+  // Восстановленная логика 1.0: ITRA-позиция влияет не только на общий
+  // коэффициент соперников, но и на распределение реальной борьбы за победу.
+  // События гонки и штрафы всё ещё могут изменить итог по ходу дистанции.
+  if(Number(game.current||0)>=10 || !Array.isArray(field) || !field.length) return field;
+  const place=playerItraPlace();
+  const roll=Math.random();
+  let maxAhead=null;
+  if(place===1){
+    maxAhead = roll<0.58 ? 0 : roll<0.82 ? 2 : roll<0.96 ? 4 : null;
+  }else if(place===2){
+    maxAhead = roll<0.40 ? 0 : roll<0.70 ? 2 : roll<0.90 ? 4 : null;
+  }else if(place===3){
+    maxAhead = roll<0.30 ? 0 : roll<0.60 ? 2 : roll<0.84 ? 4 : null;
+  }else if(place<=5){
+    maxAhead = roll<0.20 ? 0 : roll<0.46 ? 2 : roll<0.72 ? 4 : null;
+  }else if(place<=10){
+    maxAhead = roll<0.11 ? 0 : roll<0.30 ? 2 : roll<0.56 ? 4 : null;
+  }else if(place<=15){
+    maxAhead = roll<0.06 ? 0 : roll<0.18 ? 2 : roll<0.40 ? 4 : null;
+  }
+  if(maxAhead===null) return field;
+
+  const sorted=[...field].sort((a,b)=>a.finishSec-b.finishSec);
+  const playerExpected=Math.max(60,Number(playerBaseSec||60));
+  sorted.forEach((c,i)=>{
+    if(i<maxAhead){
+      // Оставляем нужное число сильных соперников впереди.
+      const gap=(maxAhead-i)*0.006;
+      c.finishSec=Math.min(c.finishSec,playerExpected*(0.992-gap));
+    }else{
+      // Остальное поле — за ожидаемым временем игрока; небольшой разброс
+      // сохраняет естественные перестановки во время гонки.
+      const gap=0.006+(i-maxAhead)*0.0025;
+      c.finishSec=Math.max(c.finishSec,playerExpected*(1+gap));
+    }
+  });
+  return field;
 }
 
 function createVirtualField(L,fieldSize,playerBaseSec){
@@ -1582,6 +1622,7 @@ function createVirtualField(L,fieldSize,playerBaseSec){
     }
   }
 
+  applyEarlyItraWinnerDistribution(field,playerBaseSec);
   return field.sort((a,b)=>a.finishSec-b.finishSec);
 }
 
@@ -2154,7 +2195,7 @@ function startRace(){
  }
 
  run={
-   running:true,startedByUser:true,paused:false,p:0,base:L[3]*gearTimeFactor()*(1-coachRaceBonuses().pace),
+   running:true,startedByUser:true,attemptId:Date.now()+'-'+Math.random().toString(36).slice(2),winCounted:false,paused:false,p:0,base:L[3]*gearTimeFactor()*(1-coachRaceBonuses().pace),
    weatherDnfRisk:weatherDnfRisk(L,raceWeather),
    weatherDnfPlanned:false,
    weatherDnfTriggered:false,
@@ -2761,7 +2802,10 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  const xp=Math.round(35+L[5]*18+L[1]/8+(pos===1?45:pos<=3?25:0));
 
  game.money+=reward;addXp(xp);game.rep+=pos===1?8:pos<=3?5:pos<=10?2:1;
- if(pos===1) game.wins=(game.wins||0)+1;
+ if(pos===1 && !run.winCounted){
+   game.wins=(game.wins||0)+1;
+   run.winCounted=true;
+ }
  ensureTraining();
  const coach=COACHES[game.coach]||COACHES[0];
  const finishBase=1.0 + L[5]*0.35 + Math.min(2.0,L[1]/180);
