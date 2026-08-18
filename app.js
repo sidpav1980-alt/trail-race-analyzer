@@ -180,14 +180,14 @@ function loadGame(){
     const x=JSON.parse(localStorage.getItem('trailArmageddonSave')||'null');
     if(x) return Object.assign({
       money:1500,xp:0,level:1,completed:0,rep:0,wins:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
-      durability:{},best:{},playerName:'',fatigue:0,lastFinishAt:0,restUntil:0,hospitalUntil:0,achievements:{},
+      durability:{},best:{},playerName:'',fatigue:0,lastFinishAt:0,restUntil:0,hospitalUntil:0,needsHospital:false,achievements:{},
       resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,rescueBlanket:1,medkits:0,powerbank:0},
       lampCharge:100,gearOwned:{}
     },x);
   }catch(e){}
   return {
     money:1500,xp:0,level:1,completed:0,rep:0,wins:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
-    durability:{},best:{},playerName:'',fatigue:0,lastFinishAt:0,restUntil:0,hospitalUntil:0,achievements:{},
+    durability:{},best:{},playerName:'',fatigue:0,lastFinishAt:0,restUntil:0,hospitalUntil:0,needsHospital:false,achievements:{},
     resources:{waterBottles:4,gels:4,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,rescueBlanket:1,medkits:0,powerbank:0},
     lampCharge:100,gearOwned:{}
   };
@@ -618,9 +618,11 @@ function fitPlayerNameFont(){
 
 function hospitalRemainingMs(){return Math.max(0,(game.hospitalUntil||0)-Date.now())}
 function isInHospital(){return hospitalRemainingMs()>0}
+function needsHospitalTreatment(){return !!game.needsHospital}
 function startHospitalTreatment(){
  if(run&&run.running){showGameError('Во время гонки лечение недоступно');return}
  if(isInHospital())return;
+ if(!needsHospitalTreatment()){showGameError('Лечение не требуется: перелома нет.');updateRestUi();return;}
  game.hospitalUntil=Date.now()+5*60*1000;
  game.fatigue=Math.min(100,Math.max(0,Number(game.fatigue||0)+15));
  saveGame();render();updateRestUi();
@@ -628,6 +630,7 @@ function startHospitalTreatment(){
 function finishHospitalIfReady(){
  if((game.hospitalUntil||0)>0 && Date.now()>=game.hospitalUntil){
    game.hospitalUntil=0;
+   game.needsHospital=false;
    game.fatigue=Math.min(100,Math.max(0,Number(game.fatigue||0)-15));
    saveGame();
  }
@@ -1022,18 +1025,22 @@ function updateRestUi(){
      if(ht)ht.textContent=fmtRest(hospitalRemainingMs());
      if(hs)hs.textContent=`🏥 Лечение идёт. Осталось ${fmtRest(hospitalRemainingMs())}. Старт заблокирован.`;
      if(hb){hb.disabled=true;hb.textContent='🏥 Лечение идёт…';}
+   }else if(needsHospitalTreatment()){
+     if(ht)ht.textContent='требуется';
+     if(hs)hs.textContent='🦴 Перелом требует лечения. Нажмите кнопку — лечение займёт 5 минут.';
+     if(hb){hb.disabled=!!(run&&run.running);hb.textContent='🏥 Лечь на лечение · 5 минут';}
    }else{
      if(ht)ht.textContent='не требуется';
-     if(hs)hs.textContent='После перелома нажмите кнопку — лечение займёт 5 минут.';
-     if(hb){hb.disabled=!!(run&&run.running)||Number(game.hospitalUntil||0)>0;hb.textContent='🏥 Лечь на лечение · 5 минут';}
+     if(hs)hs.textContent='Травмы, требующей больницы, нет.';
+     if(hb){hb.disabled=true;hb.textContent='🏥 Лечение не требуется';}
    }
  }
 
  const startBtn=$('startBtn');
  if(startBtn && !(run&&run.running)){
-   if(resting || isInHospital()){
+   if(resting || isInHospital() || needsHospitalTreatment()){
      startBtn.disabled=true;
-     startBtn.textContent=isInHospital()?`🏥 Лечение ${fmtRest(hospitalRemainingMs())}`:`😴 Отдых ${fmtRest(restMs)}`;
+     startBtn.textContent=isInHospital()?`🏥 Лечение ${fmtRest(hospitalRemainingMs())}`:needsHospitalTreatment()?'🏥 Требуется лечение':`😴 Отдых ${fmtRest(restMs)}`;
    }else if(!trainingActive()){
      startBtn.disabled=false;
      startBtn.textContent='▶ Старт';
@@ -1044,6 +1051,9 @@ function updateRestUi(){
  if(req && !(run&&run.running)){
    if(isInHospital()){
      req.innerHTML=`<b>🏥 Лечение перелома</b><ul><li>До окончания лечения: ${fmtRest(hospitalRemainingMs())}.</li><li>Старт гонки заблокирован.</li></ul>`;
+     req.style.display='block';
+   }else if(needsHospitalTreatment()){
+     req.innerHTML=`<b>🦴 Требуется лечение перелома</b><ul><li>Сначала пройдите лечение в больнице.</li><li>Старт гонки заблокирован.</li></ul>`;
      req.style.display='block';
    }else if(resting){
      req.innerHTML=`<b>😴 Отдых идёт</b><ul><li>До полного отдыха: ${fmtRest(restMs)}.</li><li>Старт гонки заблокирован до окончания отдыха.</li></ul>`;
@@ -2013,6 +2023,11 @@ function startRace(){
    showStartRequirementsError('🏥 Лечение перелома',[`До окончания лечения: ${left}.`]);
    return;
  }
+ if(needsHospitalTreatment()){
+   showStartRequirementsError('🦴 Требуется лечение перелома',['Сначала пройдите 5-минутное лечение в больнице.']);
+   showGameError('После перелома сначала нужно пройти лечение в больнице.');
+   return;
+ }
 
  if(isResting()){
    const left=fmtRest(restRemainingMs());
@@ -2491,6 +2506,7 @@ function fireEvents(){
        run.dnf=true;
        run.condition='перелом ноги';
        game.hospitalUntil=0;
+       game.needsHospital=true;
        saveGame();
        showEvent({emoji:'🦴',name:'Перелом ноги'},0,` · аптечка ур. ${medLevel}/7 не спасла → DNF · нужна больница`);
        setTimeout(()=>finishRace(true,'fracture'),1200);

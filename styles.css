@@ -84,8 +84,10 @@ footer{text-align:center;color:#65758b;padding:28px 0 60px}
 .panel{display:block!important}
 .game-tools{display:grid;gap:12px;margin-top:16px}
 .game-drawer{background:rgba(13,26,44,.96);border:1px solid var(--line);border-radius:18px;overflow:hidden}
-.game-drawer>summary{cursor:pointer;padding:16px 18px;font-size:18px;font-weight:850;list-style:none;color:#eef6ff}
+.game-drawer>summary{cursor:pointer;padding:16px 18px;font-size:18px;font-weight:850;list-style:none;color:#eef6ff;display:flex;align-items:center;justify-content:space-between;user-select:none}
 .game-drawer>summary::-webkit-details-marker{display:none}
+.game-drawer>summary::after{content:'+';color:#35bdf6;font-size:28px;line-height:1;margin-left:14px;flex:0 0 auto}
+.game-drawer[open]>summary::after{content:'−'}
 .game-drawer[open]>summary{border-bottom:1px solid var(--line);background:#0a1728}
 .drawer-body{padding:14px}
 .drawer-body>.card{margin-bottom:12px}
