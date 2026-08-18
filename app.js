@@ -1000,8 +1000,8 @@ function renderShop(){
  list.forEach((it,idx)=>{
    const equipped=game.gear[activeShopCategory]===idx;
    const purchased=(game.gearOwned[activeShopCategory]||[]).includes(idx);
-   const d=document.createElement('div');
-   d.className='shop-item equipment-card';
+   const d=document.createElement('details');
+   d.className='shop-item equipment-detail';
    const lvl=idx+1;
    let label,disabled=false,cls='primary';
    if(equipped){
@@ -1017,7 +1017,8 @@ function renderShop(){
      label='Купить и надеть';
    }
    const prep=equipmentPreparedness(activeShopCategory,levelData(),weatherForLevel());
-   d.innerHTML=`<div class="equipment-card-title"><b>${CATEGORY_NAMES[activeShopCategory]} · ур. ${lvl}/7 · ${it[0]}</b>${equipped?'<span class="equipped-badge">НАДЕТО</span>':''}</div>
+   d.open=equipped || idx===0;
+   d.innerHTML=`<summary>${CATEGORY_NAMES[activeShopCategory]} · ур. ${lvl}/7 · ${it[0]} ${equipped?'· НАДЕТО':''}</summary>
      <div class="shop-item-detail-body">
        <div class="meta">
          Цена: <span class="money">${fmtMoney(it[1])}</span><br>
