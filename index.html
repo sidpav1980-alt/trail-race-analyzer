@@ -127,7 +127,7 @@
     <div><span>Уровень трейлраннера</span><b id="runnerLevel">1</b><small id="xpText">0 / 100 XP</small></div>
     <div><span>Рубли</span><b id="money">₽ 1 500</b><small>на экипировку</small></div>
     <div><span>Пройдено</span><b id="completed">0 / 20</b><small>уровней</small></div>
-    <div><span>Репутация</span><b id="rep">0</b><small>каждые 10 = +1% к награде, максимум +30%</small></div>
+    <div><span>Репутация</span><b id="rep">0</b><small>влияет на доход</small></div>
     <div><span>Победы</span><b id="wins">0</b><small>первых мест в гонках</small></div>
     <div class="player-name-card">
       <span>Спортсмен</span>
@@ -230,6 +230,12 @@
         <div id="raceResourceWarning" class="notice warning-note compact-race-note"></div>
       </div>
 
+      <details id="raceEventsSection" class="main-drawer" open><summary>📜 События этой гонки / Симуляция</summary><div class="drawer-body">
+<div class="card">
+        <h3>События этой гонки / Симуляция</h3>
+        <div id="eventLog" class="event-log"><div class="muted">События появятся по ходу гонки.</div></div>
+      </div></div></details>
+
       <details id="currentLevelSection" class="main-drawer" open><summary>🎯 Текущий уровень</summary><div class="drawer-body">
       <div class="card level-card">
         <div class="row between">
@@ -244,16 +250,11 @@
           <div><span>Набор</span><b id="raceGain">80 м</b></div>
           <div><span>Целевое время</span><b id="raceTarget">0:34:00</b></div>
           <div><span>Награда</span><b id="raceReward">до ₽ 900</b></div>
-          <div><span>Вода на старт</span><b id="raceWaterNeed">не требуется</b><small id="raceWaterCapacity">вместимость гидратора</small></div><div><span>Вода в гонке</span><b id="raceWaterLive">—</b><small>остаток переносимого запаса</small></div>
+          <div><span>Вода на старт</span><b id="raceWaterNeed">не требуется</b></div>
         </div>
         <p id="raceDesc" class="muted"></p>
       </div></div></details>
 
-      <details id="raceEventsSection" class="main-drawer"><summary>📜 События этой гонки</summary><div class="drawer-body">
-<div class="card">
-        <h3>События этой гонки</h3>
-        <div id="eventLog" class="event-log"><div class="muted">События появятся по ходу гонки.</div></div>
-      </div></div></details>
 <details id="currentEquipmentSection" class="main-drawer" open><summary>🎒 Текущая экипировка</summary><div class="drawer-body">
       <div class="card race-equipment-card">
         <div class="row between equipment-head">

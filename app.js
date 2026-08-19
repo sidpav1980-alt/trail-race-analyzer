@@ -155,16 +155,16 @@ const COACHES=[
  {name:'Без тренера',price:0,mult:1.00,maxDifficulty:1,trainingGain:1.0,fitnessCap:30,
   desc:'Самостоятельная база. Тренированность можно поднять только до 30/100.',
   bonuses:'без тренера: нет специальных бонусов'},
- {name:'Базовый тренер',price:2000,mult:1.25,maxDifficulty:2,trainingGain:1.25,fitnessCap:50,
+ {name:'Базовый тренер',price:2000,mult:1.25,maxDifficulty:2,trainingGain:1.0,fitnessCap:50,
   bonuses:'−2% базового времени · −4% усталости · −3% штрафа за подъёмы',
   desc:'Готовит до 50/100 и открывает стабильную работу на ★–★★.'},
- {name:'Трейл-тренер',price:6250,mult:1.55,maxDifficulty:3,trainingGain:1.5,fitnessCap:65,
+ {name:'Трейл-тренер',price:6250,mult:1.55,maxDifficulty:3,trainingGain:1.0,fitnessCap:65,
   bonuses:'−4% базового времени · −8% усталости · −6% штрафа за подъёмы',
   desc:'Готовит до 65/100 и специализируется на техничном трейле ★★–★★★.'},
- {name:'Горный тренер',price:12500,mult:1.90,maxDifficulty:4,trainingGain:2.0,fitnessCap:80,
+ {name:'Горный тренер',price:12500,mult:1.90,maxDifficulty:4,trainingGain:1.0,fitnessCap:80,
   bonuses:'−6% базового времени · −11% усталости · −8% штрафа за подъёмы',
   desc:'Готовит до 80/100 и усиливает работу на наборе ★★★–★★★★.'},
- {name:'Elite Coach',price:22500,mult:2.35,maxDifficulty:5,trainingGain:2.5,fitnessCap:100,
+ {name:'Elite Coach',price:22500,mult:2.35,maxDifficulty:5,trainingGain:1.0,fitnessCap:100,
   bonuses:'−8% базового времени · −15% усталости · −10% штрафа за подъёмы · −5% риска травмы',
   desc:'Готовит до 100/100 и даёт максимальные бонусы на ★★★★–★★★★★.'}
 ];
@@ -273,17 +273,6 @@ function waterLitersNeeded(L,w){
 function waterBottlesNeeded(L,w){
   const liters=waterLitersNeeded(L,w);
   return liters<=0?0:Math.ceil(liters/0.5);
-}
-function hydrationCapacityLiters(idx=Number(game.gear?.hydration||0)){
-  // Реальная вместимость системы воды по 7 уровням.
-  return [0.5,1.0,1.5,2.0,2.5,3.0,4.0][Math.max(0,Math.min(6,Number(idx)||0))]||0.5;
-}
-function hydrationCapacityBottles(idx=Number(game.gear?.hydration||0)){
-  return Math.round(hydrationCapacityLiters(idx)/0.5);
-}
-function waterEffectText(){
-  const cap=hydrationCapacityLiters();
-  return `вместимость ${cap.toFixed(1).replace('.0','')} л · больше воды = меньше риск жажды и штрафов`;
 }
 function membraneRequiredLevel(L=levelData(),w=weatherForLevel()){
   // Баланс ранних уровней:
@@ -686,8 +675,15 @@ function render(){
  const restRaceLocked=raceShoppingLocked;
  const restBtnRace=$('restBtn');
  if(restBtnRace){
-   restBtnRace.disabled=restRaceLocked || isResting() || Number(game.fatigue||0)<=0;
-   restBtnRace.title=restRaceLocked?'Во время гонки отдых недоступен':'';
+   const hospitalLock=isInHospital() || needsHospitalTreatment();
+   restBtnRace.disabled=restRaceLocked || isResting() || hospitalLock || Number(game.fatigue||0)<=0;
+   restBtnRace.title=restRaceLocked
+     ? 'Во время гонки отдых недоступен'
+     : isInHospital()
+       ? `Во время лечения отдых недоступен. Осталось ${fmtRest(hospitalRemainingMs())}.`
+       : needsHospitalTreatment()
+         ? 'Сначала необходимо пройти лечение в больнице'
+         : '';
  }
  const shopJump=$('scrollShopBtn');
  if(shopJump){
@@ -799,8 +795,6 @@ function render(){
  if($('sunSub')) $('sunSub').textContent=raceWeather.sun>=80?'высокий расход воды':raceWeather.sun>=45?'средний расход воды':'низкий расход воды';
  const bottlesNeed=waterBottlesNeeded(L,raceWeather);
  if($('raceWaterNeed')) $('raceWaterNeed').textContent=bottlesNeed>0?`${bottlesNeed} × 0,5 л`:'не требуется';
- if($('raceWaterCapacity')) $('raceWaterCapacity').textContent=`гидратор: ${hydrationCapacityLiters().toFixed(1).replace('.0','')} л`;
- if($('raceWaterLive')) $('raceWaterLive').textContent=run&&run.running?`${(Number(run.waterRemaining||0)*0.5).toFixed(1).replace('.0','')} л / ${(Number(run.waterStart||0)*0.5).toFixed(1).replace('.0','')} л`:'—';
  $('raceTitle').textContent=`${game.current+1}. ${L[0]}`;
  if($('simulationRaceTitle')) $('simulationRaceTitle').textContent=`${game.current+1}. ${L[0]}`;
  $('raceDistance').textContent=L[1]+' км';
@@ -914,7 +908,7 @@ function gearEffectText(cat,idx,it){
   if(cat==='pack') return `перенос снаряжения · ур. ${idx+1}`;
   if(cat==='watch') return idx===0?'пустой слот · навигации нет':`GPS/навигация · ур. ${idx+1}`;
   if(cat==='medkit') return `ёмкость ${idx+1} компл. · защита от травм · ур. ${idx+1}`;
-  if(cat==='hydration') return `вместимость ${hydrationCapacityLiters(idx).toFixed(1).replace('.0','')} л · запас воды снижает риск жажды и штрафов`;
+  if(cat==='hydration') return `запас воды · ур. ${idx+1}`;
   return '';
 }
 function renderRaceGearSummary(){
@@ -936,7 +930,7 @@ function renderRaceGearSummary(){
    slot.innerHTML=`<div class="gear-slot-title"><b>${CATEGORY_NAMES[cat]}</b><span>ур. ${idx+1}/7</span></div>
      <div class="equipped-line"><span class="equipped-badge">${cur<=0?'НАДЕТО · СЛОМАНО':'НАДЕТО'}</span></div>
      <strong>${it[0]}</strong>
-     <div class="gear-slot-effect">${gearEffectText(cat,idx,it)}${cat==='hydration' ? `<br><b>В гонку:</b> ${run&&run.running ? `${(Number(run.waterRemaining||0)*0.5).toFixed(1).replace('.0','')} л осталось из ${(Number(run.waterStart||0)*0.5).toFixed(1).replace('.0','')} л` : `можно нести до ${hydrationCapacityLiters(idx).toFixed(1).replace('.0','')} л`}` : ''}</div>
+     <div class="gear-slot-effect">${gearEffectText(cat,idx,it)}</div>
      <div class="durability"><div style="width:${pct}%"></div></div>
      <small>прочность ${Math.round(pct)}% · доступно уровней: 1–7</small>`;
    g.appendChild(slot);
@@ -1039,15 +1033,15 @@ function updateRestUi(){
  if($('restFatigueValue')) $('restFatigueValue').textContent=Math.round(Number(game.fatigue||0))+'%';
 
  if($('restBtn')){
-   $('restBtn').disabled = !!(run&&run.running) || resting || trainingActive() || isInHospital() || needsHospitalTreatment() || Number(game.fatigue||0)<=0;
-   $('restBtn').textContent = resting ? '😴 Отдых идёт…' : trainingActive() ? `🏃 Тренировка ${trainingCountdownText()}` : '😴 Отдых 1 минуту';
+   $('restBtn').disabled = !!(run&&run.running) || resting || isInHospital() || needsHospitalTreatment() || Number(game.fatigue||0)<=0;
+   $('restBtn').textContent = resting ? '😴 Отдых идёт…' : '😴 Отдых 1 минуту';
  }
 
  if($('restStatus')){
-   $('restStatus').style.display=(resting||trainingActive())?'block':'none';
+   $('restStatus').style.display=resting?'block':'none';
    $('restStatus').textContent=resting
      ? `До полного отдыха: ${fmtRest(restMs)}. Старт гонки заблокирован.`
-     : trainingActive() ? `Идёт тренировка. Отдых недоступен ещё ${trainingCountdownText()}.` : '';
+     : '';
  }
  if($('hospitalCard')){
    $('hospitalCard').style.display='block';
@@ -1118,7 +1112,6 @@ $('hospitalBtn')?.addEventListener('click',startHospitalTreatment);
 $('restBtn')?.addEventListener('click',()=>{
   if(run && run.running){ showGameError('Во время гонки отдых недоступен. Сначала завершите гонку.'); return; }
   if(isInHospital() || needsHospitalTreatment()){ showGameError(isInHospital()?`Во время лечения отдых недоступен. Осталось ${fmtRest(hospitalRemainingMs())}.`:'Сначала необходимо пройти лечение в больнице.'); return; }
-  if(trainingActive()){showGameError(`Во время тренировки отдых недоступен. До конца тренировки: ${trainingCountdownText()}.`);updateRestUi();return;}
   if(isResting())return;
   if(Number(game.fatigue||0)<=0){updateRestUi();return;}
   game.restUntil=Date.now()+60*1000;saveGame();updateRestUi();renderTraining();
@@ -1162,7 +1155,7 @@ function finishTrainingIfReady(){
    const coach=COACHES[game.coach]||COACHES[0];
    const cap=Math.min(100,Number(coach.fitnessCap||100));
    const before=Math.round(Number(game.fitness||0));
-   const gain=before<cap ? Math.min(Number(coach.trainingGain||1),cap-before) : 0;
+   const gain=before<cap ? 1 : 0;
    game.fitness=Math.min(cap,Math.max(0,Number(game.fitness||0)+gain));
    game.trainingUntil=0;
    saveGame();
@@ -1219,7 +1212,7 @@ function renderTraining(){
        ${coach.desc}<br>
        Уровень подготовки: <b>${stars}</b><br>
        Прокачка за финиш: ×${coach.mult}<br>
-       Максимум тренированности: <b>${coach.fitnessCap}/100</b><br>1 завершённая тренировка: <b>+${coach.trainingGain}</b> к тренированности<br>
+       Максимум тренированности: <b>${coach.fitnessCap}/100</b><br>1 завершённая тренировка: <b>+1</b> к тренированности<br>
        ${(()=>{const b=coachRaceBonuses();return `Бонусы перед гонкой: ${coach.bonuses}<br>Реально в механике: темп −${Math.round(b.pace*100)}% · усталость −${Math.round(b.fatigue*100)}% · подъёмы −${Math.round(b.climb*100)}% · травмы −${Math.round(b.injury*100)}%`;})()}<br>
        ${i===0?'Бесплатно':`Цена: <span class="money">${fmtMoney(coach.price)}</span>`}
      </div>
@@ -2102,8 +2095,6 @@ function startRaceCore(){
    warnings.push(`тренированность упёрлась в предел ${activeCoach.fitnessCap}/100 — нужен более сильный тренер`);
  }
  const needWater=waterBottlesNeeded(L,raceWeather);
- const hydrationCapBottles=hydrationCapacityBottles();
- if(needWater>hydrationCapBottles) warnings.push(`гидратор вмещает ${hydrationCapacityLiters()} л, а рекомендованный стартовый запас ${Number(needWater*0.5).toFixed(1).replace('.0','')} л`);
 
  // Каждый слот экипировки теперь имеет минимальный рабочий уровень для
  // конкретной гонки. Недобор не всегда блокирует старт, но резко повышает
@@ -2203,15 +2194,14 @@ function startRaceCore(){
 
  // Water is transferred into the current race and consumed gradually.
  const waterAvailable=Math.max(0,Number(game.resources.waterBottles||0),Number(game.waterBottles||0));
- const waterCapacity=hydrationCapacityBottles();
- const waterUsed=Math.min(waterAvailable,needWater,waterCapacity);
- const waterShortage=Math.max(0,needWater-waterUsed);
+ const waterUsed=Math.min(waterAvailable,needWater);
+ const waterShortage=Math.max(0,needWater-waterAvailable);
  // В стартовый сегмент берём только рассчитанный запас. Остальные бутылки
  // остаются в инвентаре — прежняя версия списывала весь запас сразу.
  game.resources.waterBottles=Math.max(0,waterAvailable-waterUsed);
  game.waterBottles=0;
 
- if(waterUsed>0){
+ if(waterAvailable>0){
    $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>💧 Вода взята: ${waterUsed} × 0,5 л</b><span class="neutral">${waterShortage>0?'не хватает '+waterShortage:'запас готов'}</span></div>`);
  }else{
    $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>💧 Старт без воды</b><span class="bad">риск обезвоживания</span></div>`);
@@ -2291,7 +2281,7 @@ function startRaceCore(){
    startPenalty:fatiguePenaltySec+gelPenaltySec+lightPenaltySec+(raceWeather.sun>=80?Math.round((raceWeather.sun-70)*L[3]/1200):0)+Math.round(coachDifficultyGap*L[3]*0.04),
    positionDrift:0,
    condition:game.fatigue>=75?'сильная усталость':'нормально',
-   waterStart:waterUsed,waterRemaining:waterUsed,waterCapacity:waterCapacity,medkitsRemaining:medkitsForRace,waterNeed:needWater,waterSegmentStartKm:0,waterSegmentStartAmount:waterUsed,waterEmptyNotified:(waterAvailable<=0),aidStations:buildAidStations(Number(L[1]||0)),aidStationsPassed:new Set(),waterShortage,gelShortage,lightShortageHours,
+   waterStart:waterUsed,waterRemaining:waterUsed,medkitsRemaining:medkitsForRace,waterNeed:needWater,waterSegmentStartKm:0,waterSegmentStartAmount:waterUsed,waterEmptyNotified:(waterAvailable<=0),aidStations:buildAidStations(Number(L[1]||0)),aidStationsPassed:new Set(),waterShortage,gelShortage,lightShortageHours,
    fractureRisk:Math.min(.42, Math.max(0,((game.fatigue-55)/140) * (1-coachRaceBonuses().injury)) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08*(1-coachRaceBonuses().injury) : 0)),
    dnf:false
  };
@@ -2787,9 +2777,7 @@ function updateRun(){
  run.livePaceSec=livePaceSec;
  run.liveSlope=terrain.slope;
  run.liveGain=terrain.gainDone;
- if($('raceWaterLive')) $('raceWaterLive').textContent=`${(Number(run.waterRemaining||0)*0.5).toFixed(1).replace('.0','')} л / ${(Number(run.waterStart||0)*0.5).toFixed(1).replace('.0','')} л`;
- renderRaceGearSummary();
- $('pace').textContent=fmt(livePaceSec).replace(/\s*:\s*/g,':')+'/км';
+ $('pace').textContent=fmt(livePaceSec).replace(':',' : ')+' /км';
 
  // Realistic live position from virtual competitors.
  let estimatedPos=updateRealisticPosition() || Math.max(1,run.currentPosition||run.position||1);
@@ -2810,32 +2798,6 @@ function updateRun(){
  renderRaceLeaders(km);
  drawTrack(run.p);
 }
-function finalizeVirtualRaceAfterPlayerDnf(){
-  if(!run || !Array.isArray(run.virtualField)) return {finishers:[],dnfs:0};
-  const L=levelData(), w=weatherForLevel();
-  const p=competitorDnfRate(L,w);
-  const raceKm=Number(L[1]||0);
-  // После схода игрока остальная гонка виртуально доигрывается до конца.
-  for(const c of run.virtualField){
-    if(!c || c.dnf) continue;
-    let risk=p;
-    const name=String(c.name||'');
-    if(isItraDnfProtectedRunner(c) && raceKm<70) risk=0;
-    else if(isItraDnfProtectedRunner(c)) risk*=0.28;
-    if(/Береснев|Юшина/.test(name)) risk*=0.35;
-    if(Math.random()<risk) c.dnf=true;
-  }
-  const finishers=run.virtualField.filter(c=>c&&!c.dnf).sort((a,b)=>Number(a.finishSec||Infinity)-Number(b.finishSec||Infinity));
-  const dnfs=run.virtualField.filter(c=>c&&c.dnf).length+1; // + игрок
-  run.liveDnfCount=Math.max(Number(run.liveDnfCount||0),dnfs-1);
-  return {finishers,dnfs};
-}
-function virtualResultsHtml(result){
-  const top=(result?.finishers||[]).slice(0,14);
-  if(!top.length) return '';
-  return `<div class="virtual-final" style="margin-top:12px;text-align:left"><b>🏁 Итог виртуальной гонки:</b><br>${top.map((c,i)=>`${i+1}. ${String(c.name||('Участник '+(c.id+1)))} — ${fmt(Number(c.finishSec||0))}`).join('<br>')}<br>🚫 Всего сходов: ${result.dnfs} из ${run.fieldSize}</div>`;
-}
-
 function finishRace(forceDnf=false,dnfReason='fracture'){
  if(!run||!run.running)return;
  cancelAnimationFrame(timer);$('pauseBtn').disabled=true;$('startBtn').disabled=false;
@@ -2862,9 +2824,8 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
      const stronger=COACHES.findIndex((x,i)=>i>game.coach && x.maxDifficulty>=L[5]);
      if(stronger>=0) dnfCoachAdvice=`<br><br>💡 Рекомендация: сменить тренера на «${COACHES[stronger].name}» — текущий уровень подготовки ниже сложности гонки.`;
    }
-   const virtualResult=finalizeVirtualRaceAfterPlayerDnf();
-   const totalDnfs=Math.min(run.fieldSize,Math.max((run.liveDnfCount??run.otherDnfCount??0)+1,virtualResult.dnfs||0));
-   const dnfStats=`<br><br>🚫 Сошло с дистанции: ${totalDnfs} из ${run.fieldSize}.`+virtualResultsHtml({...virtualResult,dnfs:totalDnfs});
+   const totalDnfs=Math.min(run.fieldSize,(run.liveDnfCount??run.otherDnfCount??0)+1);
+   const dnfStats=`<br><br>🚫 Сошло с дистанции: ${totalDnfs} из ${run.fieldSize}.`;
    if(dnfReason==='freeze'){
      ov.innerHTML=`<div class="overlay-box"><div class="emoji">🥶</div><b>DNF · переохлаждение</b><span>Вы замёрзли до финиша.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
    }else if(dnfReason==='heat'){
@@ -2916,8 +2877,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  }
 
  const quality=Math.max(.45,Math.min(1.55,ratio));
- const repIncomeBonus=Math.min(0.30,Math.max(0,Number(game.rep||0))*0.001); // +1% per 10 rep, max +30%
- let reward=Math.round(L[4]*Math.max(.35,Math.min(1.55,.55+quality*.55))*(pos===1?1.35:pos<=3?1.18:1)*(1+repIncomeBonus));
+ let reward=Math.round(L[4]*Math.max(.35,Math.min(1.55,.55+quality*.55))*(pos===1?1.35:pos<=3?1.18:1));
  const xp=Math.round(35+L[5]*18+L[1]/8+(pos===1?45:pos<=3?25:0));
 
  game.money+=reward;addXp(xp);game.rep+=pos===1?8:pos<=3?5:pos<=10?2:1;
@@ -2988,11 +2948,10 @@ function startRace(){
     return startRaceCore();
   }catch(e){
     // Старт — транзакция: при любой JS-ошибке возвращаем всё состояние до нажатия.
-    Object.keys(game).forEach(k=>delete game[k]); Object.assign(game,gameSnapshot);
-    run=null;
+    game=gameSnapshot;
     try{ saveGame(); render(); updateRestUi(); renderTraining(); }catch(_restoreError){}
-    showGameError(`Ошибка старта: ${String(e?.message||e)}. Вода, гели и другие расходники восстановлены.`);
-    return false;
+    showGameError(`Ошибка старта: ${String(e?.message||e)}. Вода, гели и другие расходники не списаны.`);
+    throw e;
   }
 }
 
