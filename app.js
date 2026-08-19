@@ -665,8 +665,9 @@ function tryAwardLevelAchievement(levelIndex=game.current){
  const idx=Math.max(0,Math.min(19,Number(levelIndex||0)));
  const key=String(idx+1);
  if(game.achievements?.[key]) return false;
- // Rare: guaranteed on first completion, then the special condition is stored.
- if(Math.random()>0.72 && game.completed<=idx) return false;
+ // Редкая ачивка: около 6% на финиш этого уровня, пока она не получена.
+ // Раньше шанс был слишком высоким, поэтому плашка появлялась почти постоянно.
+ if(Math.random()>=0.06) return false;
  if(!game.achievements)game.achievements={};
  game.achievements[key]={name:LEVEL_ACHIEVEMENTS[idx],date:Date.now()};
  return true;
@@ -2417,6 +2418,15 @@ function notifyWaterEndedDuringRace(){
     if(!run || !run.running) return;
     const p=Number(run.p||0);
     if(p<=0) return;
+
+    // Если на этой гонке вода по балансу не требуется (ранние короткие уровни),
+    // событие «Вода закончилась» вообще не создаём. Покупка воды остаётся
+    // отдельной от покупки рюкзака/жилета: воду можно покупать всегда до старта.
+    if(Number(run.waterNeed||0)<=0){
+      run.waterEmptyNotified=true;
+      if(run.condition==='жажда') run.condition='нормально';
+      return;
+    }
 
     // Ignore transitional/undefined state: it must not create thirst.
     if(run.waterRemaining===undefined || run.waterRemaining===null) return;
