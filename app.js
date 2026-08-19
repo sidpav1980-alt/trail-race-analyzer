@@ -1200,6 +1200,20 @@ function updateRaceStartTrainingLock(){
    b.disabled=true;
    return;
  }
+ // Лечение имеет абсолютный приоритет над остальными состояниями.
+ // Это исключает мигание/краткое включение кнопки "Старт" между таймерами UI.
+ if(isInHospital() || needsHospitalTreatment()){
+   b.disabled=true;
+   b.textContent=isInHospital()?`🏥 Лечение ${fmtRest(hospitalRemainingMs())}`:'🏥 Требуется лечение';
+   const el=$('startRequirementsError');
+   if(el){
+     el.innerHTML=isInHospital()
+       ? `<b>🏥 Лечение перелома</b><ul><li>До окончания лечения: ${fmtRest(hospitalRemainingMs())}.</li><li>Старт гонки заблокирован.</li></ul>`
+       : `<b>🦴 Требуется лечение перелома</b><ul><li>Сначала пройдите лечение в больнице.</li><li>Старт гонки заблокирован.</li></ul>`;
+     el.style.display='block';
+   }
+   return;
+ }
  if(trainingActive()){
    b.disabled=true;
    b.textContent=`🏃 Тренировка ${trainingCountdownText()}`;
@@ -3093,7 +3107,9 @@ function startRace(){
     return startRaceCore();
   }catch(e){
     // Старт — транзакция: при любой JS-ошибке возвращаем всё состояние до нажатия.
-    Object.keys(game).forEach(k=>delete game[k]); Object.assign(game,gameSnapshot);
+    // Не мутируем объект по ключам: на iOS/WebKit это могло приводить к
+    // "Attempted to assign to readonly property". Просто подменяем снимком.
+    game=gameSnapshot;
     run=null;
     try{ saveGame(); render(); updateRestUi(); renderTraining(); }catch(_restoreError){}
     showGameError(`Ошибка старта: ${String(e?.message||e)}`);
@@ -3479,6 +3495,21 @@ render();
     if(e.target && e.target.id==='helpModal') closeHelp();
   });
 })();
+
+// iOS/Safari: ускоряем тапы и не даём случайному двойному событию выполнить действие дважды.
+// Блокировка очень короткая и применяется только после уже принятого клика.
+document.addEventListener('click',function(e){
+  const b=e.target.closest('button');
+  if(!b || b.disabled) return;
+  const now=Date.now();
+  const prev=Number(b.dataset.lastAcceptedClick||0);
+  if(prev && now-prev<180){
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    return;
+  }
+  b.dataset.lastAcceptedClick=String(now);
+},true);
 
 document.addEventListener('click', function(e){
   const b=e.target.closest('button');
