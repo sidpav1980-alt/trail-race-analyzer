@@ -141,7 +141,7 @@
       <span>Усталость</span>
       <b id="fatigueValue">0%</b>
       <div class="mini-progress"><div id="fatigueBar"></div></div>
-      <small id="restText">Готов к гонке</small>
+      <small id="restText">Готов к гонке</small><button id="quickRestBtn" class="secondary compact-btn" type="button">😴 Отдых</button>
     </div>
     <div id="quickBuyGels" class="quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить гели до нормы этой гонки">
       <span>Гели «УГЛИ»</span>
@@ -230,6 +230,15 @@
         <div id="preRaceNote" class="notice compact-race-note">Перед стартом обязательна проверка экипировки и расходников. Кроссовки имеют 7 уровней: более дорогие дают прирост скорости и лучше переживают сложные трассы. На длинной гонке могут закончиться гели, батарейки или аптечка.</div>
         <div id="raceResourceWarning" class="notice warning-note compact-race-note"></div>
       </div>
+
+      <div id="raceSlotCard" class="card race-slot-card">
+        <div class="row between">
+          <div id="raceSlotStatus"><b>🎟️ Слот на гонку</b><small>Для старта нужен отдельный слот.</small></div>
+          <button id="buyRaceSlotBtn" class="primary compact-btn" type="button">Купить слот</button>
+        </div>
+        <small id="raceSlotMerch" class="muted">Иногда вместе со слотом выпадает бесплатный мерч экипировки.</small>
+      </div>
+      <div id="coachRaceEffects" class="notice compact-race-note"><b>🏋️ Эффекты тренировки</b><small>Перед этой гонкой бонус тренера ещё не получен.</small></div>
 
       <details id="currentLevelSection" class="main-drawer" open><summary>🎯 Текущий уровень</summary><div class="drawer-body">
       <div class="card level-card">

@@ -414,3 +414,9 @@ html.auth-ok body > *{
 .race-controls-under-progress{margin:12px 0 14px;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:10px}
 .race-controls-under-progress button{min-height:52px;font-size:18px;font-weight:800}
 @media(max-width:560px){.race-controls-under-progress{grid-template-columns:1fr 0.72fr;margin:10px 0 12px}.race-controls-under-progress button{min-height:50px;font-size:17px}}
+
+/* v1.02 */
+#quickRestBtn{margin-top:8px;padding:7px 10px;font-size:13px;min-height:auto}
+.race-slot-card{margin:14px 0;border-color:#2d5f87}
+.race-slot-card #raceSlotStatus{display:flex;flex-direction:column;gap:4px}
+.race-slot-card #raceSlotStatus small,#coachRaceEffects small{display:block;color:var(--muted);margin-top:4px}
