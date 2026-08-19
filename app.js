@@ -2994,7 +2994,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
      ov.innerHTML=`<div class="overlay-box"><div class="emoji">🦴</div><b>DNF · перелом ноги</b><span>Слишком высокая нагрузка и мало отдыха. Отдохните 1 минуту перед новой попыткой.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
    }
    ov.classList.add('show');
-   setTimeout(()=>{ov.classList.remove('show');render();switchTab('resources')},5000);
+   setTimeout(()=>{ov.classList.remove('show');render();switchTab('resources')},12000);
    return;
  }
 
@@ -3076,14 +3076,14 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
 
  if(poorRun){
    if(game.coach===0){
-     coachAdvice='<br><br>💡 Рекомендация: нанять тренера — он ускорит рост тренированности и подготовку к более сложным гонкам.';
+     coachAdvice='<br>💡 Тренер: наймите тренера — тренированность будет расти быстрее.';
    }else if(currentCoach.maxDifficulty<L[5]){
      const stronger=COACHES.findIndex((x,i)=>i>game.coach && x.maxDifficulty>=L[5]);
      coachAdvice=stronger>=0
-       ? `<br><br>💡 Рекомендация: текущий тренер рассчитан до ${'★'.repeat(currentCoach.maxDifficulty)}. Для этой гонки лучше сменить на «${COACHES[stronger].name}».`
-       : '<br><br>💡 Рекомендация: нужен более сильный тренер для этой сложности.';
+       ? `<br>💡 Тренер: для этой гонки лучше «${COACHES[stronger].name}» (текущий до ${'★'.repeat(currentCoach.maxDifficulty)}).`
+       : '<br>💡 Тренер: нужен более сильный тренер для этой сложности.';
    }else{
-     coachAdvice='<br><br>💡 Рекомендация: продолжить тренировки — уровень тренера подходит, но тренированность ещё можно повысить.';
+     coachAdvice='<br>💡 Тренер подходит. Продолжайте тренировки для роста тренированности.';
    }
  }
 
@@ -3099,7 +3099,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
      run.p=0;
    }
    render();
- }, pos===1 ? (champ?9500:7000) : (champ?7000:4200));
+ }, 12000);
 }
 function startRace(){
   const gameSnapshot=JSON.parse(JSON.stringify(game));
