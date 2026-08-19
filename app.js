@@ -351,16 +351,17 @@ function fmt(sec){
 function fmtMoney(n){return '₽ '+Math.round(n).toLocaleString('ru-RU')}
 function levelData(i=game.current){return LEVELS[Math.max(0,Math.min(19,i))]}
 function raceSlotCost(i=game.current){
+  if(Number(i)<3) return 0;
   const L=levelData(i);
   const diff=Number(L[5]||1),km=Number(L[1]||5);
   return Math.round((120 + diff*180 + Math.sqrt(km)*45 + km*3)/50)*50;
 }
-function hasRaceSlot(i=game.current){ ensureResources(); return !!game.raceSlotsPurchased?.[String(i)]; }
+function hasRaceSlot(i=game.current){ ensureResources(); return Number(i)<3 || !!game.raceSlotsPurchased?.[String(i)]; }
 function renderRaceSlot(){
   const card=$('raceSlotCard'),status=$('raceSlotStatus'),btn=$('buyRaceSlotBtn'),merch=$('raceSlotMerch');
   if(!card||!status||!btn) return;
   const cost=raceSlotCost(),owned=hasRaceSlot();
-  status.innerHTML=owned?`<b>✅ Слот на гонку куплен</b><small>Старт разрешён для этой трассы.</small>`:`<b>🎟️ Слот на гонку: ${fmtMoney(cost)}</b><small>Даже разблокированная трасса требует отдельного слота.</small>`;
+  status.innerHTML=Number(game.current)<3?`<b>🎟️ Слот на гонку: бесплатно</b><small>На первых трёх уровнях слот предоставляется бесплатно.</small>`:owned?`<b>✅ Слот на гонку куплен</b><small>Старт разрешён для этой трассы.</small>`:`<b>🎟️ Слот на гонку: ${fmtMoney(cost)}</b><small>Даже разблокированная трасса требует отдельного слота.</small>`;
   btn.style.display=owned?'none':'inline-flex'; btn.disabled=!owned && game.money<cost;
   btn.textContent=game.money<cost?`Не хватает ${fmtMoney(cost-game.money)}`:`Купить слот · ${fmtMoney(cost)}`;
   if(merch) merch.textContent=owned?'При покупке слота мог выпасть мерч экипировки.':'Иногда вместе со слотом выпадает бесплатный мерч экипировки.';
@@ -862,6 +863,8 @@ function render(){
  $('raceGain').textContent=L[2]+' м';
  $('raceTarget').textContent=fmt(L[3]);
  $('raceReward').textContent='база '+fmtMoney(L[4]);
+ if($('raceSlotCostCurrent')) $('raceSlotCostCurrent').textContent=game.current<3?'Бесплатно':hasRaceSlot()?`✅ Куплен · ${fmtMoney(raceSlotCost())}`:fmtMoney(raceSlotCost());
+ if($('raceSlotCostCurrentStatus')) $('raceSlotCostCurrentStatus').textContent=game.current<3?'первые 3 уровня без оплаты':hasRaceSlot()?'слот этой гонки уже оплачен':'нужно купить перед стартом';
  const rr=$('raceReward')?.parentElement;
  if(rr){
    let note=rr.querySelector('.reward-place-note');
@@ -886,7 +889,8 @@ function renderLevels(){
   const d=document.createElement('div');
   const locked=i>game.completed;
   d.className='level '+(i<game.completed?'done ':i===game.current?'current ':'')+(locked?'locked':'');
-  d.innerHTML=`<h3>${i+1}. ${L[0]}</h3><div class="meta">${L[1]} км · +${L[2]} м · цель ${fmt(L[3])}<br><span class="money">до ${fmtMoney(L[4])}</span></div>
+  const slotOwned=hasRaceSlot(i);
+  d.innerHTML=`<h3>${i+1}. ${L[0]}</h3><div class="meta">${L[1]} км · +${L[2]} м · цель ${fmt(L[3])}<br><span class="money">до ${fmtMoney(L[4])}</span><br><span class="slot-price">🎟️ слот: ${i<3?'Бесплатно':fmtMoney(raceSlotCost(i))}${i<3?'':slotOwned?' · ✅ куплен':''}</span></div>
   <button class="secondary" ${locked?'disabled':''} data-level="${i}">${i<game.completed?'Переиграть':i===game.current?'Текущий уровень':'Выбрать'}</button>`;
   g.appendChild(d);
  });
