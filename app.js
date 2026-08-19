@@ -3098,7 +3098,17 @@ function startRace(){
 }
 
 $('buyRaceSlotBtn')?.addEventListener('click',buyRaceSlot);
-$('quickRestBtn')?.addEventListener('click',()=>{$('restBtn')?.click();});
+const quickRestBtn=$('quickRestBtn');
+if(quickRestBtn){
+  quickRestBtn.addEventListener('click',()=>{$('restBtn')?.click();});
+  const syncQuickRest=()=>{
+    const blocked=!!(run&&run.running) || isResting() || trainingActive() || isInHospital() || needsHospitalTreatment() || Number(game.fatigue||0)<=0;
+    quickRestBtn.disabled=blocked;
+    quickRestBtn.textContent=isInHospital()?'🏥 Лечение':isResting()?'😴 Отдых…':'😴 Отдых';
+  };
+  setInterval(syncQuickRest,1000);
+  syncQuickRest();
+}
 $('startBtn').onclick=()=>{
   try{
     startRace();

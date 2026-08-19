@@ -420,3 +420,6 @@ html.auth-ok body > *{
 .race-slot-card{margin:14px 0;border-color:#2d5f87}
 .race-slot-card #raceSlotStatus{display:flex;flex-direction:column;gap:4px}
 .race-slot-card #raceSlotStatus small,#coachRaceEffects small{display:block;color:var(--muted);margin-top:4px}
+
+/* 1.02 hotfix: always keep the quick rest control visible in the fatigue card */
+#quickRestBtn{display:block!important;width:100%;margin-top:10px;padding:9px 10px!important;min-height:38px;font-size:14px;line-height:1.1}
