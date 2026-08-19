@@ -409,3 +409,8 @@ html.auth-ok body > *{
 .main-drawer[open] > summary::after { content: '−'; }
 .main-drawer > .drawer-body { padding: 0 10px 10px; }
 .main-drawer > .drawer-body > .card { margin-top: 0; }
+
+/* Start/pause controls moved directly under race progress bar. */
+.race-controls-under-progress{margin:12px 0 14px;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:10px}
+.race-controls-under-progress button{min-height:52px;font-size:18px;font-weight:800}
+@media(max-width:560px){.race-controls-under-progress{grid-template-columns:1fr 0.72fr;margin:10px 0 12px}.race-controls-under-progress button{min-height:50px;font-size:17px}}
