@@ -3109,6 +3109,22 @@ if(quickRestBtn){
   setInterval(syncQuickRest,1000);
   syncQuickRest();
 }
+const quickTreatBtn=$('quickTreatBtn');
+if(quickTreatBtn){
+  quickTreatBtn.addEventListener('click',()=>{
+    if(run&&run.running){showGameError('Во время гонки лечение недоступно.');return;}
+    if(isInHospital()){showGameError(`Лечение уже идёт. Осталось ${fmtRest(hospitalRemainingMs())}.`);return;}
+    if(!needsHospitalTreatment()){showGameError('Лечение не требуется: перелома нет.');return;}
+    $('hospitalBtn')?.click();
+  });
+  const syncQuickTreat=()=>{
+    const inHospital=isInHospital();
+    quickTreatBtn.disabled=!!(run&&run.running) || trainingActive() || isResting() || (!inHospital && !needsHospitalTreatment());
+    quickTreatBtn.textContent=inHospital?`🏥 ${fmtRest(hospitalRemainingMs())}`:'🏥 Лечение';
+  };
+  setInterval(syncQuickTreat,1000);
+  syncQuickTreat();
+}
 $('startBtn').onclick=()=>{
   try{
     startRace();
