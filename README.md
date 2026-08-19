@@ -859,3 +859,13 @@ Trail Runner: Armageddon — OFFLINE
 ### Water UI fix
 - «Вода на старт» now always displays the actual required carried reserve for the current race; it no longer incorrectly says «не требуется» on early races when a reserve is calculated.
 - If the player already has enough water, pressing the quick-buy control no longer produces a red error; it shows a neutral informational confirmation instead.
+
+
+## v1.01 hotfix
+- Отдых недоступен во время тренировки; показывается оставшееся время тренировки.
+- Гидратор имеет явную вместимость 0.5–4.0 л по 7 уровням; запас воды виден до старта и во время гонки.
+- Эффект воды: достаточный переносимый запас снижает риск жажды и временных штрафов.
+- Прокачка тренированности за тренировку растёт с уровнем тренера: +1 / +1.25 / +1.5 / +2 / +2.5.
+- После DNF игрока гонка виртуально доигрывается: показываются итоговые финишёры TOP-14 и общее число сходов.
+- Репутация теперь реально повышает доход: +1% к награде за каждые 10 очков, максимум +30%.
+- Старт гонки сделан транзакционным: при ошибке состояние воды/гелей/расходников восстанавливается без повторного исключения.
