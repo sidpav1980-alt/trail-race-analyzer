@@ -499,3 +499,9 @@ button{ -webkit-user-select:none; user-select:none; }
 /* v1.02 live race consumables */
 .race-consumable-live{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0}
 .race-consumable-live .badge{padding:10px 12px;border:1px solid #31506f;border-radius:12px;background:#0b1b2d;color:#dbeafe}
+
+/* Чара: стартовая плашка только для уровня 120 км */
+.chara-bear-card{max-width:260px;padding:18px 20px;border-width:2px;background:linear-gradient(180deg,#17210f,#081524);box-shadow:0 0 28px rgba(251,191,36,.28)}
+.chara-bear-card .emoji{font-size:54px;line-height:1}
+.chara-bear-card b{font-size:22px;letter-spacing:.08em;color:#fbbf24;margin:8px 0 5px}
+.chara-bear-card span{font-size:14px;line-height:1.25}

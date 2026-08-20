@@ -2448,6 +2448,21 @@ function startRaceCore(){
  
  $('startBtn').disabled=true;$('pauseBtn').disabled=false;
 
+ // Только уровень «Чара»: сразу после старта на 3 секунды показываем
+ // специальную плашку с медведем и топором. На остальных гонках её нет.
+ if(String(L[0]||'').trim().toLowerCase()==='чара'){
+   const ov=$('eventOverlay');
+   if(ov){
+     ov.innerHTML=`<div class="overlay-box chara-bear-card"><div class="emoji">🐻🪓</div><b>ЧАРА</b><span>Медведь с топором провожает на старт</span></div>`;
+     ov.classList.add('show');
+     run.eventPause=true;
+     setTimeout(()=>{
+       ov.classList.remove('show');
+       if(run){ run.eventPause=false; lastTs=performance.now(); }
+     },3000);
+   }
+ }
+
  // Start the simulation loop first. A rendering error must never prevent
  // the race from actually starting.
  lastTs=performance.now();
