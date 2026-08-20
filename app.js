@@ -836,8 +836,9 @@ function render(){
  if($('itraText'))$('itraText').textContent=Math.round(game.itra);
  if($('itraNameText')) $('itraNameText').textContent=safePlayerName();
  if($('itraRankText'))$('itraRankText').textContent=`место в базе: ${ELITE_RUNNERS.filter(r=>r.itra>game.itra).length+1}`;
- if($('rescueBlanketText')) $('rescueBlanketText').textContent=`🆘 ${Number(game.resources.rescueBlanket||0)} шт.`;
- if($('rescueBlanketSub')) $('rescueBlanketSub').textContent=Number(game.resources.rescueBlanket||0)>0?'50/50 против погодного DNF':'нет защиты от погодного DNF';
+ const rescueBlanketTotal=Number(game.resources.rescueBlanket||0)+Number(game.resources.medkits||0);
+ if($('rescueBlanketText')) $('rescueBlanketText').textContent=`🆘 ${rescueBlanketTotal} шт.`;
+ if($('rescueBlanketSub')) $('rescueBlanketSub').textContent=rescueBlanketTotal>0?'50/50 против погодного DNF':'нет защиты от погодного DNF';
  const raceWeather=weatherForLevel();
  const waterNeedNow=waterBottlesNeeded(L,raceWeather);
  if($('waterCount')) $('waterCount').textContent=String(game.resources.waterBottles||0);
@@ -2748,8 +2749,9 @@ function fireEvents(){
      if(ev.cat==='jacket' && currentMembraneReq>0 &&
         (weatherForLevel().rain||weatherForLevel().cold) &&
         !hasMembrane(currentMembraneReq)){
-       if(Number(game.resources.rescueBlanket||0)>0 && Math.random()<0.50){
-         useResource('rescueBlanket',1,'event');
+       if((Number(game.resources.rescueBlanket||0)+Number(game.resources.medkits||0))>0 && Math.random()<0.50){
+         if(Number(game.resources.rescueBlanket||0)>0) useResource('rescueBlanket',1,'event');
+         else useResource('medkits',1,'event');
          sec=Math.round(sec*.35);
          extra=' · спасательное одеяло сработало (50/50), DNF предотвращён';
        }else{
@@ -3162,7 +3164,7 @@ $('startBtn').onclick=()=>{
   }
 };
 
-function updateRaceGuaranaButton(){const b=$('raceGuaranaBtn');const g=$('raceGelStatus');const active=!!(run&&run.running);if(b){b.style.display=active?'inline-flex':'none';b.disabled=!active||!!run.guaranaTriggered||Number(game.resources.guarana||0)<=0;b.textContent=run&&run.guaranaTriggered?'🫘 Гуарана использована':`🫘 Гуарана (${Number(game.resources.guarana||0)})`;}if(g){g.style.display=active?'inline-flex':'none';if(active)g.textContent=`🍯 Гели в гонке: ${Number(run.gelsRemaining||0)} / ${Number(run.gelsStart||0)}`;}}
+function updateRaceGuaranaButton(){const b=$('raceGuaranaBtn');const g=$('raceGelStatus');const active=!!(run&&run.running);const qty=Number(game.resources.guarana||0);if(b){b.style.display='inline-flex';b.disabled=!active||!!(run&&run.guaranaTriggered)||qty<=0;if(run&&run.guaranaTriggered)b.textContent='🫘 Гуарана использована';else if(active)b.textContent=`🫘 Использовать гуарану (${qty})`;else b.textContent=qty>0?`🫘 Гуарана (${qty}) · доступна в гонке`:'🫘 Гуарана: 0 · купить в расходниках';}if(g){g.style.display=active?'inline-flex':'none';if(active)g.textContent=`🍯 Гели в гонке: ${Number(run.gelsRemaining||0)} / ${Number(run.gelsStart||0)}`;}}
 $('raceGuaranaBtn')?.addEventListener('click',()=>{if(!run||!run.running||run.guaranaTriggered)return;if(Number(game.resources.guarana||0)<=0){showGameError('Гуарана закончилась.');return;}useResource('guarana',1,'event');run.guaranaTaken=true;run.guaranaTriggered=true;const km=Number(run.p||0)*Number(levelData()[1]||0);if(Math.random()<0.30){run.guaranaBoostUntil=Number(run.elapsed||0)+600;run.guaranaTriggerKm=km;showEvent({emoji:'🫘',name:'Гуарана сработала'},-60,' · буст на 10 мин');}else{showEvent({emoji:'🫘',name:'Гуарана не сработала'},0,' · буста нет');}saveGame();updateRaceGuaranaButton();});
 $('resetGameBtn').onclick=()=>{if(confirm('Сбросить весь прогресс, деньги и экипировку?')){localStorage.removeItem('trailArmageddonSave');game=loadGame();render()}};
 
