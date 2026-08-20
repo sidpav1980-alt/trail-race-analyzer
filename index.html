@@ -124,7 +124,7 @@
   </div></header>
 
   <section class="hud card">
-    <div><span>Уровень трейлраннера</span><b id="runnerLevel">1</b><small id="xpText">0 / 100 XP</small></div>
+    <div><span>Уровень трейлраннера</span><b id="runnerLevel">1</b><small id="xpText">0 / 100 XP до следующего уровня</small></div>
     <div><span>Рубли</span><b id="money">₽ 1 500</b><small>на экипировку</small></div>
     <div><span>Пройдено</span><b id="completed">0 / 20</b><small>уровней</small></div>
     <div><span>Репутация</span><b id="rep">0</b><small>каждые 10 = +1% к награде, максимум +30%</small></div>
@@ -205,9 +205,9 @@
 
         <div class="controls race-controls-under-progress">
           <button id="startBtn" class="primary">▶ Старт</button>
-          <button id="pauseBtn" class="secondary" disabled>Ⅱ Пауза</button>
         </div>
         <div id="startRequirementsError" class="start-requirements-error" style="display:none"></div>
+        <button id="raceGuaranaBtn" class="secondary compact-btn" type="button" style="display:none">🫘 Использовать гуарану</button><div style="display:none" aria-hidden="true"><button id="pauseBtn"></button><span id="raceTitle"></span><span id="difficultyBadge"></span><span id="raceDistance"></span><span id="raceGain"></span><span id="raceTarget"></span><span id="raceReward"></span><span id="raceSlotCostCurrent"></span><span id="raceSlotCostCurrentStatus"></span><span id="raceWaterNeed"></span><span id="raceWaterCapacity"></span><span id="raceWaterLive"></span><span id="raceDesc"></span></div>
 
         <div class="sim-stats">
           <div><span>Темп</span><b id="pace">6:48 /км</b></div>
@@ -217,20 +217,18 @@
           <div><span>Штрафы</span><b id="penalties">+0:00</b></div>
           <div><span>Состояние</span><b id="condition">готов</b></div>
         </div>
-        <div class="race-leaders-card">
-          <div class="race-leaders-head">
-            <b>🏆 ТОП-14 гонки</b><span id="racePlayerName" style="display:block;margin-top:6px;font-size:14px;color:#91a5bd">Вы: <strong style="color:#eef5ff">Трейлраннер</strong></span>
-            <span id="leadersRaceName">—</span>
-          </div>
-          <div id="raceLeaders" class="race-leaders-list"></div>
-<div id="liveDnfStatus" class="notice" style="margin-top:10px">🚫 Сошли: 0</div>
-        </div>
+        <details class="race-leaders-card" open><summary class="race-leaders-head"><b>🏆 ТОП-14 гонки</b><span id="racePlayerName">Вы: <strong>Трейлраннер</strong></span><span id="leadersRaceName">—</span></summary><div id="raceLeaders" class="race-leaders-list"></div><div id="liveDnfStatus" class="notice" style="margin-top:10px">🚫 Сошли: 0</div></details>
 
         <div class="notice race-lock-note">После старта покупки и смена необходимой экипировки/расходников недоступны до финиша.</div>
         <div id="preRaceNote" class="notice compact-race-note">Перед стартом обязательна проверка экипировки и расходников. Кроссовки имеют 7 уровней: более дорогие дают прирост скорости и лучше переживают сложные трассы. На длинной гонке могут закончиться гели, батарейки или аптечка.</div>
         <div id="raceResourceWarning" class="notice warning-note compact-race-note"></div>
       </div>
 
+      <details id="raceEventsSection" class="main-drawer"><summary>📜 События этой гонки</summary><div class="drawer-body">
+<div class="card">
+        <h3>События этой гонки</h3>
+        <div id="eventLog" class="event-log"><div class="muted">События появятся по ходу гонки.</div></div>
+      </div></div></details>
       <div id="raceSlotCard" class="card race-slot-card">
         <div class="row between">
           <div id="raceSlotStatus"><b>🎟️ Слот на гонку</b><small>Для старта нужен отдельный слот.</small></div>
@@ -240,31 +238,8 @@
       </div>
       <div id="coachRaceEffects" class="notice compact-race-note"><b>🏋️ Эффекты тренировки</b><small>Перед этой гонкой бонус тренера ещё не получен.</small></div>
 
-      <details id="currentLevelSection" class="main-drawer" open><summary>🎯 Текущий уровень</summary><div class="drawer-body">
-      <div class="card level-card">
-        <div class="row between">
-          <div>
-            <div class="muted">Текущий уровень</div>
-            <h2 id="raceTitle">1. Парковый трейл</h2>
-          </div>
-          <div class="badge" id="difficultyBadge">★☆☆☆☆</div>
-        </div>
-        <div class="race-meta">
-          <div><span>Дистанция</span><b id="raceDistance">5 км</b></div>
-          <div><span>Набор</span><b id="raceGain">80 м</b></div>
-          <div><span>Целевое время</span><b id="raceTarget">0:34:00</b></div>
-          <div><span>Награда</span><b id="raceReward">до ₽ 900</b></div>
-          <div><span>Стоимость слота</span><b id="raceSlotCostCurrent">—</b><small id="raceSlotCostCurrentStatus">нужен для старта</small></div>
-          <div><span>Вода на старт</span><b id="raceWaterNeed">не требуется</b><small id="raceWaterCapacity">вместимость гидратора</small></div><div><span>Вода в гонке</span><b id="raceWaterLive">—</b><small>остаток переносимого запаса</small></div>
-        </div>
-        <p id="raceDesc" class="muted"></p>
-      </div></div></details>
-
-      <details id="raceEventsSection" class="main-drawer"><summary>📜 События этой гонки</summary><div class="drawer-body">
 <div class="card">
-        <h3>События этой гонки</h3>
-        <div id="eventLog" class="event-log"><div class="muted">События появятся по ходу гонки.</div></div>
-      </div></div></details>
+<h2>🔦 Питание фонаря</h2><p class="muted">Фонари 1–4 уровня работают на батарейках. Фонари 5–7 уровня — на аккумуляторе.</p><div id="lampPowerPanel" class="gear-grid"></div></div>
 <details id="currentEquipmentSection" class="main-drawer" open><summary>🎒 Текущая экипировка</summary><div class="drawer-body">
       <div class="card race-equipment-card">
         <div class="row between equipment-head">
@@ -277,7 +252,7 @@
         <div id="raceGearSummary" class="race-gear-summary"></div>
       </div></div></details>
 
-      <details id="restSection" class="main-drawer" open><summary>😴 Отдых</summary><div class="drawer-body">
+      <details id="restSection" class="main-drawer" open><summary>😴 Отдых и больница</summary><div class="drawer-body">
       <div class="card rest-card">
         <div class="row between">
           <div>
@@ -294,11 +269,7 @@
         <div id="restStatus" class="notice">Можно стартовать.</div>
       </div>
 
-      <div class="card">
-        <h2>🔦 Питание фонаря</h2>
-        <p class="muted">Фонари 1–4 уровня работают на батарейках. Фонари 5–7 уровня — на аккумуляторе; их можно заряжать переносным аккумулятором.</p>
-        <div id="lampPowerPanel" class="gear-grid"></div>
-      </div></div></details>
+</div></details>
 
       <details id="hospitalSection" class="main-drawer" open><summary>🏥 Больница</summary><div class="drawer-body">
       <div class="card hospital-card" id="hospitalCard" style="display:block">
@@ -321,7 +292,7 @@
         <div class="row between">
           <div>
             <h2>Кампания из 20 гонок</h2>
-            <p class="muted">Сложность растёт постепенно. Последний уровень — 1000 км «Армагеддон».</p>
+            <p class="muted">Сложность растёт постепенно. Последний уровень — 1000 км «Армагеддон». Чем выше место на финише, тем больше рублей; сильный результат может дать выплату выше базовой награды. С 9 уровня стоимость слота увеличивается в 3 раза.</p>
           </div>
           <button id="resetGameBtn" class="danger">Сбросить прогресс</button>
         </div>
@@ -434,7 +405,7 @@
 <div class="help-section help-focus">
   <b>🧰 Аптечка и спасательное одеяло</b>
   <p>Готовая аптечка собирается из бинта, марли, перекиси, пластыря, крема и спасательного одеяла. На сложной гонке можно взять несколько готовых комплектов. Если расходники закончились, повторное натирание становится существенно тяжелее.</p>
-  <p>Спасательное одеяло может предотвратить переохлаждение при проблеме с мембранкой. Перелом отправляет в больницу: лечение занимает 5 минут.</p>
+  <p>При опасной плохой погоде спасательное одеяло даёт шанс 50/50 предотвратить погодный DNF. Перелом отправляет в больницу: лечение занимает 5 минут.</p>
 </div>
 <div class="help-section help-focus">
   <b>📊 Сборка прогноза — как пользоваться</b>
@@ -477,10 +448,10 @@
 </div>
 
 <div class="help-section"><b>▶️ Гонка</b><p>Выбери доступный уровень, подготовься и нажми «Старт». Следи за километражем, темпом, позицией, штрафами и состоянием. Случайные события способны ускорить или замедлить тебя, повредить экипировку, вызвать травму или DNF.</p></div>
-<div class="help-section help-focus"><b>🎟️ Слот на гонку</b><p>Разблокировка уровня и покупка слота — разные вещи. <strong>Уровни 1–3 бесплатны.</strong> Начиная с 4-го уровня перед стартом нужен оплаченный слот. Цена растёт вместе со сложностью трассы и показывается в карточке текущего уровня и в кампании. Купленный слот сохраняется для этой гонки.</p><p>При покупке платного слота иногда можно получить бесплатный предмет экипировки.</p></div>
+<div class="help-section help-focus"><b>🎟️ Слот на гонку</b><p>Разблокировка уровня и покупка слота — разные вещи. <strong>Уровни 1–3 бесплатны.</strong> Начиная с 4-го уровня перед стартом нужен оплаченный слот. Цена растёт вместе со сложностью трассы и показывается в кампании. С 9 уровня цена слота умножается на 3. Купленный слот сохраняется для этой гонки.</p><p>При покупке платного слота иногда можно получить бесплатный предмет экипировки.</p></div>
 <div class="help-section"><b>🏆 Соперники</b><p>Показываются три лидера и их текущий километраж. На уровнях 1–15 один из них — топовый трейлраннер, ещё двое имеют случайные ФИО. На уровнях 16–20 все три лидера — топовые спортсмены.</p></div>
 <div class="help-section"><b>💪 Тренированность</b><p>Влияет на скорость и шанс успешно пройти сложную гонку. Растёт за финиши и тренировки. Слабую подготовку нельзя полностью компенсировать дорогой экипировкой.</p></div>
-<div class="help-section"><b>🏋️ Тренеры</b><p>Чем сильнее тренер, тем выше доступный потолок тренированности и бонусы перед гонкой. Одна тренировка длится 1 минуту и даёт +1 к тренированности до лимита тренера. Если тренировка с тренером была выполнена перед текущей гонкой, <strong>полученные эффекты отдельно показываются в блоке подготовки к гонке</strong> и реально участвуют в расчёте.</p><p>Во время тренировки отдых недоступен; во время отдыха нельзя тренироваться. Во время лечения заблокированы и тренировка, и отдых, а интерфейс показывает оставшееся время.</p></div>
+<div class="help-section"><b>🏋️ Тренеры</b><p>Чем сильнее тренер, тем выше доступный потолок тренированности и бонусы перед гонкой. Одна тренировка длится 1 минуту и даёт +1 к тренированности до лимита тренера. Если тренировка с тренером была выполнена перед текущей гонкой, <strong>полученные эффекты отдельно показываются в блоке подготовки к гонке</strong> и реально участвуют в расчёте.</p><p>Тренировка увеличивает усталость; тренировка с тренером тоже утомляет. Во время гонки тренироваться нельзя. Во время тренировки отдых недоступен; во время отдыха нельзя тренироваться. Во время лечения заблокированы и тренировка, и отдых, а интерфейс показывает оставшееся время.</p></div>
 <div class="help-section"><b>😴 Усталость и отдых</b><p>Частые старты накапливают усталость, ухудшают результат и повышают риск травм и DNF. Маленькая кнопка <strong>«😴 Отдых»</strong> находится прямо в карточке усталости. Отдых занимает 1 минуту реального времени. При усталости 0% он недоступен; во время гонки, тренировки или лечения кнопка блокируется.</p></div>
 <div class="help-section"><b>👟 Экипировка 1–7 уровня</b><p>Кроссовки влияют на скорость, мембранка защищает от холода и дождя, палки помогают на сложном рельефе. Также следи за фонарём, рюкзаком/жилетом, часами и остальными слотами. У надетой вещи отображается «Надето».</p></div>
 <div class="help-section"><b>🔧 Износ и ремонт</b><p>Снаряжение теряет прочность. Чем тяжелее гонка и слабее вещь, тем выше риск поломки. Перед стартом проверяй состояние: повреждённая вещь может потерять бонус или подвести на трассе.</p></div>
@@ -492,9 +463,9 @@
 <div class="help-section"><b>🩹 Аптечка</b><p>Бинт, марля, перекись, пластырь и крем от натирания помогают при соответствующих проблемах. Высокая усталость и недостаточная подготовка увеличивают риск травмы. Тяжёлая травма может закончиться DNF.</p></div>
 <div class="help-section"><b>🌦 Погода и мембранка</b><p>Жара и солнце увеличивают расход воды. Холод и ливень требуют мембранки подходящего уровня. Если для гонки нужна более сильная мембранка, игра показывает минимальный уровень и блокирует опасный старт.</p></div>
 <div class="help-section"><b>🎲 События</b><p>Дождь, проблемы с питанием, падения, натирания, поломки и удачные события меняют ход гонки. Хорошая подготовка уменьшает последствия, но случайность остаётся частью игры.</p></div>
-<div class="help-section"><b>💰 Деньги, слоты и DNF</b><p>Чем лучше прохождение, тем выше награда. Рубли тратятся на экипировку, ремонт, расходники, тренеров и <strong>слоты гонок</strong>. Первые 3 уровня кампании имеют бесплатный слот. С 4-го уровня слот нужно покупать отдельно даже после разблокировки гонки; чем сложнее трасса, тем выше цена. Стоимость показана и в «Текущем уровне», и в списке кампании. При покупке слота иногда выпадает бесплатный мерч экипировки. За DNF награда — ₽0.</p></div>
-<div class="help-section"><b>📈 XP и ITRA</b><p>Финиши повышают XP, уровень трейлраннера, тренированность и игровой ITRA-рейтинг. По мере развития ты переходишь от обычных соперников к борьбе с сильнейшими лидерами.</p></div>
-<div class="help-section"><b>🚫 Во время гонки</b><p>Нельзя покупать экипировку и расходники или менять подготовку после старта. Всё необходимое покупай и надевай заранее.</p></div>
+<div class="help-section"><b>💰 Деньги, слоты и DNF</b><p>Чем лучше прохождение, тем выше награда. Рубли тратятся на экипировку, ремонт, расходники, тренеров и <strong>слоты гонок</strong>. Первые 3 уровня кампании имеют бесплатный слот. С 4-го уровня слот нужно покупать отдельно даже после разблокировки гонки; чем сложнее трасса, тем выше цена. Стоимость показана в списке кампании; с 9 уровня она увеличивается в 3 раза. При покупке слота иногда выпадает бесплатный мерч экипировки. За DNF награда — ₽0.</p></div>
+<div class="help-section"><b>📈 XP и ITRA</b><p>Запись «151 / 208 XP» означает: накоплено 151 XP из 208, необходимых для перехода на следующий уровень трейлраннера.</p><p>Финиши повышают XP, уровень трейлраннера, тренированность и игровой ITRA-рейтинг. По мере развития ты переходишь от обычных соперников к борьбе с сильнейшими лидерами.</p></div>
+<div class="help-section"><b>🚫 Во время гонки</b><p>Нельзя тренироваться, покупать экипировку и расходники или менять подготовку после старта. Кнопка паузы убрана: гонка идёт непрерывно. Всё необходимое покупай и надевай заранее.</p></div>
 <div class="help-section help-focus"><b>👀 Чек-лист перед стартом</b><p><strong>Слот гонки → усталость → тренированность → бонусы тренера → погода и мембранка → вода и общая ёмкость → гели/гуарана → фонарь и питание → аптечка → уровень и прочность экипировки.</strong></p></div>
 <div class="help-section"><b>💡 Стратегия</b><p>Не трать все деньги сразу. Создавай запас расходников и улучшай то, что сейчас сильнее всего ограничивает результат. Перед уровнями 16–20 готовься особенно тщательно: там вся тройка лидеров состоит из топовых спортсменов.</p></div>
 <div class="help-section help-focus"><b>🔒 Блокировки действий</b><p>Во время лечения кнопка <strong>«Старт»</strong> остаётся постоянно заблокированной и показывает оставшееся время — она не должна мигать или кратковременно становиться активной. На мобильных устройствах основные кнопки обрабатывают один обычный тап; защита от случайного двойного нажатия не требует повторного тапа.</p></div>

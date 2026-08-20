@@ -1,4 +1,4 @@
-const APP_VERSION='1.02';
+const APP_VERSION='1.03';
 
 
 
@@ -354,7 +354,7 @@ function raceSlotCost(i=game.current){
   if(Number(i)<3) return 0;
   const L=levelData(i);
   const diff=Number(L[5]||1),km=Number(L[1]||5);
-  return Math.round((120 + diff*180 + Math.sqrt(km)*45 + km*3)/50)*50;
+  const base=Math.round((120 + diff*180 + Math.sqrt(km)*45 + km*3)/50)*50; return Number(i)>=8 ? base*3 : base;
 }
 function hasRaceSlot(i=game.current){ ensureResources(); return Number(i)<3 || !!game.raceSlotsPurchased?.[String(i)]; }
 function renderRaceSlot(){
@@ -703,7 +703,7 @@ function startHospitalTreatment(){
  saveGame();render();updateRestUi();
 }
 function finishHospitalIfReady(){
- if((game.hospitalUntil||0)>0 && Date.now()>=game.hospitalUntil){
+ if((game.hospitalUntil||0)>0 && Date.now()+900>=game.hospitalUntil){
    game.hospitalUntil=0;
    game.needsHospital=false;
    game.fatigue=0;
@@ -769,7 +769,7 @@ function render(){
 
  const L=levelData();
  $('runnerLevel').textContent=game.level;
- $('xpText').textContent=game.level>=100?'MAX':`${game.xp} / ${xpNeeded(game.level)} XP`;
+ $('xpText').textContent=game.level>=100?'MAX':`${game.xp} / ${xpNeeded(game.level)} XP до следующего уровня`;
  $('money').textContent=fmtMoney(game.money);
  $('completed').textContent=`${game.completed} / 20`;
  $('rep').textContent=game.rep;
@@ -880,6 +880,7 @@ function render(){
  renderPreStartRaceState(L);
  renderRaceSlot();
  renderCoachRaceEffects();
+ updateRaceGuaranaButton();
  refreshRaceRisks();
  renderLevels();renderShop();renderGear();renderAchievements();renderRaceGearSummary();renderResources();renderLampPower();updateRestUi();updateRaceStartTrainingLock();renderRaceLeaders(0);drawTrack(0);
 }
@@ -1241,7 +1242,7 @@ function finishTrainingIfReady(){
    const gain=before<cap ? Math.min(Number(coach.trainingGain||1),cap-before) : 0;
    game.fitness=Math.min(cap,Math.max(0,Number(game.fitness||0)+gain));
    game.trainingUntil=0;
-   game.lastTrainingCoach=Number(game.coach||0); game.lastTrainingAt=Date.now();
+   game.lastTrainingCoach=Number(game.coach||0); game.lastTrainingAt=Date.now(); game.fatigue=Math.min(100,Number(game.fatigue||0)+(Number(game.coach||0)>0?8:5));
    saveGame();
    return gain;
  }
@@ -1254,7 +1255,7 @@ function coachRaceBonuses(){ return coachRaceBonusesForIndex(activeRaceCoachInde
 function renderCoachRaceEffects(){
  const el=$('coachRaceEffects'); if(!el) return;
  ensureTraining(); const idx=activeRaceCoachIndex(),coach=COACHES[idx]||COACHES[0];
- if(!game.lastTrainingAt || idx<=0){ el.innerHTML='<b>🏋️ Эффекты тренировки</b><small>Перед этой гонкой бонус тренера ещё не получен.</small>'; return; }
+ if(!game.lastTrainingAt){ el.innerHTML='<b>🏋️ Эффекты тренировки</b><small>Перед этой гонкой тренировки ещё не было.</small>'; return; } if(idx<=0){ el.innerHTML='<b>🏃 Обычная тренировка без тренера</b><small>Тренированность повышена, специальных бонусов темпа/усталости/подъёмов нет.</small>'; return; }
  const b=coachRaceBonusesForIndex(idx);
  el.innerHTML=`<b>🏋️ Получено от тренировки с ${coach.name}</b><small>Темп −${Math.round(b.pace*100)}% · усталость −${Math.round(b.fatigue*100)}% · подъёмы −${Math.round(b.climb*100)}% · риск травмы −${Math.round(b.injury*100)}%</small>`;
 }
@@ -1278,7 +1279,7 @@ function renderTraining(){
    const restingNow=isResting();
    const hospitalNow=isInHospital() || needsHospitalTreatment();
    const trainingNow=trainingActive();
-   trainingBtn.disabled = restingNow || hospitalNow || trainingNow;
+   trainingBtn.disabled = restingNow || hospitalNow || trainingNow || !!(run&&run.running);
    trainingBtn.title = hospitalNow ? 'Во время лечения тренировка недоступна' : restingNow ? `До окончания отдыха: ${fmtRest(restRemainingMs())}` : '';
    if(hospitalNow) trainingBtn.textContent=isInHospital()?`🏥 Лечение ${fmtRest(hospitalRemainingMs())}`:'🏥 Сначала лечение';
    else if(restingNow) trainingBtn.textContent=`😴 Отдых ${fmtRest(restRemainingMs())}`;
@@ -1384,6 +1385,7 @@ $('startTrainingBtn')?.addEventListener('click',()=>{
     renderTraining();
     return;
   }
+  if(run&&run.running){showGameError('Во время гонки тренироваться нельзя.');return;}
   if(trainingActive()) return;
   game.trainingUntil=Date.now()+60*1000;
   saveGame();
@@ -1479,7 +1481,7 @@ function equipmentPenaltyChance(cat,diff,dist){
  const preparednessPenalty=prep.gap*.055;
  // Неподготовленные палки ломаются особенно часто на наборе.
  const polePenalty=cat==='poles' ? prep.gap*.045 : 0;
- return Math.min(.72,Math.max(.008,.025*diff + dist/3500 + wear*.22 - protect + preparednessPenalty + polePenalty));
+ return Math.min(.82,Math.max(.012,.035*diff + dist/2800 + wear*.30 - protect*.75 + preparednessPenalty*1.25 + polePenalty*1.25));
 }
 function wearFor(cat,L){
  const it=item(cat),diff=L[5],dist=L[1],gain=L[2];
@@ -1489,7 +1491,7 @@ function wearFor(cat,L){
  if(cat==='jacket')base*=1+diff*.12;
  const prep=equipmentPreparedness(cat,L,weatherForLevel());
  base*=1+prep.gap*.22;
- return base*(.72+Math.random()*.62);
+ return base*(1.00+Math.random()*.85);
 }
 function buildEvents(L){
  const n=Math.max(3,Math.min(10,3+Math.floor(L[1]/80)+L[5]));
@@ -2335,7 +2337,7 @@ function startRaceCore(){
    }
  }
 
- const guaranaTaken=Number(game.resources.guarana||0)>0 ? useResource('guarana',1) : 0;
+ const guaranaTaken=0;
  const requiredMedkits=Math.max(1,Math.min(7,Math.ceil((L[5]+(L[1]>100?1:0))/2)));
  const medkitCapacity=Math.max(1,Math.min(7,Number(game.gear?.medkit||0)+1));
  const medkitsForRace=Math.min(Number(game.resources.medkits||0),requiredMedkits,medkitCapacity);
@@ -2380,7 +2382,7 @@ function startRaceCore(){
    condition:game.fatigue>=75?'сильная усталость':'нормально',
    waterStart:waterUsed,waterRemaining:waterUsed,waterCapacity:waterCapacity,medkitsRemaining:medkitsForRace,waterNeed:needWater,waterSegmentStartKm:0,waterSegmentStartAmount:waterUsed,waterEmptyNotified:(waterAvailable<=0),aidStations:buildAidStations(Number(L[1]||0)),aidStationsPassed:new Set(),waterShortage,gelShortage,lightShortageHours,
    fractureRisk:Math.min(.42, Math.max(0,((game.fatigue-55)/140) * (1-coachRaceBonuses().injury)) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08*(1-coachRaceBonuses().injury) : 0)),
-   guaranaTaken:guaranaTaken>0,guaranaTriggered:false,guaranaBoostUntil:0,guaranaTriggerKm:0,guaranaCrash:false,
+   guaranaTaken:false,guaranaAvailable:Number(game.resources.guarana||0)>0,guaranaTriggered:false,guaranaBoostUntil:0,guaranaTriggerKm:0,guaranaCrash:false,
    dnf:false
  };
  run.virtualField=createVirtualField(L,run.fieldSize,Math.max(60,run.base+run.penalty));
@@ -2439,7 +2441,7 @@ function startRaceCore(){
  if(fatiguePenaltySec>0) $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>😫 Накопленная усталость ${Math.round(game.fatigue)}%</b><span class="bad">+${fmt(fatiguePenaltySec)}</span></div>`);
  const trainedCoachIdx=activeRaceCoachIndex();
  if(trainedCoachIdx>0){ const tc=COACHES[trainedCoachIdx]||COACHES[0],tb=coachRaceBonusesForIndex(trainedCoachIdx); $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>🏋️ ${tc.name}: темп −${Math.round(tb.pace*100)}%, усталость −${Math.round(tb.fatigue*100)}%, подъёмы −${Math.round(tb.climb*100)}%</b><span class="good">бонус тренировки</span></div>`); }
- if(guaranaTaken>0) $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>🫘 Гуарана взята на гонку</b><span class="neutral">30% шанс буста</span></div>`);
+ 
  $('startBtn').disabled=true;$('pauseBtn').disabled=false;
 
  // Start the simulation loop first. A rendering error must never prevent
@@ -2566,10 +2568,6 @@ function tick(ts){
    const total=Math.max(60,run.base+run.penalty);
    const raceKmBefore=Math.max(0,Number(run.p||0)*Number(L[1]||0));
    // Гуарана: один шанс на гонку. При успехе ускоряет на 10 игровых минут; через 20 км после срабатывания скорость падает на 40%.
-   if(run.guaranaTaken && !run.guaranaTriggered && raceKmBefore>=Math.min(5,Number(L[1]||5)*0.12)){
-     run.guaranaTriggered=true;
-     if(Math.random()<0.30){ run.guaranaBoostUntil=Number(run.elapsed||0)+600; run.guaranaTriggerKm=raceKmBefore; showEvent({emoji:'🫘',name:'Гуарана сработала'},-60,' · буст на 10 мин'); }
-   }
    if(run.guaranaTriggerKm>0 && !run.guaranaCrash && raceKmBefore>=run.guaranaTriggerKm+20){ run.guaranaCrash=true; showEvent({emoji:'⚠️',name:'Откат после гуараны'},0,' · скорость −40%'); }
    let speedMult=1;
    if(Number(run.guaranaBoostUntil||0)>Number(run.elapsed||0)) speedMult*=1.15;
@@ -2748,10 +2746,10 @@ function fireEvents(){
      if(ev.cat==='jacket' && currentMembraneReq>0 &&
         (weatherForLevel().rain||weatherForLevel().cold) &&
         !hasMembrane(currentMembraneReq)){
-       if(Number(game.resources.rescueBlanket||0)>0){
+       if(Number(game.resources.rescueBlanket||0)>0 && Math.random()<0.50){
          useResource('rescueBlanket',1,'event');
          sec=Math.round(sec*.35);
-         extra=' · спасательное одеяло использовано, переохлаждение предотвращено';
+         extra=' · спасательное одеяло сработало (50/50), DNF предотвращён';
        }else{
          run.dnf=true;run.condition='переохлаждение';
          showEvent({emoji:'🥶',name:'Переохлаждение'},0,` · нужна мембранка ур. ${membraneRequiredLevel(levelData(),weatherForLevel())}/7+ и нет спасательного одеяла → DNF`);
@@ -2948,7 +2946,7 @@ function virtualResultsHtml(result){
 
 function finishRace(forceDnf=false,dnfReason='fracture'){
  if(!run||!run.running)return;
- cancelAnimationFrame(timer);$('pauseBtn').disabled=true;$('startBtn').disabled=false;
+ cancelAnimationFrame(timer);$('pauseBtn').disabled=true;$('startBtn').disabled=false;updateRaceGuaranaButton();
  const L=levelData();
  // Keep the finished race visible while the result overlay is shown.
  // run.running remains true temporarily so TOP-7 can still include the player.
@@ -3156,7 +3154,9 @@ $('startBtn').onclick=()=>{
     );
   }
 };
-$('pauseBtn').onclick=()=>{if(!run)return;run.paused=!run.paused;$('pauseBtn').textContent=run.paused?'▶ Продолжить':'Ⅱ Пауза';lastTs=performance.now()};
+
+function updateRaceGuaranaButton(){const b=$('raceGuaranaBtn');if(!b)return;const active=!!(run&&run.running);b.style.display=active?'inline-flex':'none';b.disabled=!active||!!run.guaranaTriggered||Number(game.resources.guarana||0)<=0;b.textContent=run&&run.guaranaTriggered?'🫘 Гуарана использована':`🫘 Гуарана (${Number(game.resources.guarana||0)})`;}
+$('raceGuaranaBtn')?.addEventListener('click',()=>{if(!run||!run.running||run.guaranaTriggered)return;if(Number(game.resources.guarana||0)<=0){showGameError('Гуарана закончилась.');return;}useResource('guarana',1,'event');run.guaranaTaken=true;run.guaranaTriggered=true;const km=Number(run.p||0)*Number(levelData()[1]||0);if(Math.random()<0.30){run.guaranaBoostUntil=Number(run.elapsed||0)+600;run.guaranaTriggerKm=km;showEvent({emoji:'🫘',name:'Гуарана сработала'},-60,' · буст на 10 мин');}else{showEvent({emoji:'🫘',name:'Гуарана не сработала'},0,' · буста нет');}saveGame();updateRaceGuaranaButton();});
 $('resetGameBtn').onclick=()=>{if(confirm('Сбросить весь прогресс, деньги и экипировку?')){localStorage.removeItem('trailArmageddonSave');game=loadGame();render()}};
 
 function drawRunnerFacingForward(ctx,x,y,scale=1){
