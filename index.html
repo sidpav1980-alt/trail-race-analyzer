@@ -164,7 +164,7 @@
     <div id="quickBuyMedkit" class="quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить недостающие компоненты аптечки">
       <span>Аптечка</span>
       <b id="medkitSummary">—</b>
-      <small>бинт · марля · перекись · пластырь · крем</small>
+      <small>бинт · марля · перекись · пластырь · крем от натирания · крем от солнца · спас-одеяло</small>
       <small class="quick-buy-hint">Нажмите, чтобы докупить</small>
     </div>
     <div>
@@ -211,7 +211,7 @@
         <div class="race-consumable-live"><button id="raceGuaranaBtn" class="secondary compact-btn" type="button" disabled>🫘 Гуарана · доступна в гонке</button><span id="raceGelStatus" class="badge" style="display:none">🍯 Гели в гонке: 0 / 0</span></div><div style="display:none" aria-hidden="true"><button id="pauseBtn"></button><span id="raceTitle"></span><span id="difficultyBadge"></span><span id="raceDistance"></span><span id="raceGain"></span><span id="raceTarget"></span><span id="raceReward"></span><span id="raceSlotCostCurrent"></span><span id="raceSlotCostCurrentStatus"></span><span id="raceWaterNeed"></span><span id="raceWaterCapacity"></span><span id="raceWaterLive"></span><span id="raceDesc"></span></div>
 
         <div class="sim-stats">
-          <div><span>Темп</span><b id="pace">6:48 /км</b></div>
+          <div><span>Темп</span><b id="pace">6:48 /км</b><small id="paceGuide">Пульсометр: базовая раскладка</small></div>
           <div><span>Позиция</span><b id="position">—</b></div>
           <div><span>Набор</span><b id="liveGain">0 м</b><small id="liveGainTotal">из 0 м</small></div>
           <div><span>Уклон</span><b id="liveSlope">0%</b><small id="liveSlopeType">ровно</small></div>
@@ -238,8 +238,7 @@
       </div>
       <div id="coachRaceEffects" class="notice compact-race-note"><b>🏋️ Эффекты тренировки</b><small>Перед этой гонкой бонус тренера ещё не получен.</small></div>
 
-<div class="card">
-<h2>🔦 Питание фонаря</h2><p class="muted">Фонари 1–4 уровня работают на батарейках. Фонари 5–7 уровня — на аккумуляторе.</p><div id="lampPowerPanel" class="gear-grid"></div></div>
+<details class="main-drawer" id="lampPowerSection"><summary>🔦 Питание фонаря</summary><div class="drawer-body"><div class="card"><p class="muted">Фонари 1–4 уровня работают на батарейках. Фонари 5–7 уровня — на аккумуляторе.</p><div id="lampPowerPanel" class="gear-grid"></div></div></div></details>
 <details id="currentEquipmentSection" class="main-drawer" open><summary>🎒 Текущая экипировка</summary><div class="drawer-body">
       <div class="card race-equipment-card">
         <div class="row between equipment-head">

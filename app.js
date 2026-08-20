@@ -121,12 +121,12 @@ function purchasesLockedDuringRace(){
 
 
 const LEVELS=[["Парковый трейл", 5, 80, 2040, 900, 1, "Лёгкий разогрев: дорожки, корни и первый подъём."], ["Лесная десятка", 10, 220, 4080, 1300, 1, "Первые камни, грязь и короткие технические спуски."], ["Грязевой полумарафон", 21, 600, 9300, 2200, 2, "Дождь, лужи, первые серьёзные штрафы за обувь."], ["Скальный забег", 25, 1100, 11400, 2800, 2, "Камни и острые спуски. Палки начинают приносить пользу."], ["Ночной трейл", 30, 900, 13500, 3500, 2, "Фонарик становится критичным."], ["Горный марафон", 42, 1900, 21600, 4700, 3, "Длинные подъёмы и первый серьёзный тест выносливости."], ["Хребет ветров", 50, 2300, 27000, 5600, 3, "Ветер и холод усиливают износ мембранки."], ["Ультра 60", 60, 2500, 32400, 6500, 3, "Четыре ПП, жара и длинные участки без воды."], ["Каменный лабиринт", 70, 3300, 39600, 7600, 3, "Камни ускоряют износ обуви и палок."], ["Северный шторм", 80, 3600, 46800, 9000, 4, "Дождь, ветер и холод. Дешёвая экипировка быстро сдаётся."], ["100 км классика", 100, 4300, 61200, 11000, 4, "Первый настоящий 100 км ультратрейл."], ["Высотная сотня", 110, 6000, 79200, 13500, 4, "Много набора и технический рельеф."], ["Дикий 130", 130, 5200, 90000, 15000, 4, "Длинные ночные часы и риск поломок."], ["200 км пустошь", 200, 6500, 151200, 21000, 4, "Жара, вода и питание становятся главным ресурсом."], ["Альпийский 250", 250, 12000, 208800, 27000, 5, "Очень высокий износ, долгие спуски, холодные ночи."], ["Трансгорный 300", 300, 15000, 259200, 33000, 5, "Экипировка среднего класса уже на пределе."], ["Дикий пояс 400", 400, 18000, 345600, 42000, 5, "Многосуточный забег: прочность вещей решает."], ["Край света 500", 500, 23000, 450000, 52000, 5, "Погода, сон и поломки начинают складываться."], ["Безумие 700", 700, 32000, 648000, 70000, 5, "Предфинальная гонка. Нужен высокий уровень трейлраннера."], ["АРМАГЕДДОН 1000", 1000, 50000, 1008000, 100000, 5, "Финал: 1000 км, 50 000 м+, ночь, жара, шторм и максимальный износ."]];
-const GEAR={"shoes":[["Базовые кроссовки",0,1.0,65,0.0],["Trail Grip",450,0.97,110,0.04],["Mountain Pro",1300,0.94,180,0.08],["Ultra Carbon",3000,0.91,280,0.12],["Armageddon X",7500,0.88,500,0.18],["Hyper Trail Pro",13000,0.845,760,0.23],["Titanium Speed X",23750,0.81,1100,0.3]],"jacket":[["Нет мембранки",0,1.0,999,0],["Лёгкая мембранка",400,0.99,90,0.03],["Storm Shell",1125,0.98,160,0.06],["Alpine Shield",2500,0.97,260,0.1],["Armageddon Shell",6500,0.96,480,0.15],["Expedition Shield",11500,0.945,760,0.21],["Titan Storm Armor",21250,0.93,1150,0.28]],"lamp":[["Простой фонарь",0,1.0,70,0.0],["Night 400",350,0.995,120,0.03],["Night 800",950,0.99,200,0.06],["Ultra Beam",2250,0.985,320,0.1],["Recharge Pro X",5500,0.98,520,0.14],["Recharge Ultra 2000",10500,0.965,780,0.22],["Night Reactor 3000",20000,0.95,1200,0.3]],"pack":[["Старый рюкзак",0,1.0,80,0.0],["Race Vest 5L",425,0.99,120,0.03],["Ultra Vest 12L",1200,0.98,210,0.06],["Endurance Pack",2750,0.97,330,0.1],["Armageddon Pack",6750,0.96,550,0.15],["Expedition Vest 18L",11750,0.945,800,0.22],["Titan Ultra Pack",22000,0.93,1250,0.3]],"poles":[["Без палок",0,1.0,999,0.0],["Алюминиевые палки",475,0.985,100,0.04],["Carbon Trek",1300,0.97,180,0.08],["LEKI Ultra Carbon",3000,0.955,300,0.12],["LEKI Armageddon",7250,0.94,520,0.18],["LEKI Vertical Pro",12500,0.915,780,0.24],["LEKI Titanium X",23000,0.89,1200,0.32]],"hydration":[["Фляга 500 мл",0,1.0,100,0.0],["2×Soft Flask",300,0.99,160,0.03],["Hydro Vest",900,0.98,250,0.06],["Ultra Hydro",2125,0.97,380,0.1],["Armageddon Hydro",5250,0.96,600,0.15],["Expedition Hydro",9750,0.945,850,0.22],["Titan Hydro System",19000,0.93,1300,0.3]],"watch":[["Нет часов",0,1.0,999,0.0],["GPS Start",450,0.998,180,0.02],["Trail GPS",1400,0.995,280,0.05],["Endurance GPS",3600,0.99,420,0.08],["Fenix Ultra",9000,0.985,650,0.12],["Fenix Expedition",19000,0.975,900,0.2],["Fenix Armageddon",36000,0.965,1400,0.28]],"medkit":[["Базовая аптечка · 1 комплект",0,1.0,100,0.0],["Мини-аптечка · 2 комплекта",350,0.999,120,0.03],["Trail аптечка · 3 комплекта",1050,0.997,220,0.06],["Ultra аптечка · 4 комплекта",2600,0.995,360,0.1],["Armageddon Med · 5 комплектов",6500,0.99,600,0.15],["Expedition Med Pro · 6 комплектов",14000,0.985,900,0.22],["Trauma Armageddon Kit · 7 комплектов",27500,0.975,1400,0.3]]};
-const CATEGORY_NAMES={shoes:'Кроссовки',pack:'Рюкзак / жилет',jacket:'Мембранка',lamp:'Фонарик',poles:'Палки',watch:'Часы',medkit:'Аптечка',hydration:'Вода'};
+const GEAR={"shoes":[["Базовые кроссовки",0,1.0,65,0.0],["Trail Grip",450,0.97,110,0.04],["Mountain Pro",1300,0.94,180,0.08],["Ultra Carbon",3000,0.91,280,0.12],["Armageddon X",7500,0.88,500,0.18],["Hyper Trail Pro",13000,0.845,760,0.23],["Titanium Speed X",23750,0.81,1100,0.3]],"jacket":[["Нет мембранки",0,1.0,999,0],["Лёгкая мембранка",400,0.99,90,0.03],["Storm Shell",1125,0.98,160,0.06],["Alpine Shield",2500,0.97,260,0.1],["Armageddon Shell",6500,0.96,480,0.15],["Expedition Shield",11500,0.945,760,0.21],["Titan Storm Armor",21250,0.93,1150,0.28]],"lamp":[["Простой фонарь",0,1.0,70,0.0],["Night 400",350,0.995,120,0.03],["Night 800",950,0.99,200,0.06],["Ultra Beam",2250,0.985,320,0.1],["Recharge Pro X",5500,0.98,520,0.14],["Recharge Ultra 2000",10500,0.965,780,0.22],["Night Reactor 3000",20000,0.95,1200,0.3]],"pack":[["Старый рюкзак",0,1.0,80,0.0],["Race Vest 5L",425,0.99,120,0.03],["Ultra Vest 12L",1200,0.98,210,0.06],["Endurance Pack",2750,0.97,330,0.1],["Armageddon Pack",6750,0.96,550,0.15],["Expedition Vest 18L",11750,0.945,800,0.22],["Titan Ultra Pack",22000,0.93,1250,0.3]],"poles":[["Без палок",0,1.0,999,0.0],["Алюминиевые палки",475,0.985,100,0.04],["Carbon Trek",1300,0.97,180,0.08],["LEKI Ultra Carbon",3000,0.955,300,0.12],["LEKI Armageddon",7250,0.94,520,0.18],["LEKI Vertical Pro",12500,0.915,780,0.24],["LEKI Titanium X",23000,0.89,1200,0.32]],"hydration":[["Фляга 500 мл",0,1.0,100,0.0],["2×Soft Flask",300,0.99,160,0.03],["Hydro Vest",900,0.98,250,0.06],["Ultra Hydro",2125,0.97,380,0.1],["Armageddon Hydro",5250,0.96,600,0.15],["Expedition Hydro",9750,0.945,850,0.22],["Titan Hydro System",19000,0.93,1300,0.3]],"watch":[["Нет часов",0,1.0,999,0.0],["GPS Start",450,0.998,180,0.02],["Trail GPS",1400,0.995,280,0.05],["Endurance GPS",3600,0.99,420,0.08],["Fenix Ultra",9000,0.985,650,0.12],["Fenix Expedition",19000,0.975,900,0.2],["Fenix Armageddon",36000,0.965,1400,0.28]],"medkit":[["Базовая аптечка · 1 комплект",0,1.0,100,0.0],["Мини-аптечка · 2 комплекта",350,0.999,120,0.03],["Trail аптечка · 3 комплекта",1050,0.997,220,0.06],["Ultra аптечка · 4 комплекта",2600,0.995,360,0.1],["Armageddon Med · 5 комплектов",6500,0.99,600,0.15],["Expedition Med Pro · 6 комплектов",14000,0.985,900,0.22],["Trauma Armageddon Kit · 7 комплектов",27500,0.975,1400,0.3]],"hrm":[["Базовый пульсометр",250,1.0,120,0.01],["HR Pace 2",700,0.998,180,0.03],["Trail HR",1600,0.996,260,0.05],["Endurance HR",3400,0.994,380,0.08],["Pro Pace Sensor",7200,0.992,560,0.12],["Elite HR Guide",13500,0.990,820,0.18],["Armageddon HR Pro",25000,0.988,1200,0.25]]};
+const CATEGORY_NAMES={shoes:'Кроссовки',pack:'Рюкзак / жилет',jacket:'Мембранка',lamp:'Фонарик',poles:'Палки',watch:'Часы',medkit:'Аптечка',hydration:'Вода',hrm:'Пульсометр'};
 const RESOURCE_CATALOG={
   waterBottles:{name:'Вода 0,5 л',price:80,unit:'бут.',desc:'Обязательна с 4 уровня. Расход зависит от дистанции, жары и солнца.'},
   gels:{name:'Энергетический гель «УГЛИ»',price:60,unit:'шт.',desc:'Снижает голод и потерю темпа на длинной гонке.'},
-  guarana:{name:'Гуарана',price:180,unit:'шт.',desc:'Один приём на гонку: 30% шанс получить 10 минут ускорения. Через 20 км после срабатывания скорость падает на 40%.'},
+  guarana:{name:'Гуарана',price:180,unit:'шт.',desc:'Один приём на гонку: 30% шанс получить 10 минут ускорения. Через 20 км после срабатывания скорость падает на 40% только на следующие 30 км.'},
   batteries:{name:'Комплект батареек',price:130,unit:'компл.',desc:'Для фонарей 1–4 уровня. Один комплект ≈ 5 часов света.'},
   bandage:{name:'Бинт',price:40,unit:'шт.',desc:'Сильные ссадины и растяжения.'},
   gauze:{name:'Марля',price:22,unit:'уп.',desc:'Кровь и глубокие царапины.'},
@@ -139,7 +139,7 @@ const RESOURCE_CATALOG={
   accumulator:{name:'Сменный аккумулятор фонаря',price:900,unit:'шт.',desc:'Для фонарей уровней 5–7. Можно заменить разряженный аккумулятор прямо в гонке.'},
   powerbank:{name:'Переносной powerbank',price:2250,unit:'шт.',desc:'Заряжает аккумулятор фонаря уровней 5–7.'}
 };
-const START_GEAR={shoes:0,pack:0,jacket:0,lamp:0,poles:0,watch:0,medkit:0,hydration:0};
+const START_GEAR={shoes:0,pack:0,jacket:0,lamp:0,poles:0,watch:0,medkit:0,hydration:0,hrm:0};
 const $=id=>document.getElementById(id);
 function showGameError(message){
  const el=$('gameErrorToast');
@@ -982,6 +982,7 @@ function gearEffectText(cat,idx,it){
   if(cat==='pack') return `перенос снаряжения · ур. ${idx+1}`;
   if(cat==='watch') return idx===0?'пустой слот · навигации нет':`GPS/навигация · ур. ${idx+1}`;
   if(cat==='medkit') return `ёмкость ${idx+1} компл. · защита от травм · ур. ${idx+1}`;
+  if(cat==='hrm') return `точность раскладки темпа: ${55+idx*7}% · подсказка темпа во время гонки`;
   if(cat==='hydration') return `вместимость ${hydrationCapacityLiters(idx).toFixed(1).replace('.0','')} л · запас воды снижает риск жажды и штрафов`;
   return '';
 }
@@ -1284,7 +1285,7 @@ function renderTraining(){
    const restingNow=isResting();
    const hospitalNow=isInHospital() || needsHospitalTreatment();
    const trainingNow=trainingActive();
-   trainingBtn.disabled = restingNow || hospitalNow || trainingNow || !!(run&&run.running);
+   trainingBtn.disabled = restingNow || hospitalNow || trainingNow || !!(run&&run.running) || Number(game.fitness||0)>=100;
    trainingBtn.title = hospitalNow ? 'Во время лечения тренировка недоступна' : restingNow ? `До окончания отдыха: ${fmtRest(restRemainingMs())}` : '';
    if(hospitalNow) trainingBtn.textContent=isInHospital()?`🏥 Лечение ${fmtRest(hospitalRemainingMs())}`:'🏥 Сначала лечение';
    else if(restingNow) trainingBtn.textContent=`😴 Отдых ${fmtRest(restRemainingMs())}`;
@@ -1353,13 +1354,14 @@ function renderTraining(){
    }else{
      const hospitalLock=isInHospital() || needsHospitalTreatment();
      const restLock=isResting();
-     btn.disabled=hospitalLock || restLock;
+     btn.disabled=hospitalLock || restLock || Number(game.fitness||0)>=100;
      if(hospitalLock){
        btn.textContent=isInHospital()?`🏥 Лечение ${fmtRest(hospitalRemainingMs())}`:'🏥 Сначала лечение';
        status.textContent=isInHospital()?`До окончания лечения: ${fmtRest(hospitalRemainingMs())}. Тренировки недоступны.`:'Сначала пройдите лечение в больнице.';
      }else if(restLock){
        btn.textContent=`😴 Отдых ${fmtRest(restRemainingMs())}`;
        status.textContent=`До завершения отдыха: ${fmtRest(restRemainingMs())}. После этого можно тренироваться.`;
+     }else if(Number(game.fitness||0)>=100){btn.disabled=true;btn.textContent='🏆 Максимальная тренированность';status.textContent='100/100 — выше тренироваться нельзя, достигнут максимальный уровень.';
      }else{
        btn.textContent='▶ Начать тренировку на 1 минуту';
        status.textContent=completedGain>0
@@ -1390,7 +1392,7 @@ $('startTrainingBtn')?.addEventListener('click',()=>{
     renderTraining();
     return;
   }
-  if(run&&run.running){showGameError('Во время гонки тренироваться нельзя.');return;}
+  if(run&&run.running){showGameError('Во время гонки тренироваться нельзя.');return;} if(Number(game.fitness||0)>=100){showGameError('Тренированность 100/100. Выше тренироваться нельзя — достигнут максимальный уровень.');renderTraining();return;}
   if(trainingActive()) return;
   game.trainingUntil=Date.now()+60*1000;
   saveGame();
@@ -1459,7 +1461,7 @@ function requiredGearLevel(cat,L=levelData(),w=weatherForLevel()){
   const dist=Number(L[1]||0);
   const climb=Number(L[2]||0);
   let req=1;
-  if(['shoes','pack','watch'].includes(cat)) req=1+Math.floor((raceNo-1)/3);
+  if(['shoes','pack','watch','hrm'].includes(cat)) req=1+Math.floor((raceNo-1)/3);
   if(cat==='hydration') req=1+Math.floor((raceNo-1)/4);
   if(cat==='medkit') req=1+Math.floor((raceNo-1)/3);
   if(cat==='poles') req=(diff>=2||climb>=500)?1+Math.floor((raceNo-1)/4):1;
@@ -1605,7 +1607,7 @@ function weatherDnfRisk(L,w){
  // На дистанциях до 20 км плохая погода сама по себе не вызывает DNF игрока.
  if(Number(L[1]||0)<=20) return 0;
  let risk=0.01 + Math.max(0,game.fatigue-55)*0.0015;
- if(w.temp>=30) risk += 0.12 + L[5]*0.018;
+ if(w.temp>=30){ let heatRisk=0.12+L[5]*0.018; const hasSunCream=Number(game.resources?.sunCream||0)>0||Number(game.resources?.medkits||0)>0; if(hasSunCream)heatRisk*=0.60; risk+=heatRisk; }
  if(w.name==='Ливень') risk += 0.16 + L[5]*0.015;
  else if(w.rain) risk += 0.08 + L[5]*0.012;
  if(w.cold) risk += 0.06 + L[5]*0.01;
@@ -2353,7 +2355,7 @@ function startRaceCore(){
 
  // Weather consequences while racing.
  if(raceWeather.sun>=80){
-   const hotPenalty=Math.round(Math.max(0,raceWeather.sun-70)*L[3]/1200);
+   const hasSunCream=Number(game.resources?.sunCream||0)>0||Number(game.resources?.medkits||0)>0; const hotPenalty=Math.round(Math.max(0,raceWeather.sun-70)*L[3]/1200*(hasSunCream?0.60:1));
    if(hotPenalty>0){
      $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>☀️ Солнце ${raceWeather.sun}% · вода расходуется быстрее</b><span class="bad">+${fmt(hotPenalty)}</span></div>`);
    }
@@ -2384,7 +2386,7 @@ function startRaceCore(){
    condition:game.fatigue>=75?'сильная усталость':'нормально',
    waterStart:waterUsed,waterRemaining:waterUsed,waterCapacity:waterCapacity,medkitsRemaining:medkitsForRace,waterNeed:needWater,waterSegmentStartKm:0,waterSegmentStartAmount:waterUsed,waterEmptyNotified:(waterAvailable<=0),aidStations:buildAidStations(Number(L[1]||0)),aidStationsPassed:new Set(),waterShortage,gelShortage,lightShortageHours,gelsStart:gelsAvailable,gelsRemaining:gelsAvailable,gelsPlannedUsed:0,
    fractureRisk:Math.min(.42, Math.max(0,((game.fatigue-55)/140) * (1-coachRaceBonuses().injury)) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08*(1-coachRaceBonuses().injury) : 0)),
-   guaranaTaken:false,guaranaAvailable:Number(game.resources.guarana||0)>0,guaranaTriggered:false,guaranaBoostUntil:0,guaranaTriggerKm:0,guaranaCrash:false,
+   guaranaTaken:false,guaranaAvailable:Number(game.resources.guarana||0)>0,guaranaTriggered:false,guaranaBoostUntil:0,guaranaTriggerKm:0,guaranaCrash:false,guaranaCrashEndKm:0,
    dnf:false
  };
  run.virtualField=createVirtualField(L,run.fieldSize,Math.max(60,run.base+run.penalty));
@@ -2570,7 +2572,7 @@ function tick(ts){
    const total=Math.max(60,run.base+run.penalty);
    const raceKmBefore=Math.max(0,Number(run.p||0)*Number(L[1]||0));
    // Гуарана: один шанс на гонку. При успехе ускоряет на 10 игровых минут; через 20 км после срабатывания скорость падает на 40%.
-   if(run.guaranaTriggerKm>0 && !run.guaranaCrash && raceKmBefore>=run.guaranaTriggerKm+20){ run.guaranaCrash=true; showEvent({emoji:'⚠️',name:'Откат после гуараны'},0,' · скорость −40%'); }
+   if(run.guaranaTriggerKm>0&&!run.guaranaCrash&&raceKmBefore>=run.guaranaTriggerKm+20){run.guaranaCrash=true;run.guaranaCrashEndKm=run.guaranaTriggerKm+50;showEvent({emoji:'⚠️',name:'Откат после гуараны'},0,' · скорость −40% на 30 км');} if(run.guaranaCrash&&raceKmBefore>=Number(run.guaranaCrashEndKm||0)){run.guaranaCrash=false;showEvent({emoji:'✅',name:'Откат гуараны закончился'},0,' · обычный темп восстановлен');}
    let speedMult=1;
    if(Number(run.guaranaBoostUntil||0)>Number(run.elapsed||0)) speedMult*=1.15;
    if(run.guaranaCrash) speedMult*=0.60;
@@ -2906,7 +2908,7 @@ function updateRun(){
  run.liveGain=terrain.gainDone;
  if($('raceWaterLive')) $('raceWaterLive').textContent=`${(Number(run.waterRemaining||0)*0.5).toFixed(1).replace('.0','')} л / ${(Number(run.waterStart||0)*0.5).toFixed(1).replace('.0','')} л`;
  renderRaceGearSummary();
- $('pace').textContent=fmt(livePaceSec).replace(/\s*:\s*/g,':')+'/км';
+ $('pace').textContent=fmt(livePaceSec).replace(/\s*:\s*/g,':')+'/км'; const hrmLvl=Math.max(1,Number(game.gear?.hrm||0)+1),accuracy=Math.min(97,55+(hrmLvl-1)*7),target=avgPaceSec*slopeFactor,spread=Math.max(3,Math.round((1-accuracy/100)*70)); if($('paceGuide'))$('paceGuide').textContent=`❤️ Пульсометр ур. ${hrmLvl}/7 · цель ${fmt(target).replace(/\s*:\s*/g,':')}/км ±${spread}с`;
 
  // Realistic live position from virtual competitors.
  let estimatedPos=updateRealisticPosition() || Math.max(1,run.currentPosition||run.position||1);
