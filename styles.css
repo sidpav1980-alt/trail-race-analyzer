@@ -495,3 +495,7 @@ button{ -webkit-user-select:none; user-select:none; }
   .finish-overlay .overlay-box span{font-size:11.5px;line-height:1.18}
   .finish-overlay .overlay-box>b{font-size:17px;line-height:1.1}
 }
+
+/* v1.02 live race consumables */
+.race-consumable-live{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.race-consumable-live .badge{padding:10px 12px;border:1px solid #31506f;border-radius:12px;background:#0b1b2d;color:#dbeafe}

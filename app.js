@@ -1,4 +1,4 @@
-const APP_VERSION='1.03';
+const APP_VERSION='1.02';
 
 
 
@@ -133,8 +133,9 @@ const RESOURCE_CATALOG={
   peroxide:{name:'Перекись',price:35,unit:'фл.',desc:'Обработка ран.'},
   plaster:{name:'Пластырь',price:28,unit:'уп.',desc:'Мелкие порезы и мозоли.'},
   cream:{name:'Крем от натирания',price:60,unit:'тюб.',desc:'Снижает риск натираний.'},
+  sunCream:{name:'Крем от солнца',price:70,unit:'тюб.',desc:'Компонент аптечки для защиты на солнечных и жарких гонках.'},
   rescueBlanket:{name:'Спасательное одеяло',price:120,unit:'шт.',desc:'Теплозащита при переохлаждении, травме и вынужденной остановке.'},
-  medkits:{name:'Собранная аптечка',price:0,unit:'компл.',desc:'Готовый комплект: бинт + марля + перекись + пластырь + крем + спасательное одеяло.'},
+  medkits:{name:'Собранная аптечка',price:0,unit:'компл.',desc:'Готовый комплект: бинт + марля + перекись + пластырь + крем от натирания + крем от солнца + спасательное одеяло.'},
   accumulator:{name:'Сменный аккумулятор фонаря',price:900,unit:'шт.',desc:'Для фонарей уровней 5–7. Можно заменить разряженный аккумулятор прямо в гонке.'},
   powerbank:{name:'Переносной powerbank',price:2250,unit:'шт.',desc:'Заряжает аккумулятор фонаря уровней 5–7.'}
 };
@@ -182,14 +183,14 @@ function loadGame(){
     if(x) return Object.assign({
       money:1500,xp:0,level:1,completed:0,rep:0,wins:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
       durability:{},best:{},playerName:'',fatigue:0,lastFinishAt:0,restUntil:0,hospitalUntil:0,needsHospital:false,achievements:{},raceSlotsPurchased:{},lastTrainingCoach:0,lastTrainingAt:0,
-      resources:{waterBottles:4,gels:4,guarana:0,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,rescueBlanket:1,medkits:0,powerbank:0},
+      resources:{waterBottles:4,gels:4,guarana:0,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,sunCream:1,rescueBlanket:1,medkits:0,powerbank:0},
       lampCharge:100,gearOwned:{}
     },x);
   }catch(e){}
   return {
     money:1500,xp:0,level:1,completed:0,rep:0,wins:0,current:0,fitness:1,coach:0,coachOwned:[0],trainingUntil:0,itra:250,gear:{...START_GEAR},
     durability:{},best:{},playerName:'',fatigue:0,lastFinishAt:0,restUntil:0,hospitalUntil:0,needsHospital:false,achievements:{},raceSlotsPurchased:{},lastTrainingCoach:0,lastTrainingAt:0,
-    resources:{waterBottles:4,gels:4,guarana:0,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,rescueBlanket:1,medkits:0,powerbank:0},
+    resources:{waterBottles:4,gels:4,guarana:0,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,sunCream:1,rescueBlanket:1,medkits:0,powerbank:0},
     lampCharge:100,gearOwned:{}
   };
 }
@@ -214,7 +215,7 @@ function ensureResources(){
  }
 
   if(!game.resources) game.resources={};
-  const defaults={waterBottles:4,gels:4,guarana:0,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,rescueBlanket:1,medkits:0,powerbank:0};
+  const defaults={waterBottles:4,gels:4,guarana:0,batteries:2,accumulator:0,bandage:1,gauze:1,peroxide:1,plaster:2,cream:1,sunCream:1,rescueBlanket:1,medkits:0,powerbank:0};
   Object.entries(defaults).forEach(([k,v])=>{if(game.resources[k]==null)game.resources[k]=v});
   if(game.fatigue==null)game.fatigue=0;
   if(game.restUntil==null)game.restUntil=0;
@@ -330,7 +331,7 @@ function lampHoursNeeded(L){
 }
 function medkitScore(){
   const r=game.resources;
-  return ['bandage','gauze','peroxide','plaster','cream'].reduce((a,k)=>a+(Number(r[k])>0?1:0),0);
+  return ['bandage','gauze','peroxide','plaster','cream','sunCream','rescueBlanket'].reduce((a,k)=>a+(Number(r[k])>0?1:0),0);
 }
 function useResource(k,n=1,reason=''){
  n=Math.max(0,Number(n)||0);
@@ -391,7 +392,7 @@ function refreshRaceRisks(){
  if(needWater>totalCap) warnings.push(`ёмкости воды недостаточно: гидратор + бутылки ${Number(totalCap*0.5).toFixed(1).replace('.0','')} л`);
  const needGels=gelsNeeded(L); if(Number(game.resources.gels||0)<needGels) warnings.push(`гелей ${game.resources.gels||0}/${needGels}`);
  Object.keys(GEAR).forEach(cat=>{ const prep=equipmentPreparedness(cat,L,w); if(prep.gap>0) warnings.push(`${CATEGORY_NAMES[cat]}: ур. ${prep.current}/7, желательно ${prep.required}/7`); });
- if(medkitScore()<3) warnings.push('аптечка неполная'); if(Number(game.fatigue||0)>=70) warnings.push(`усталость ${Math.round(game.fatigue)}%`);
+ if(medkitScore()<7 && Number(game.resources.medkits||0)<=0) warnings.push('аптечка неполная'); if(Number(game.fatigue||0)>=70) warnings.push(`усталость ${Math.round(game.fatigue)}%`);
  el.textContent=warnings.length?'⚠️ Риски перед стартом: '+[...new Set(warnings)].join(' · '):'✅ Экипировка, вода (гидратор + бутылки) и расходники готовы.';
 }
 const TOP_ITRA_LEADERS=[
@@ -818,15 +819,16 @@ function render(){
    lampQuick.classList.toggle('quick-buy-ok',ready);
    if(hint) hint.textContent=hintText;
  }
- $('medkitSummary').textContent=medkitScore()+'/5';
+ const medReadyKits=Number(game.resources.medkits||0);
+ $('medkitSummary').textContent=medReadyKits>0?`${medReadyKits} готов. компл. + ${medkitScore()}/7`:medkitScore()+'/7';
  const medQuick=$('quickBuyMedkit');
  if(medQuick){
-   const medKeys=['bandage','gauze','peroxide','plaster','cream'];
+   const medKeys=['bandage','gauze','peroxide','plaster','cream','sunCream','rescueBlanket'];
    const missing=medKeys.filter(k=>Number(game.resources[k]||0)<=0);
    const cost=missing.reduce((s,k)=>s+RESOURCE_CATALOG[k].price,0);
-   medQuick.classList.toggle('quick-buy-ok',missing.length===0);
+   medQuick.classList.toggle('quick-buy-ok',medReadyKits>0||missing.length===0);
    const h=medQuick.querySelector('.quick-buy-hint');
-   if(h) h.textContent=missing.length===0?'Аптечка укомплектована':`Докупить ${missing.length} поз. · ${fmtMoney(cost)}`;
+   if(h) h.textContent=medReadyKits>0?`Готовых комплектов: ${medReadyKits}`:(missing.length===0?'Аптечка укомплектована':`Докупить ${missing.length} поз. · ${fmtMoney(cost)}`);
  }
  ensureTraining();
  if($('fitnessText'))$('fitnessText').textContent=`${Math.round(game.fitness)} / 100`;
@@ -986,7 +988,7 @@ function renderRaceGearSummary(){
  const g=$('raceGearSummary'); if(!g) return;
  g.innerHTML='';
  if(run && run.running && run.eventResourceSpend){
-   const labels={bandage:'бинт',gauze:'марля',peroxide:'перекись',plaster:'пластырь',cream:'крем',rescueBlanket:'спас. одеяло',gels:'гель «УГЛИ»',medkits:'комплект аптечки'};
+   const labels={bandage:'бинт',gauze:'марля',peroxide:'перекись',plaster:'пластырь',cream:'крем от натирания',sunCream:'крем от солнца',rescueBlanket:'спас. одеяло',gels:'гель «УГЛИ»',medkits:'комплект аптечки'};
    const spent=Object.entries(run.eventResourceSpend).filter(([,v])=>Number(v)>0);
    if(spent.length){
      const box=document.createElement('div'); box.className='notice warning-note race-spend-note';
@@ -1022,12 +1024,12 @@ function renderGear(){
 }
 function medkitComponentsReady(){
  const r=game.resources||{};
- return ['bandage','gauze','peroxide','plaster','cream','rescueBlanket'].every(k=>Number(r[k]||0)>0);
+ return ['bandage','gauze','peroxide','plaster','cream','sunCream','rescueBlanket'].every(k=>Number(r[k]||0)>0);
 }
 function assembleMedkit(){
  if(purchasesLockedDuringRace()){showGameError('Во время гонки сборка аптечки недоступна');return}
- if(!medkitComponentsReady()){showGameError('Нужны: бинт, марля, перекись, пластырь, крем и спасательное одеяло.');return}
- ['bandage','gauze','peroxide','plaster','cream','rescueBlanket'].forEach(k=>useResource(k));
+ if(!medkitComponentsReady()){showGameError('Нужны: бинт, марля, перекись, пластырь, крем от натирания, крем от солнца и спасательное одеяло.');return}
+ ['bandage','gauze','peroxide','plaster','cream','sunCream','rescueBlanket'].forEach(k=>useResource(k));
  game.resources.medkits=(Number(game.resources.medkits)||0)+1;
  saveGame();render();
 }
@@ -1036,7 +1038,7 @@ function renderResources(){
  const kit=document.createElement('div');kit.className='shop-item medkit-assembly';
  const kitCount=Number(game.resources.medkits||0);
  kit.innerHTML=`<h3>🧰 Сборка аптечек</h3>
-   <div class="meta">Готовых комплектов: <b>${kitCount}</b><br>1 комплект = бинт + марля + перекись + пластырь + крем + спасательное одеяло.<br>На сложных гонках можно взять несколько комплектов.</div>
+   <div class="meta">Готовых комплектов: <b>${kitCount}</b><br>1 комплект = бинт + марля + перекись + пластырь + крем от натирания + крем от солнца + спасательное одеяло.<br>На сложных гонках можно взять несколько комплектов.</div>
    <button class="primary" id="assembleMedkitBtn" ${medkitComponentsReady()?'':'disabled'}>Собрать аптечку</button>`;
  g.appendChild(kit);
  $('assembleMedkitBtn')?.addEventListener('click',assembleMedkit);
@@ -1483,7 +1485,7 @@ function equipmentPenaltyChance(cat,diff,dist){
  const preparednessPenalty=prep.gap*.055;
  // Неподготовленные палки ломаются особенно часто на наборе.
  const polePenalty=cat==='poles' ? prep.gap*.045 : 0;
- return Math.min(.82,Math.max(.012,.035*diff + dist/2800 + wear*.30 - protect*.75 + preparednessPenalty*1.25 + polePenalty*1.25));
+ return Math.min(.95,Math.max(.012,(.035*diff + dist/2800 + wear*.30 - protect*.75 + preparednessPenalty*1.25 + polePenalty*1.25)*3));
 }
 function wearFor(cat,L){
  const it=item(cat),diff=L[5],dist=L[1],gain=L[2];
@@ -1493,7 +1495,7 @@ function wearFor(cat,L){
  if(cat==='jacket')base*=1+diff*.12;
  const prep=equipmentPreparedness(cat,L,weatherForLevel());
  base*=1+prep.gap*.22;
- return base*(1.00+Math.random()*.85);
+ return base*(1.00+Math.random()*.85)*3;
 }
 function buildEvents(L){
  const n=Math.max(3,Math.min(10,3+Math.floor(L[1]/80)+L[5]));
@@ -1874,8 +1876,8 @@ function updateLiveDnfs(){
 
      let pool=active.filter(unseen);
 
-     // Before 70 km, absolutely exclude EVERY runner from the actual ITRA rosters.
-     if(raceKm < 70){
+     // TOP ITRA runners are protected from DNF until 130 km.
+     if(raceKm < 130){
        pool=pool.filter(c=>!isItraDnfProtectedRunner(c));
      }
 
@@ -2267,7 +2269,7 @@ function startRaceCore(){
      if(game.resources.batteries<needBat) warnings.push(`батареек ${game.resources.batteries}/${needBat}`);
    }
  }
- if(medkitScore()<3) warnings.push('аптечка неполная');
+ if(medkitScore()<7 && Number(game.resources.medkits||0)<=0) warnings.push('аптечка неполная');
  if(game.fatigue>=70) warnings.push(`усталость ${Math.round(game.fatigue)}%`);
 
  // Mandatory equipment never blocks the start, but is always highlighted separately.
@@ -2287,9 +2289,6 @@ function startRaceCore(){
    }
  }
 
- if(game.level<Math.max(1,game.current*3-2)){
-   $('preRaceNote').textContent=`⚠️ Рекомендуемый уровень трейлраннера: ${Math.max(1, Math.round((Math.max(1,game.current*3-2))*0.5))}. Можно стартовать, но будет сложнее.`;
- }
 
  // Water is transferred into the current race and consumed gradually.
  const waterAvailable=Math.max(0,Number(game.resources.waterBottles||0),Number(game.waterBottles||0));
@@ -2310,7 +2309,7 @@ function startRaceCore(){
  // Consume gels gradually through the race, but reserve the planned amount here.
  const gelsAvailable=Math.min(game.resources.gels,needGels);
  const gelShortage=Math.max(0,needGels-gelsAvailable);
- useResource('gels',gelsAvailable);
+ useResource('gels',gelsAvailable); // reserved for this race; consumed from run.gelsRemaining during events
 
  // Lamp power consumed at start for predictable gameplay.
  let lightShortageHours=0;
@@ -2382,7 +2381,7 @@ function startRaceCore(){
    startPenalty:fatiguePenaltySec+gelPenaltySec+lightPenaltySec+(raceWeather.sun>=80?Math.round((raceWeather.sun-70)*L[3]/1200):0)+Math.round(coachDifficultyGap*L[3]*0.04),
    positionDrift:0,
    condition:game.fatigue>=75?'сильная усталость':'нормально',
-   waterStart:waterUsed,waterRemaining:waterUsed,waterCapacity:waterCapacity,medkitsRemaining:medkitsForRace,waterNeed:needWater,waterSegmentStartKm:0,waterSegmentStartAmount:waterUsed,waterEmptyNotified:(waterAvailable<=0),aidStations:buildAidStations(Number(L[1]||0)),aidStationsPassed:new Set(),waterShortage,gelShortage,lightShortageHours,
+   waterStart:waterUsed,waterRemaining:waterUsed,waterCapacity:waterCapacity,medkitsRemaining:medkitsForRace,waterNeed:needWater,waterSegmentStartKm:0,waterSegmentStartAmount:waterUsed,waterEmptyNotified:(waterAvailable<=0),aidStations:buildAidStations(Number(L[1]||0)),aidStationsPassed:new Set(),waterShortage,gelShortage,lightShortageHours,gelsStart:gelsAvailable,gelsRemaining:gelsAvailable,gelsPlannedUsed:0,
    fractureRisk:Math.min(.42, Math.max(0,((game.fatigue-55)/140) * (1-coachRaceBonuses().injury)) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08*(1-coachRaceBonuses().injury) : 0)),
    guaranaTaken:false,guaranaAvailable:Number(game.resources.guarana||0)>0,guaranaTriggered:false,guaranaBoostUntil:0,guaranaTriggerKm:0,guaranaCrash:false,
    dnf:false
@@ -2632,8 +2631,9 @@ function fireEvents(){
    // Gel «УГЛИ»: событие возможно в пуле, но бонус работает только при наличии геля.
    if(ev.cat==='ugli'){
      ensureResources();
-     if(Number(game.resources.gels||0)>0){
-       useResource('gels',1,'event');
+     if(Number(run.gelsRemaining||0)>0){
+       run.gelsRemaining=Math.max(0,Number(run.gelsRemaining||0)-1);
+       if(!run.eventResourceSpend)run.eventResourceSpend={}; run.eventResourceSpend.gels=(Number(run.eventResourceSpend.gels)||0)+1;
        // Небольшая вариативность эффекта: примерно 1–3 минуты выигрыша.
        const bonuses=[60,90,120,180];
        sec=-bonuses[Math.floor(Math.random()*bonuses.length)];
@@ -2771,7 +2771,7 @@ function fireEvents(){
        }
        // Полная поломка = предмет исчезает из инвентаря, его надо покупать заново.
        const brokenLevel=Number(game.gear?.[ev.cat]||0);
-       if(brokenLevel>0 && Math.random()<0.55){
+       if(brokenLevel>0 && Math.random()<0.20){
          if(Array.isArray(game.gearOwned?.[ev.cat])){
            game.gearOwned[ev.cat]=game.gearOwned[ev.cat].filter(x=>Number(x)!==brokenLevel);
          }
@@ -2850,6 +2850,11 @@ function updateRun(){
  $('progressKm').textContent=`${km.toFixed(1)} / ${L[1].toFixed(1)} км`;
  $('clock').textContent=fmt(run.elapsed);
  $('progressBar').style.width=(run.p*100)+'%';
+ updateRaceGuaranaButton();
+ const plannedGelUse=Math.min(Number(run.gelsStart||0),Math.floor(Math.max(0,Math.min(1,Number(run.p||0)))*Number(run.gelsStart||0)));
+ const prevPlannedGelUse=Number(run.gelsPlannedUsed||0);
+ if(plannedGelUse>prevPlannedGelUse){ run.gelsRemaining=Math.max(0,Number(run.gelsRemaining||0)-(plannedGelUse-prevPlannedGelUse)); run.gelsPlannedUsed=plannedGelUse; }
+ if($('raceGelStatus')) $('raceGelStatus').textContent=`🍯 Гели в гонке: ${Number(run.gelsRemaining||0)} / ${Number(run.gelsStart||0)}`;
  // Live climb and gradient.
  const terrain=terrainStateForProgress(L,run.p||0);
  if($('liveGain')){
@@ -2930,7 +2935,7 @@ function finalizeVirtualRaceAfterPlayerDnf(){
     if(!c || c.dnf) continue;
     let risk=p;
     const name=String(c.name||'');
-    if(isItraDnfProtectedRunner(c) && raceKm<70) risk=0;
+    if(isItraDnfProtectedRunner(c) && raceKm<130) risk=0;
     else if(isItraDnfProtectedRunner(c)) risk*=0.28;
     if(/Береснев|Юшина/.test(name)) risk*=0.35;
     if(Math.random()<risk) c.dnf=true;
@@ -3004,7 +3009,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
   const before=durability(cat),loss=wearFor(cat,L),after=Math.max(0,before-loss);setDur(cat,after);
   if(before>0&&after<=0){
     breaks.push(CATEGORY_NAMES[cat]);
-    if(Number(game.gear?.[cat]||0)>0 && Math.random()<0.45){
+    if(Number(game.gear?.[cat]||0)>0 && Math.random()<0.20){
       const destroyed=Number(game.gear[cat]);
       if(Array.isArray(game.gearOwned?.[cat])) game.gearOwned[cat]=game.gearOwned[cat].filter(x=>Number(x)!==destroyed);
       game.gear[cat]=0;
@@ -3099,7 +3104,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
      run.p=0;
    }
    render();
- }, 12000);
+ }, 5000);
 }
 function startRace(){
   const gameSnapshot=JSON.parse(JSON.stringify(game));
@@ -3157,7 +3162,7 @@ $('startBtn').onclick=()=>{
   }
 };
 
-function updateRaceGuaranaButton(){const b=$('raceGuaranaBtn');if(!b)return;const active=!!(run&&run.running);b.style.display=active?'inline-flex':'none';b.disabled=!active||!!run.guaranaTriggered||Number(game.resources.guarana||0)<=0;b.textContent=run&&run.guaranaTriggered?'🫘 Гуарана использована':`🫘 Гуарана (${Number(game.resources.guarana||0)})`;}
+function updateRaceGuaranaButton(){const b=$('raceGuaranaBtn');const g=$('raceGelStatus');const active=!!(run&&run.running);if(b){b.style.display=active?'inline-flex':'none';b.disabled=!active||!!run.guaranaTriggered||Number(game.resources.guarana||0)<=0;b.textContent=run&&run.guaranaTriggered?'🫘 Гуарана использована':`🫘 Гуарана (${Number(game.resources.guarana||0)})`;}if(g){g.style.display=active?'inline-flex':'none';if(active)g.textContent=`🍯 Гели в гонке: ${Number(run.gelsRemaining||0)} / ${Number(run.gelsStart||0)}`;}}
 $('raceGuaranaBtn')?.addEventListener('click',()=>{if(!run||!run.running||run.guaranaTriggered)return;if(Number(game.resources.guarana||0)<=0){showGameError('Гуарана закончилась.');return;}useResource('guarana',1,'event');run.guaranaTaken=true;run.guaranaTriggered=true;const km=Number(run.p||0)*Number(levelData()[1]||0);if(Math.random()<0.30){run.guaranaBoostUntil=Number(run.elapsed||0)+600;run.guaranaTriggerKm=km;showEvent({emoji:'🫘',name:'Гуарана сработала'},-60,' · буст на 10 мин');}else{showEvent({emoji:'🫘',name:'Гуарана не сработала'},0,' · буста нет');}saveGame();updateRaceGuaranaButton();});
 $('resetGameBtn').onclick=()=>{if(confirm('Сбросить весь прогресс, деньги и экипировку?')){localStorage.removeItem('trailArmageddonSave');game=loadGame();render()}};
 
@@ -3457,7 +3462,7 @@ function quickBuyLampPower(){
 
 function quickBuyMedkit(){
  if(purchasesLockedDuringRace()){ showGameError('Во время гонки покупки недоступны'); return; }
- const keys=['bandage','gauze','peroxide','plaster','cream','rescueBlanket'];
+ const keys=['bandage','gauze','peroxide','plaster','cream','sunCream','rescueBlanket'];
  const missing=keys.filter(k=>Number(game.resources[k]||0)<=0);
  if(!missing.length){ showGameError('Компоненты для одного комплекта аптечки уже собраны'); return; }
  const cost=missing.reduce((sum,k)=>sum+RESOURCE_CATALOG[k].price,0);
