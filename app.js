@@ -834,6 +834,8 @@ function render(){
  if($('itraText'))$('itraText').textContent=Math.round(game.itra);
  if($('itraNameText')) $('itraNameText').textContent=safePlayerName();
  if($('itraRankText'))$('itraRankText').textContent=`место в базе: ${ELITE_RUNNERS.filter(r=>r.itra>game.itra).length+1}`;
+ if($('rescueBlanketText')) $('rescueBlanketText').textContent=`🆘 ${Number(game.resources.rescueBlanket||0)} шт.`;
+ if($('rescueBlanketSub')) $('rescueBlanketSub').textContent=Number(game.resources.rescueBlanket||0)>0?'50/50 против погодного DNF':'нет защиты от погодного DNF';
  const raceWeather=weatherForLevel();
  const waterNeedNow=waterBottlesNeeded(L,raceWeather);
  if($('waterCount')) $('waterCount').textContent=String(game.resources.waterBottles||0);
