@@ -2974,6 +2974,9 @@ function virtualResultsHtml(result){
 
 function finishRace(forceDnf=false,dnfReason='fracture'){
  if(!run||!run.running)return;
+ // После завершения любой гонки автоматически сворачиваем блок «Текущая экипировка».
+ const equipmentSection=$('currentEquipmentSection');
+ if(equipmentSection) equipmentSection.open=false;
  cancelAnimationFrame(timer);$('pauseBtn').disabled=true;$('startBtn').disabled=false;updateRaceGuaranaButton();
  const L=levelData();
  // Keep the finished race visible while the result overlay is shown.
