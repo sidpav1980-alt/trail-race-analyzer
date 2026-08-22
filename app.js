@@ -1,4 +1,4 @@
-window.CHARA_BG_IMG=new Image(); window.CHARA_BG_IMG.src='chara_bg_102_20260822c.png?v=102-20260822c'; window.CHARA_BG_IMG.onload=()=>{try{drawTrack(run?.p||0)}catch(e){}};
+window.CHARA_BG_IMG=new Image(); window.CHARA_BG_IMG.src='chara_bg_102_20260822_clean2.png?v=102-20260822-clean2'; window.CHARA_BG_IMG.onload=()=>{try{drawTrack(run?.p||0)}catch(e){}};
 const APP_VERSION='1.02';
 
 
