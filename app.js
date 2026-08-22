@@ -3320,6 +3320,11 @@ function drawTrack(p){
    // Chara sand dunes in foreground.
    const sand=ctx.createLinearGradient(0,H*.55,0,H);sand.addColorStop(0,'#e6b85f');sand.addColorStop(1,'#9b5f22');ctx.fillStyle=sand;
    ctx.beginPath();ctx.moveTo(0,H*.70);for(let i=0;i<=12;i++){const x=i*W/12;const y=H*(.69-.09*Math.sin(i*.95)-.025*Math.sin(i*2.2));ctx.lineTo(x,y);}ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.fill();
+
+   // Chara wetlands and icy fords, scattered between dunes.
+   ctx.save();ctx.globalAlpha=.82;ctx.fillStyle='#315f45';
+   [[.18,.78,.12,.035],[.48,.84,.16,.04],[.78,.75,.11,.032]].forEach(([x,y,rx,ry])=>{ctx.beginPath();ctx.ellipse(x*W,y*H,rx*W,ry*H,0,0,Math.PI*2);ctx.fill();});
+   ctx.fillStyle='#5eb6c8';ctx.beginPath();ctx.moveTo(W*.28,H*.72);ctx.bezierCurveTo(W*.35,H*.78,W*.39,H*.69,W*.46,H*.76);ctx.bezierCurveTo(W*.52,H*.83,W*.58,H*.72,W*.66,H*.79);ctx.lineTo(W*.66,H*.835);ctx.bezierCurveTo(W*.58,H*.78,W*.52,H*.89,W*.45,H*.82);ctx.bezierCurveTo(W*.38,H*.75,W*.34,H*.84,W*.27,H*.77);ctx.closePath();ctx.fill();ctx.strokeStyle='rgba(230,248,255,.8)';ctx.lineWidth=2;ctx.stroke();ctx.restore();
  }else{
    ctx.fillStyle='#0c2130';ctx.beginPath();ctx.moveTo(0,H*.72);
    for(let i=0;i<=8;i++)ctx.lineTo(i*W/8,H*(.58+(i%2)*.08));ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.fill();
