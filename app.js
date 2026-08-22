@@ -638,6 +638,10 @@ function applyAppVersion(){
 
 function renderPreStartRaceState(L){
  if(run && run.running) return;
+ // До фактического нажатия «Старт» никакие стартовые плашки не показываем.
+ // Это особенно важно для Чары: «Миша с топором» появляется только ПОСЛЕ запуска гонки на 3 секунды.
+ const preOv=$('eventOverlay');
+ if(preOv){ preOv.classList.remove('show'); preOv.innerHTML=''; }
  if($('progressKm')) $('progressKm').textContent=`0.0 / ${Number(L[1]).toFixed(1)} км`;
  if($('clock')) $('clock').textContent='0:00:00';
  if($('progressBar')) $('progressBar').style.width='0%';
