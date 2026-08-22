@@ -1,3 +1,4 @@
+window.CHARA_BG_IMG=new Image(); window.CHARA_BG_IMG.src='chara_bg.png'; window.CHARA_BG_IMG.onload=()=>{try{drawTrack(run?.p||0)}catch(e){}};
 const APP_VERSION='1.02';
 
 
@@ -3305,12 +3306,13 @@ function drawTrack(p){
  const c=$('trackCanvas'),ctx=c.getContext('2d'),W=c.width,H=c.height,L=levelData();
  ctx.clearRect(0,0,W,H);
  const isChara=String(L[0]||'').toLowerCase().includes('чара');
+ if(isChara && window.CHARA_BG_IMG && window.CHARA_BG_IMG.complete && window.CHARA_BG_IMG.naturalWidth){ ctx.drawImage(window.CHARA_BG_IMG,0,0,W,H); }
  const sky=ctx.createLinearGradient(0,0,0,H);
- if(isChara){sky.addColorStop(0,'#79bfe8');sky.addColorStop(.55,'#d7e9f3');sky.addColorStop(1,'#e7b35c');}
+ if(isChara){sky.addColorStop(0,'rgba(0,0,0,0)');sky.addColorStop(1,'rgba(0,0,0,0)');}
  else {sky.addColorStop(0,'#153554');sky.addColorStop(.62,'#8b5a24');sky.addColorStop(1,'#503a2d');}
  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
 
- if(isChara){
+ if(isChara && !(window.CHARA_BG_IMG && window.CHARA_BG_IMG.complete && window.CHARA_BG_IMG.naturalWidth)){
    // Snow-covered Kodar-like mountains in the distance.
    ctx.fillStyle='#71869a';ctx.beginPath();ctx.moveTo(0,H*.58);
    const peaks=[[0,.55],[.12,.29],[.22,.52],[.36,.23],[.49,.50],[.63,.26],[.76,.53],[.9,.31],[1,.56]];
