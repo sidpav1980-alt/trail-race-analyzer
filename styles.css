@@ -507,6 +507,6 @@ button{ -webkit-user-select:none; user-select:none; }
 .chara-bear-card span{font-size:14px;line-height:1.25}
 
 /* Чара 134: стартовая плашка из симуляции прогноза гонки */
-.chara-misha-source{padding:0!important;max-width:min(188px,44vw)!important;border:1px solid rgba(251,191,36,.8)!important;overflow:hidden;background:#06101c!important;box-shadow:0 0 32px rgba(251,191,36,.26)!important}
+.chara-misha-source{padding:0!important;width:94px!important;max-width:94px!important;border:1px solid rgba(251,191,36,.8)!important;overflow:hidden;background:#06101c!important;box-shadow:0 0 32px rgba(251,191,36,.26)!important}
 .chara-misha-source img{display:block;width:100%;height:auto;max-height:72vh;object-fit:contain}
-@media(max-width:520px){.chara-misha-source{max-width:min(165px,43vw)!important}.chara-misha-source img{max-height:68vh}}
+@media(max-width:520px){.chara-misha-source{width:82px!important;max-width:82px!important}.chara-misha-source img{max-height:68vh}}
