@@ -510,3 +510,7 @@ button{ -webkit-user-select:none; user-select:none; }
 .chara-misha-source{padding:0!important;max-width:min(375px,88vw)!important;border:1px solid rgba(251,191,36,.8)!important;overflow:hidden;background:#06101c!important;box-shadow:0 0 32px rgba(251,191,36,.26)!important}
 .chara-misha-source img{display:block;width:100%;height:auto;max-height:72vh;object-fit:contain}
 @media(max-width:520px){.chara-misha-source{max-width:min(330px,86vw)!important}.chara-misha-source img{max-height:68vh}}
+/* 1.02: compact Chara start card — same footprint as the previous overlay */
+.chara-misha-source{max-width:190px!important;width:190px!important;border-radius:9px!important;box-shadow:0 0 16px rgba(251,191,36,.18)!important}
+.chara-misha-source img{width:100%!important;height:auto!important;max-height:245px!important;object-fit:cover!important;object-position:center!important}
+@media(max-width:520px){.chara-misha-source{max-width:190px!important;width:190px!important}.chara-misha-source img{max-height:245px!important}}
