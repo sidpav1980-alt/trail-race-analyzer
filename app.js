@@ -3317,14 +3317,27 @@ function drawTrack(p){
    peaks.forEach(([px,py])=>ctx.lineTo(px*W,py*H));ctx.lineTo(W,H*.66);ctx.lineTo(0,H*.66);ctx.fill();
    ctx.fillStyle='#f4f8fb';
    [[.12,.29],[.36,.23],[.63,.26],[.9,.31]].forEach(([px,py])=>{const x=px*W,y=py*H;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-38,y+48);ctx.lineTo(x-10,y+39);ctx.lineTo(x,y+53);ctx.lineTo(x+14,y+35);ctx.lineTo(x+42,y+50);ctx.closePath();ctx.fill();});
+   // Chara: dramatic rain clouds with a warm break of sunlight.
+   ctx.save();
+   const cloud=ctx.createLinearGradient(0,0,0,H*.38);cloud.addColorStop(0,'rgba(25,38,52,.78)');cloud.addColorStop(1,'rgba(70,82,92,.16)');ctx.fillStyle=cloud;
+   for(let i=0;i<8;i++){const cx=(i*.15-.04)*W,cy=H*(.08+.035*(i%3));ctx.beginPath();ctx.ellipse(cx,cy,W*.15,H*.08,0,0,Math.PI*2);ctx.fill();}
+   const glow=ctx.createRadialGradient(W*.82,H*.16,4,W*.82,H*.16,W*.28);glow.addColorStop(0,'rgba(255,240,177,.85)');glow.addColorStop(.35,'rgba(255,210,120,.28)');glow.addColorStop(1,'rgba(255,220,150,0)');ctx.fillStyle=glow;ctx.fillRect(W*.48,0,W*.52,H*.55);
+   ctx.fillStyle='rgba(255,232,170,.13)';for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(W*(.74+i*.035),H*.12);ctx.lineTo(W*(.58+i*.06),H*.62);ctx.lineTo(W*(.64+i*.06),H*.62);ctx.closePath();ctx.fill();}
+   ctx.restore();
+
    // Chara sand dunes in foreground.
-   const sand=ctx.createLinearGradient(0,H*.55,0,H);sand.addColorStop(0,'#e6b85f');sand.addColorStop(1,'#9b5f22');ctx.fillStyle=sand;
+   const sand=ctx.createLinearGradient(0,H*.55,0,H);sand.addColorStop(0,'#e6b85f');sand.addColorStop(.48,'#c98a37');sand.addColorStop(1,'#875022');ctx.fillStyle=sand;
    ctx.beginPath();ctx.moveTo(0,H*.70);for(let i=0;i<=12;i++){const x=i*W/12;const y=H*(.69-.09*Math.sin(i*.95)-.025*Math.sin(i*2.2));ctx.lineTo(x,y);}ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.fill();
 
-   // Chara wetlands and icy fords, scattered between dunes.
-   ctx.save();ctx.globalAlpha=.82;ctx.fillStyle='#315f45';
-   [[.18,.78,.12,.035],[.48,.84,.16,.04],[.78,.75,.11,.032]].forEach(([x,y,rx,ry])=>{ctx.beginPath();ctx.ellipse(x*W,y*H,rx*W,ry*H,0,0,Math.PI*2);ctx.fill();});
-   ctx.fillStyle='#5eb6c8';ctx.beginPath();ctx.moveTo(W*.28,H*.72);ctx.bezierCurveTo(W*.35,H*.78,W*.39,H*.69,W*.46,H*.76);ctx.bezierCurveTo(W*.52,H*.83,W*.58,H*.72,W*.66,H*.79);ctx.lineTo(W*.66,H*.835);ctx.bezierCurveTo(W*.58,H*.78,W*.52,H*.89,W*.45,H*.82);ctx.bezierCurveTo(W*.38,H*.75,W*.34,H*.84,W*.27,H*.77);ctx.closePath();ctx.fill();ctx.strokeStyle='rgba(230,248,255,.8)';ctx.lineWidth=2;ctx.stroke();ctx.restore();
+   // Scattered marshes and shallow fords among the dunes.
+   ctx.save();ctx.globalAlpha=.9;
+   ctx.fillStyle='#315d43';[[.12,.79,.10,.028],[.43,.86,.13,.032],[.76,.80,.11,.03]].forEach(([x,y,rx,ry])=>{ctx.beginPath();ctx.ellipse(x*W,y*H,rx*W,ry*H,0,0,Math.PI*2);ctx.fill();});
+   const water=ctx.createLinearGradient(0,H*.72,0,H*.94);water.addColorStop(0,'#7bc7d5');water.addColorStop(1,'#315f78');ctx.fillStyle=water;
+   ctx.beginPath();ctx.moveTo(W*.24,H*.76);ctx.bezierCurveTo(W*.34,H*.83,W*.40,H*.73,W*.49,H*.80);ctx.bezierCurveTo(W*.57,H*.87,W*.64,H*.76,W*.73,H*.83);ctx.lineTo(W*.72,H*.875);ctx.bezierCurveTo(W*.64,H*.82,W*.57,H*.93,W*.48,H*.86);ctx.bezierCurveTo(W*.40,H*.79,W*.33,H*.89,W*.23,H*.81);ctx.closePath();ctx.fill();
+   ctx.strokeStyle='rgba(235,250,255,.78)';ctx.lineWidth=2;ctx.stroke();ctx.restore();
+
+   // Rain streaks: visible but light enough to keep dunes and snowy peaks readable.
+   ctx.save();ctx.strokeStyle='rgba(210,235,248,.42)';ctx.lineWidth=1.4;for(let i=0;i<42;i++){const rx=(i*83%997)/997*W,ry=((i*137)%701)/701*H*.72;ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(rx-7,ry+17);ctx.stroke();}ctx.restore();
  }else{
    ctx.fillStyle='#0c2130';ctx.beginPath();ctx.moveTo(0,H*.72);
    for(let i=0;i<=8;i++)ctx.lineTo(i*W/8,H*(.58+(i%2)*.08));ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.fill();
