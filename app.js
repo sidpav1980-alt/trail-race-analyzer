@@ -3340,7 +3340,8 @@ function drawTrack(p){
 
    // Rain streaks: visible but light enough to keep dunes and snowy peaks readable.
    ctx.save();ctx.strokeStyle='rgba(210,235,248,.42)';ctx.lineWidth=1.4;for(let i=0;i<42;i++){const rx=(i*83%997)/997*W,ry=((i*137)%701)/701*H*.72;ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(rx-7,ry+17);ctx.stroke();}ctx.restore();
- }else{
+ }
+ if(!isChara){
    ctx.fillStyle='#0c2130';ctx.beginPath();ctx.moveTo(0,H*.72);
    for(let i=0;i<=8;i++)ctx.lineTo(i*W/8,H*(.58+(i%2)*.08));ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.fill();
  }
