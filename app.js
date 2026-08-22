@@ -1,4 +1,4 @@
-window.CHARA_BG_IMG=new Image(); window.CHARA_BG_IMG.src='chara_bg.png'; window.CHARA_BG_IMG.onload=()=>{try{drawTrack(run?.p||0)}catch(e){}};
+window.CHARA_BG_IMG=new Image(); window.CHARA_BG_IMG.src='chara_bg_102_20260822b.png?v=102-20260822b'; window.CHARA_BG_IMG.onload=()=>{try{drawTrack(run?.p||0)}catch(e){}};
 const APP_VERSION='1.02';
 
 

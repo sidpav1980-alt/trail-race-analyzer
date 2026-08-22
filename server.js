@@ -30,7 +30,12 @@ const server=http.createServer(async(req,res)=>{
   if(!fs.existsSync(file)||fs.statSync(file).isDirectory())file=path.join(ROOT,'index.html');
   try{
     const ext=path.extname(file);
-    res.writeHead(200,{'Content-Type':mime[ext]||'application/octet-stream'});
+    const headers={'Content-Type':mime[ext]||'application/octet-stream'};
+    // Force browsers/PWA shells to revalidate the app shell after deploys.
+    if(ext==='.html') headers['Cache-Control']='no-store, no-cache, must-revalidate, max-age=0';
+    else if(ext==='.js'||ext==='.css') headers['Cache-Control']='no-cache, must-revalidate';
+    else if(/chara_bg_102_20260822b\.png$/.test(file)) headers['Cache-Control']='public, max-age=31536000, immutable';
+    res.writeHead(200,headers);
     fs.createReadStream(file).pipe(res);
   }catch{send(res,500,{error:'Server error'});}
 });
