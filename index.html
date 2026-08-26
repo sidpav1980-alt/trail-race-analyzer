@@ -133,6 +133,134 @@
 #carrySection .carry-buy-note{margin-top:14px}
 @media(max-width:700px){#carrySection .carry-buy-grid{grid-template-columns:1fr 1fr}#carrySection .quick-buy-card:last-child{grid-column:1/-1}}
 </style>
+
+<style>
+/* v1.03 compact cards: С собой / Кампания / Текущее */
+#carrySection .drawer-body,
+#levels .drawer-body,
+#currentEquipmentSection .drawer-body{
+  padding-top:8px!important;
+}
+#carrySection .card,
+#levels .card,
+#currentEquipmentSection .card{
+  padding:12px!important;
+}
+#carrySection h2,
+#levels h2,
+#currentEquipmentSection h2{
+  font-size:20px!important;
+  margin:0 0 6px!important;
+}
+#carrySection .carry-buy-card > .muted,
+#levels .card > .row .muted,
+#currentEquipmentSection .equipment-head .muted{
+  font-size:12px!important;
+  line-height:1.3!important;
+  margin:3px 0 8px!important;
+}
+
+/* С собой */
+#carrySection .carry-buy-grid{
+  gap:8px!important;
+}
+#carrySection .quick-buy-card{
+  min-height:88px!important;
+  padding:10px 11px!important;
+  border-radius:12px!important;
+  gap:4px!important;
+}
+#carrySection .quick-buy-card span{
+  font-size:13px!important;
+}
+#carrySection .quick-buy-card b{
+  font-size:23px!important;
+  margin:2px 0!important;
+}
+#carrySection .quick-buy-card small{
+  font-size:10.5px!important;
+  line-height:1.25!important;
+}
+#carrySection .quick-buy-hint{
+  font-size:10.5px!important;
+  margin-top:4px!important;
+}
+#carrySection .carry-buy-note{
+  padding:8px 10px!important;
+  margin-top:8px!important;
+  font-size:11px!important;
+  line-height:1.3!important;
+}
+
+/* Кампания */
+#levels .levels-grid{
+  gap:7px!important;
+}
+#levels .level{
+  padding:9px 10px!important;
+  border-radius:11px!important;
+}
+#levels .level h3{
+  font-size:15px!important;
+  margin:0 0 3px!important;
+  line-height:1.2!important;
+}
+#levels .level .meta{
+  font-size:11px!important;
+  line-height:1.3!important;
+}
+#levels .level button{
+  min-height:34px!important;
+  padding:6px 9px!important;
+  margin-top:6px!important;
+  font-size:12px!important;
+}
+#levels #resetGameBtn{
+  padding:7px 9px!important;
+  font-size:11px!important;
+}
+
+/* Текущая экипировка */
+#currentEquipmentSection .race-gear-summary{
+  gap:6px!important;
+  margin-top:7px!important;
+}
+#currentEquipmentSection .race-gear-slot{
+  padding:7px 8px!important;
+  border-radius:10px!important;
+  min-height:0!important;
+}
+#currentEquipmentSection .race-gear-slot > strong{
+  font-size:12px!important;
+  margin:3px 0 2px!important;
+}
+#currentEquipmentSection .race-gear-slot small,
+#currentEquipmentSection .race-gear-slot span{
+  font-size:10px!important;
+  line-height:1.2!important;
+}
+#currentEquipmentSection #scrollShopBtn{
+  padding:6px 8px!important;
+  min-height:32px!important;
+  font-size:11px!important;
+}
+
+@media(max-width:700px){
+  #carrySection .carry-buy-grid{
+    grid-template-columns:1fr 1fr!important;
+  }
+  #carrySection .quick-buy-card:last-child{
+    grid-column:auto!important;
+  }
+  #levels .levels-grid{
+    grid-template-columns:1fr 1fr!important;
+  }
+  #currentEquipmentSection .race-gear-summary{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -419,7 +547,6 @@
 <div class="help-card">
 <div class="help-head"><div><div class="help-kicker">СИМУЛЯТОР ТРЕЙЛРАННЕРА · СПРАВОЧНИК</div><h2>Как играть</h2></div><button id="helpClose" class="help-close" type="button">✕</button></div>
 <div class="help-section help-focus"><b>🏁 Цель игры</b><p>Пройди 21 уровень кампании, развивай трейлраннера и доберись до финального «Армагеддона» на 1000 км. За успешные финиши ты получаешь рубли, XP, тренированность и игровой ITRA-рейтинг.</p></div>
-
 <div class="help-section help-focus">
   <b>🎒 Экипировка 1–7</b>
   <p>Каждый слот имеет 7 уровней. Для каждой гонки рассчитывается требуемый уровень. Недостаточная экипировка не просто показывается в подсказке: она повышает шанс событий, износ и поломку. Палки особенно чувствительны к неподготовленности.</p>
@@ -480,7 +607,7 @@
   <p>Награда зависит от базовой награды уровня, качества прохождения и места. Победа и TOP-3 дают дополнительные бонусы. После финиша растут XP, тренированность и игровой ITRA; одновременно накапливается усталость и изнашивается экипировка.</p>
 </div>
 
-<div class="help-section"><b>▶️ Гонка</b><p>Выбери доступный уровень, подготовься и нажми «Старт». Следи за километражем, темпом, позицией, штрафами и состоянием. Случайные события способны ускорить или замедлить тебя, повредить экипировку, вызвать травму или DNF.</p></div>
+<div class="help-section"><b>▶️ Старт гонки</b><p>В нижнем меню нажми <strong>«Старт гонки»</strong> — откроется только экран симуляции текущей выбранной трассы. До старта проверь вкладки «С собой», «Экипировка», «Фонарь», «Отдых» и «Тренировка». Во время гонки следи за километражем, темпом, позицией, штрафами, гелями и состоянием.</p></div>
 <div class="help-section help-focus"><b>🎟️ Слот на гонку</b><p>Разблокировка уровня и покупка слота — разные вещи. <strong>Уровни 1–3 бесплатны.</strong> Начиная с 4-го уровня перед стартом нужен оплаченный слот. Цена растёт вместе со сложностью трассы и показывается в кампании. С 9 уровня цена слота умножается на 3. Купленный слот сохраняется для этой гонки.</p><p>При покупке платного слота иногда можно получить бесплатный предмет экипировки.</p></div>
 <div class="help-section"><b>🏆 Соперники</b><p>Показываются три лидера и их текущий километраж. На уровнях 1–15 один из них — топовый трейлраннер, ещё двое имеют случайные ФИО. На уровнях 16–21 все три лидера — топовые спортсмены.</p></div>
 <div class="help-section"><b>💪 Тренированность</b><p>Влияет на скорость и шанс успешно пройти сложную гонку. Растёт за финиши и тренировки. Слабую подготовку нельзя полностью компенсировать дорогой экипировкой.</p></div>
@@ -489,7 +616,7 @@
 <div class="help-section"><b>👟 Экипировка 1–7 уровня</b><p>Кроссовки влияют на скорость, мембранка защищает от холода и дождя, палки помогают на сложном рельефе. Также следи за фонарём, рюкзаком/жилетом, часами и остальными слотами. У надетой вещи отображается «Надето».</p></div>
 <div class="help-section"><b>🔧 Износ и ремонт</b><p>Снаряжение теряет прочность. Износ и риск поломки усилены примерно в 3 раза. При срабатывании поломки есть 20% шанс полного уничтожения предмета — после этого его надо покупать заново. Чем тяжелее гонка и слабее вещь, тем выше риск.</p></div>
 <div class="help-section"><b>💧 Вода</b><p>Расход зависит от дистанции, температуры, солнца и погоды. Доступная ёмкость считается как <strong>гидратор + все бутылки по 0,5 л</strong>. Если рюкзак с гидратором не куплен, воду всё равно можно нести в бутылках. Риски перед стартом обновляются при изменении экипировки и расходников.</p></div>
-<div class="help-section"><b>⚡ Гели «УГЛИ»</b><p>Расходуются на длинных гонках. Если гелей не хватит, возможна потеря темпа. Смотри рекомендуемое количество и покупай заранее: во время гонки покупки запрещены.</p></div>
+<div class="help-section"><b>🎒 С собой: вода, «УГЛИ» и аптечка</b><p>Это основной экран проверки расходников перед стартом. Карточки показывают фактический запас и норму для выбранной гонки. Нажми на «УГЛИ», воду или аптечку — игра докупит недостающее за рубли. На длинных гонках нехватка гелей и воды может серьёзно ухудшить темп. После старта докупка недоступна.</p></div>
 <div class="help-section help-focus"><b>🫘 Гуарана</b><p>На гонку можно взять гуарану; за одну гонку используется не более одной. После активации есть <strong>30% шанс</strong> получить ускорение на <strong>10 минут</strong>. Если буст сработал, через <strong>20 км после точки срабатывания</strong> наступает откат: скорость снижается на <strong>40%</strong> в течение следующих 30 км, после чего обычный темп возвращается. Поэтому на ультрах гуарану нужно использовать осознанно.</p></div>
 <div class="help-section"><b>🔦 Фонарь</b><p>Начальные фонари используют комплекты батареек. Продвинутые работают от аккумуляторов. Перед ночной гонкой проверь запас питания, иначе отсутствие света может серьёзно осложнить прохождение.</p></div>
 <div class="help-section"><b>🏥 Травмы и лечение</b><p>После перелома доступна кнопка <strong>«🏥 Лечение»</strong>. Лечение длится <strong>5 минут реального времени</strong>; таймер оставшегося времени показывается в связанных блоках. До окончания лечения нельзя стартовать, тренироваться или отдыхать. После завершения лечения усталость полностью восстанавливается до <strong>0%</strong>.</p></div>
