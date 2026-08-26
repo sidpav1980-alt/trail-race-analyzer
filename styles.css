@@ -654,3 +654,86 @@ footer,.author-contact-footer,.simulation-disclaimer{opacity:.76!important}
  .sim-stats{grid-template-columns:repeat(2,1fr)}
  .race-gear-summary{grid-template-columns:repeat(2,1fr)!important}
 }
+
+/* ===== v1.03 BLUE UI ===== */
+:root{
+  --bg:#07111f;
+  --card:rgba(8,22,41,.94);
+  --card2:rgba(11,30,52,.94);
+  --line:rgba(77,120,168,.38);
+  --text:#f2f7ff;
+  --muted:#91a4bd;
+  --accent:#38bdf8;
+  --accent2:#60a5fa;
+  --green:#28c76f;
+  --danger:#d14c57;
+}
+html{background:#06101d!important}
+body{
+  background:linear-gradient(180deg,#07111f 0%,#08182a 45%,#06101c 100%) fixed!important;
+  color:var(--text)!important;
+}
+.app{padding-bottom:calc(176px + env(safe-area-inset-bottom))!important}
+.topbar{
+  background:rgba(7,19,35,.96)!important;
+  border-bottom:1px solid rgba(56,189,248,.28)!important;
+}
+.topbar .eyebrow{color:#83bfe0!important}
+.topbar h1{color:#f4f8ff!important}
+.topbar h1::first-letter{color:var(--accent)!important}
+.version{color:#7dd3fc!important;border-color:#315a80!important}
+.card,.game-drawer,.main-drawer,.race-leaders-card{
+  background:linear-gradient(180deg,rgba(10,27,48,.97),rgba(6,20,37,.97))!important;
+  border-color:rgba(64,105,150,.48)!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.25)!important;
+}
+.hud>div,.status-strip>div{background:rgba(10,27,48,.92)!important}
+.player-name-card input{background:#08182a!important;border-color:#315a80!important}
+.mini-progress,.progress,.durability{background:#1d304a!important}
+.mini-progress>div,.progress>div,.durability>div{background:linear-gradient(90deg,#38bdf8,#22c55e)!important}
+.sim-card>.row.between{border-bottom-color:rgba(56,189,248,.28)!important}
+.simulation-race-title{color:#7dd3fc!important}
+select{background:#0a1d33!important;color:#eef7ff!important;border-color:#315a80!important}
+.track-visual{border-color:#315a80!important;background:#061424!important}
+.primary{background:#38bdf8!important;color:#04111e!important;border-color:#67d1ff!important}
+.secondary{background:#102743!important;color:#dceeff!important;border-color:#315a80!important}
+.danger{background:#5d222b!important;color:#ffd8dc!important;border-color:#a8404d!important}
+.badge{background:#0e2945!important;border-color:#315a80!important;color:#dff4ff!important}
+.warning-note,.start-requirements-error{background:#4d2914!important;border-color:#b76d28!important;color:#ffe0b6!important}
+.sim-stats{background:#294968!important;border-color:#294968!important}
+.sim-stats>div{background:#081a2e!important}
+.game-drawer>summary,.main-drawer>summary{
+  background:#0a1f36!important;color:#edf7ff!important;border-left-color:#38bdf8!important;
+}
+.game-drawer[open]>summary,.main-drawer[open]>summary{background:#0d2a47!important}
+.level-card,.level-item,.race-card,.shop-item,.gear-item,.coach-item,.resource-item,.race-gear-slot{
+  background:#081a2d!important;border-color:#294b6d!important;
+}
+.level-card:hover,.level-item:hover,.race-card:hover{border-color:#38bdf8!important}
+.level-card button,.level-item button,.race-card button{color:#7dd3fc!important}
+.shop-cat-btn{background:#0c223b!important;border-color:#315a80!important;color:#cdeaff!important}
+.shop-cat-btn.active{background:#38bdf8!important;color:#061424!important;border-color:#67d1ff!important}
+.gear-slot-effect{color:#7dd3fc!important}
+.trail3d-bottom-nav{
+  grid-template-columns:repeat(4,1fr)!important;
+  grid-template-rows:repeat(3,auto)!important;
+  background:rgba(5,18,33,.985)!important;
+  border-top-color:rgba(56,189,248,.30)!important;
+  padding-top:4px!important;
+}
+.trail3d-bottom-nav button{
+  color:#8fa9c1!important;font-size:9px!important;min-height:48px!important;
+  padding:4px 2px!important;letter-spacing:.025em!important;
+}
+.trail3d-bottom-nav button.active{color:#38bdf8!important}
+.trail3d-bottom-nav button span{font-size:17px!important}
+.trail3d-bottom-nav button.achievements-nav,.trail3d-bottom-nav button.wide-label{font-size:8px!important}
+.carry-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.carry-card{background:#081a2d;border:1px solid #294b6d;border-radius:14px;padding:14px;min-height:105px}
+.carry-card span,.carry-card small{display:block;color:#91a4bd}
+.carry-card b{display:block;color:#f2f7ff;font-size:22px;margin:8px 0 5px}
+#race,#carrySection,#levels,#shop,#resources,#achievements,#lampPowerSection,#restSection,#itraSection,#raceEventsSection,#currentEquipmentSection,#training{scroll-margin-top:170px}
+@media(max-width:560px){
+  .carry-grid{grid-template-columns:1fr!important}
+  .app{padding-bottom:calc(178px + env(safe-area-inset-bottom))!important}
+}

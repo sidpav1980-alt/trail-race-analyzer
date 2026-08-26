@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07111f">
 <title>Trail Runner: Armageddon</title>
-<link rel="stylesheet" href="styles.css?v=102-ui3d-20260826">
+<link rel="stylesheet" href="styles.css?v=103-blue-20260826">
 </div>
 
 
@@ -112,7 +112,7 @@
 .author-contact-footer{color:#fff!important;opacity:1!important;}
 .author-contact-footer a{color:#fff!important;}
 </style>
-</head>
+\n<style>\n/* v1.03: bottom navigation works like real tabs — only selected section is visible */\nbody.nav-section-focus .donate-section,\nbody.nav-section-focus .simulation-disclaimer,\nbody.nav-section-focus footer,\nbody.nav-section-focus .author-contact-footer{display:none!important;}\nbody.nav-section-focus main{min-height:calc(100vh - 250px);}\n</style>\n</head>
 <body>
 <div class="app">
   <header class="topbar">
@@ -284,6 +284,17 @@
     </section>
 
     <section class="game-tools">
+      <details id="carrySection" class="game-drawer"><summary>🎒 С собой</summary><div class="drawer-body">
+        <div class="card">
+          <h2>🎒 С собой на гонку</h2>
+          <p class="muted">Что уже куплено и доступно перед стартом.</p>
+          <div class="carry-grid">
+            <div class="carry-card"><span>🍯 Гели «УГЛИ»</span><b id="carryGels">0 шт.</b><small id="carryGelsNeed">—</small></div>
+            <div class="carry-card"><span>🩹 Аптечка</span><b id="carryMedkit">0/7</b><small id="carryMedkitStatus">—</small></div>
+            <div class="carry-card"><span>💧 Вода</span><b id="carryWater">0 × 0,5 л</b><small id="carryWaterNeed">—</small></div>
+          </div>
+        </div>
+      </div></details>
       <details id="levels" class="game-drawer"><summary>🏆 21 уровень кампании</summary><div class="drawer-body">
       <div class="card">
         <div class="row between">
@@ -355,7 +366,7 @@
         <div id="trainingStatus" class="notice">Одна тренировка длится 1 минуту реального времени и даёт +1 к тренированности, пока не достигнут предел тренера.</div>
       </div>
 
-      <div class="card">
+      <div class="card" id="itraSection">
         <h2>🏆 ITRA-лига игры</h2>
         <p class="muted">Известные российские трейлраннеры используются как элитные соперники. Баллы в игровой таблице — игровые для баланса.</p>
         <div id="itraLeaderboard" class="leaderboard"></div>
@@ -375,7 +386,7 @@
 <div class="card simulation-disclaimer" style="margin-top:16px;line-height:1.5;font-size:.92rem;opacity:.9">ℹ️ Игра является симуляцией. Броды, погода, питание, состояние покрытия, самочувствие и другие факторы могут существенно повлиять на фактический результат. Расчёты носят исключительно информационно-ознакомительный характер, не являются гарантией результата или рекомендацией к действию. Автор не несёт ответственности за решения, принятые на основании расчётов игры.</div>
   <footer>Trail Runner: Armageddon <span id="footerVersion">v—</span> · игровая симуляция · 2026</footer>
 </div>
-<script src="app.js?v=102-ui3d-20260826"></script>
+<script src="app.js?v=103-blue-20260826"></script>
 
 <div id="gameErrorToast" class="game-error-toast" role="alert" aria-live="assertive"></div>
 
@@ -510,27 +521,94 @@
 </div>
 
 <nav class="trail3d-bottom-nav" aria-label="Основная навигация">
-  <button type="button" data-target="levels" class="active"><span>🏁</span>Гонки</button>
+  <button type="button" data-target="race" class="active"><span>▶️</span>Старт гонки</button>
+  <button type="button" data-target="carrySection"><span>🎒</span>С собой</button>
+  <button type="button" data-target="levels"><span>🏁</span>Кампания</button>
   <button type="button" data-target="shop"><span>👕</span>Экипировка</button>
   <button type="button" data-target="resources"><span>🧃</span>Расходники</button>
-  <button type="button" data-target="achievements"><span>📓</span>Журнал</button>
-  <button type="button" data-target="raceEventsSection"><span>📜</span>События</button>
+  <button type="button" data-target="achievements" class="achievements-nav"><span>🏆</span>Редкие ачивки</button>
   <button type="button" data-target="lampPowerSection"><span>🔦</span>Фонарь</button>
-  <button type="button" data-target="currentEquipmentSection"><span>🎒</span>Текущее</button>
   <button type="button" data-target="restSection"><span>😴</span>Отдых</button>
+  <button type="button" data-target="itraSection"><span>📈</span>ITRA</button>
+  <button type="button" data-target="raceEventsSection" class="wide-label"><span>📜</span>События гонки</button>
+  <button type="button" data-target="currentEquipmentSection"><span>🎽</span>Текущее</button>
+  <button type="button" data-target="training"><span>🏃</span>Тренировка</button>
 </nav>
 <script>
 (function(){
-  function go(id,btn){
-    var el=document.getElementById(id); if(!el)return;
-    if(el.tagName==='DETAILS') el.open=true;
+  const race=document.getElementById('race');
+  const tools=document.querySelector('section.game-tools');
+  const training=document.getElementById('training');
+  const raceDirect=()=>race?Array.from(race.children):[];
+  const toolDirect=()=>tools?Array.from(tools.children):[];
+  const trainingDirect=()=>training?Array.from(training.children):[];
+
+  function setVisible(el,visible){ if(el) el.style.display=visible?'':'none'; }
+  function showOnlyDirect(parent, keep){
+    if(!parent)return;
+    Array.from(parent.children).forEach(function(ch){ setVisible(ch, ch===keep); });
+  }
+  function resetGroups(){
+    setVisible(race,false); setVisible(tools,false); setVisible(training,false);
+    raceDirect().forEach(function(ch){ch.style.display=''});
+    toolDirect().forEach(function(ch){ch.style.display=''});
+    trainingDirect().forEach(function(ch){ch.style.display=''});
+  }
+  function focusSection(id){
+    const el=document.getElementById(id); if(!el)return null;
+    resetGroups();
+
+    if(id==='race'){
+      setVisible(race,true);
+      const sim=race.querySelector('.sim-card');
+      showOnlyDirect(race,sim);
+      return sim||race;
+    }
+    if(race && race.contains(el)){
+      setVisible(race,true);
+      showOnlyDirect(race,el);
+      if(el.tagName==='DETAILS')el.open=true;
+      return el;
+    }
+    if(tools && tools.contains(el)){
+      setVisible(tools,true);
+      showOnlyDirect(tools,el);
+      if(el.tagName==='DETAILS')el.open=true;
+      return el;
+    }
+    if(id==='training'){
+      setVisible(training,true);
+      trainingDirect().forEach(function(ch){setVisible(ch, ch.id!=='itraSection');});
+      const coach=document.getElementById('coachShop'); if(coach)coach.open=false;
+      return training;
+    }
+    if(training && training.contains(el)){
+      setVisible(training,true);
+      showOnlyDirect(training,el);
+      return el;
+    }
+    setVisible(el,true);
+    return el;
+  }
+  function go(id,btn,instant){
+    document.body.classList.add('nav-section-focus');
+    const el=focusSection(id); if(!el)return;
     document.querySelectorAll('.trail3d-bottom-nav button').forEach(function(b){b.classList.remove('active')});
     if(btn)btn.classList.add('active');
-    setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'start'})},20);
+    setTimeout(function(){
+      const header=document.querySelector('.topbar');
+      const offset=(header?header.getBoundingClientRect().height:0)+16;
+      const top=el.getBoundingClientRect().top+window.scrollY-offset;
+      window.scrollTo({top:Math.max(0,top),behavior:instant?'auto':'smooth'});
+    },instant?0:30);
   }
   document.addEventListener('click',function(e){
-    var b=e.target.closest('.trail3d-bottom-nav button'); if(!b)return;
-    go(b.dataset.target,b);
+    const b=e.target.closest('.trail3d-bottom-nav button'); if(!b)return;
+    go(b.dataset.target,b,false);
+  });
+  window.addEventListener('DOMContentLoaded',function(){
+    const b=document.querySelector('.trail3d-bottom-nav button[data-target="race"]');
+    go('race',b,true);
   });
 })();
 </script>

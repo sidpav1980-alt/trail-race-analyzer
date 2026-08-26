@@ -1,5 +1,5 @@
 window.CHARA_BG_IMG=new Image(); window.CHARA_BG_IMG.src='chara_bg_102_20260822_clean2.png?v=102-20260822-clean2'; window.CHARA_BG_IMG.onload=()=>{try{drawTrack(run?.p||0)}catch(e){}};
-const APP_VERSION='1.02';
+const APP_VERSION='1.03';
 
 
 
@@ -848,6 +848,13 @@ function render(){
  const waterNeedNow=waterBottlesNeeded(L,raceWeather);
  if($('waterCount')) $('waterCount').textContent=String(game.resources.waterBottles||0);
  if($('waterNeedText')) $('waterNeedText').textContent=`на эту гонку нужно ≈ ${waterNeedNow} × 0,5 л`;
+ // Compact “С собой” screen in bottom navigation.
+ if($('carryGels')) $('carryGels').textContent=`${Number(game.resources.gels||0)} шт.`;
+ if($('carryGelsNeed')) $('carryGelsNeed').textContent=`на текущую гонку нужно ≈ ${gelNeedNow}`;
+ if($('carryMedkit')) $('carryMedkit').textContent=medReadyKits>0?`${medReadyKits} готов. компл. + ${medkitScore()}/7`:`${medkitScore()}/7`;
+ if($('carryMedkitStatus')) $('carryMedkitStatus').textContent=medReadyKits>0?'готовый комплект куплен':(medkitScore()>=7?'аптечка укомплектована':'нужно докупить компоненты');
+ if($('carryWater')) $('carryWater').textContent=`${Number(game.resources.waterBottles||0)} × 0,5 л`;
+ if($('carryWaterNeed')) $('carryWaterNeed').textContent=`на текущую гонку нужно ≈ ${waterNeedNow} × 0,5 л`;
  const waterQuick=$('quickBuyWater');
  if(waterQuick){
    const miss=Math.max(0,waterNeedNow-Number(game.resources.waterBottles||0));
