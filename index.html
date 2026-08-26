@@ -121,6 +121,18 @@
 .trail3d-bottom-nav{grid-template-rows:repeat(4,auto)!important;}
 @media(max-width:760px){body{padding-bottom:calc(246px + env(safe-area-inset-bottom))!important;}}
 </style>
+
+<style>
+/* v1.03: consumable top-up moved into “С собой” */
+#carrySection .carry-buy-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+#carrySection .quick-buy-card{min-height:150px;border:1px solid #2d5f87;border-radius:18px;background:#0b1c31;padding:16px;display:flex;flex-direction:column;gap:8px;justify-content:flex-start}
+#carrySection .quick-buy-card b{font-size:30px;color:#f4f8ff}
+#carrySection .quick-buy-card .quick-buy-hint{margin-top:auto;color:#49bfff!important;font-weight:800}
+#carrySection .quick-buy-card.quick-buy-ok{border-color:#2f9f72}
+#carrySection .quick-buy-card.quick-buy-ok .quick-buy-hint{color:#70dfa5!important}
+#carrySection .carry-buy-note{margin-top:14px}
+@media(max-width:700px){#carrySection .carry-buy-grid{grid-template-columns:1fr 1fr}#carrySection .quick-buy-card:last-child{grid-column:1/-1}}
+</style>
 </head>
 <body>
 <div class="app">
@@ -152,28 +164,10 @@
       <div class="mini-progress"><div id="fatigueBar"></div></div>
       <small id="restText">Готов к гонке</small><div class="fatigue-actions"><button id="quickRestBtn" class="secondary compact-btn" type="button">😴 Отдых</button><button id="quickTreatBtn" class="secondary compact-btn" type="button">🏥 Лечение</button></div>
     </div>
-    <div id="quickBuyGels" class="quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить гели до нормы этой гонки">
-      <span>Гели «УГЛИ»</span>
-      <b id="gelCount">0</b>
-      <small id="gelNeedText">нужно по дистанции</small>
-      <small class="quick-buy-hint">Нажмите, чтобы докупить</small>
-    </div>
-    <div id="quickBuyWater" class="quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить воду до нормы этой гонки">
-      <span>Вода</span>
-      <b id="waterCount">0 × 0,5 л</b>
-      <small id="waterNeedText">нужно по погоде и дистанции</small>
-      <small class="quick-buy-hint">Нажмите, чтобы докупить</small>
-    </div>
     <div id="quickBuyLampPower" class="quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить питание фонаря до нормы этой гонки">
       <span>Питание фонаря</span>
       <b id="lampPowerText">—</b>
       <small id="lampPowerSub">—</small>
-      <small class="quick-buy-hint">Нажмите, чтобы докупить</small>
-    </div>
-    <div id="quickBuyMedkit" class="quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить недостающие компоненты аптечки">
-      <span>Аптечка</span>
-      <b id="medkitSummary">—</b>
-      <small>бинт · марля · перекись · пластырь · крем от натирания · крем от солнца · спас-одеяло</small>
       <small class="quick-buy-hint">Нажмите, чтобы докупить</small>
     </div>
     <div>
@@ -294,14 +288,21 @@
 
     <section class="game-tools">
       <details id="carrySection" class="game-drawer"><summary>🎒 С собой</summary><div class="drawer-body">
-        <div class="card">
+        <div class="card carry-buy-card">
           <h2>🎒 С собой на гонку</h2>
-          <p class="muted">Что уже куплено и доступно перед стартом.</p>
-          <div class="carry-grid">
-            <div class="carry-card"><span>🍯 Гели «УГЛИ»</span><b id="carryGels">0 шт.</b><small id="carryGelsNeed">—</small></div>
-            <div class="carry-card"><span>🩹 Аптечка</span><b id="carryMedkit">0/7</b><small id="carryMedkitStatus">—</small></div>
-            <div class="carry-card"><span>💧 Вода</span><b id="carryWater">0 × 0,5 л</b><small id="carryWaterNeed">—</small></div>
+          <p class="muted">Здесь собран запас на текущую гонку. До старта можно сразу докупить недостающее.</p>
+          <div class="carry-grid carry-buy-grid">
+            <div id="quickBuyGels" class="carry-card quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить гели до нормы этой гонки">
+              <span>🍯 Гели «УГЛИ»</span><b id="gelCount">0</b><small id="gelNeedText">нужно по дистанции</small><small class="quick-buy-hint">Докупить до нормы</small>
+            </div>
+            <div id="quickBuyMedkit" class="carry-card quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить недостающие компоненты аптечки">
+              <span>🩹 Аптечка</span><b id="medkitSummary">—</b><small>бинт · марля · перекись · пластырь · крем от натирания · крем от солнца · спас-одеяло</small><small class="quick-buy-hint">Докупить недостающее</small>
+            </div>
+            <div id="quickBuyWater" class="carry-card quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить воду до нормы этой гонки">
+              <span>💧 Вода</span><b id="waterCount">0</b><small id="waterNeedText">нужно по погоде и дистанции</small><small class="quick-buy-hint">Докупить до нормы</small>
+            </div>
           </div>
+          <div class="notice carry-buy-note">Нажми на карточку «УГЛИ», «Аптечка» или «Вода» — игра рассчитает недостающее для выбранной гонки и купит его за рубли.</div>
         </div>
       </div></details>
       <details id="levels" class="game-drawer"><summary>🏆 21 уровень кампании</summary><div class="drawer-body">
