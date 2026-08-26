@@ -510,3 +510,147 @@ button{ -webkit-user-select:none; user-select:none; }
 .chara-misha-source{padding:0!important;width:94px!important;max-width:94px!important;border:1px solid rgba(251,191,36,.8)!important;overflow:hidden;background:#06101c!important;box-shadow:0 0 32px rgba(251,191,36,.26)!important}
 .chara-misha-source img{display:block;width:100%;height:auto;max-height:72vh;object-fit:contain}
 @media(max-width:520px){.chara-misha-source{width:82px!important;max-width:82px!important}.chara-misha-source img{max-height:68vh}}
+
+/* ===== 1.02 UI REFRESH — Trail 3D inspired ===== */
+:root{
+  --bg:#0c1712;
+  --card:rgba(9,27,20,.88);
+  --card2:rgba(13,36,27,.86);
+  --line:rgba(133,163,132,.22);
+  --text:#f3f4ef;
+  --muted:#9da89d;
+  --accent:#e98b36;
+  --accent2:#f2a04d;
+  --green:#8ab06f;
+  --danger:#b6483d;
+}
+html{background:#0b1510}
+body{
+  background:
+    linear-gradient(rgba(8,18,13,.80),rgba(8,18,13,.92)),
+    url('chara_bg_102_20260822_clean2.png?v=ui1023d') center top/cover fixed no-repeat;
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Arial,sans-serif;
+  letter-spacing:.01em;
+}
+.app{max-width:980px;margin:0 auto;padding:0 14px 104px}
+.topbar{
+  position:sticky;top:0;z-index:200;
+  margin:0 -14px 18px;padding:18px 22px 15px;
+  background:rgba(13,28,23,.91);backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(232,139,54,.18);
+}
+.topbar .eyebrow{font-size:13px;letter-spacing:.22em;color:#a4afa6;font-weight:800}
+.topbar h1{font-size:clamp(22px,5vw,34px);text-transform:uppercase;letter-spacing:.04em;margin:4px 0 0;color:#f5f5ef}
+.topbar h1::first-letter{color:var(--accent)}
+.version{color:var(--accent);font-weight:900;letter-spacing:.08em}
+.help-btn,.profile-chip,.header-logout{border-radius:4px!important}
+
+.card,.game-drawer,.main-drawer,.race-leaders-card{
+  background:linear-gradient(180deg,rgba(13,35,27,.91),rgba(7,24,17,.91))!important;
+  border:1px solid var(--line)!important;
+  border-radius:4px!important;
+  box-shadow:0 12px 30px rgba(0,0,0,.18)!important;
+}
+.card{padding:18px}
+.hud{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;padding:0!important;overflow:hidden}
+.hud>div{padding:16px;background:rgba(14,38,28,.68);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.hud span,.status-strip span,.sim-stats span{color:#aeb7ae;text-transform:uppercase;letter-spacing:.07em;font-size:12px}
+.hud b,.status-strip b,.sim-stats b{font-family:"Arial Narrow",Impact,sans-serif;letter-spacing:.02em;color:#f5f5ef}
+.hud b{font-size:29px}
+.hud small,.status-strip small{color:#8f9b91}
+.player-name-card input{border-radius:2px!important;background:rgba(5,22,15,.76)!important;border-color:rgba(135,162,137,.32)!important}
+
+.status-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;padding:0!important;overflow:hidden;margin-top:12px}
+.status-strip>div{padding:16px;background:rgba(12,34,24,.70);min-height:118px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.status-strip b{font-size:27px}
+.mini-progress,.progress,.durability{background:#26372d!important;border-radius:0!important;height:8px!important}
+.mini-progress>div,.progress>div,.durability>div{background:linear-gradient(90deg,var(--accent),#e5b26e)!important;border-radius:0!important}
+
+.game-main,.game-tools,#training{margin-top:14px}
+.sim-card>.row.between{padding-bottom:14px;border-bottom:1px solid rgba(232,139,54,.22)}
+.simulation-race-title{color:var(--accent)!important;text-transform:uppercase;letter-spacing:.11em;font-size:13px!important}
+h2,h3{font-family:"Arial Narrow",Impact,sans-serif;letter-spacing:.025em}
+select{background:#13261d!important;color:#f5f5ef!important;border:1px solid var(--line)!important;border-radius:2px!important}
+.track-visual{border:1px solid rgba(231,139,54,.25);border-radius:2px!important;overflow:hidden;background:#0a1811}
+
+button{border-radius:3px!important;text-transform:uppercase;letter-spacing:.045em;font-weight:900!important}
+.primary{background:var(--accent)!important;color:#1c130c!important;border:1px solid #f2a04d!important;box-shadow:none!important}
+.secondary{background:#14271d!important;color:#d9ded7!important;border:1px solid rgba(137,166,139,.27)!important}
+.danger{background:#522520!important;color:#f5c5bd!important;border:1px solid #844238!important}
+.primary:disabled,.secondary:disabled{opacity:.40}
+.controls .primary{font-size:18px;padding:16px}
+.badge{border-radius:2px!important;background:#13291f!important;border-color:#3e5c49!important}
+.notice{border-radius:3px!important}
+.warning-note,.start-requirements-error{background:rgba(91,43,18,.90)!important;border-color:#bd7531!important;color:#ffe2bf!important}
+
+.sim-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:2px!important;margin-top:14px;background:var(--line);border:1px solid var(--line)}
+.sim-stats>div{background:rgba(9,29,20,.96)!important;border:0!important;border-radius:0!important;padding:15px!important}
+.sim-stats b{font-size:26px}
+
+.game-drawer,.main-drawer{margin:10px 0;overflow:hidden}
+.game-drawer>summary,.main-drawer>summary{
+  background:rgba(12,31,23,.94)!important;color:#e8ebe5!important;
+  padding:16px 18px!important;border-radius:0!important;
+  text-transform:uppercase;letter-spacing:.075em;font-weight:900!important;
+  border-left:4px solid var(--accent)!important;
+}
+.game-drawer[open]>summary,.main-drawer[open]>summary{background:rgba(20,42,31,.96)!important}
+.drawer-body{padding:10px!important}
+
+/* campaign cards */
+.levels-grid{display:grid!important;gap:12px!important}
+.level-card,.level-item,.race-card{border-radius:2px!important;background:rgba(10,29,20,.89)!important;border:1px solid rgba(134,165,135,.25)!important}
+.level-card:hover,.level-item:hover,.race-card:hover{border-color:rgba(232,139,54,.58)!important}
+.level-card button,.level-item button,.race-card button{color:var(--accent)!important}
+
+/* shop — compact military/game list */
+.shop-category-tabs{gap:7px!important;padding-bottom:10px!important}
+.shop-cat-btn{border-radius:2px!important;text-transform:uppercase;letter-spacing:.06em;background:#11251a!important;border-color:rgba(120,150,123,.25)!important}
+.shop-cat-btn.active{background:var(--accent)!important;color:#1b120a!important;border-color:var(--accent)!important}
+.shop-grid,.gear-grid{gap:10px!important}
+.shop-item,.gear-item,.coach-item,.resource-item{background:rgba(8,28,18,.91)!important;border:1px solid rgba(131,160,131,.23)!important;border-radius:2px!important}
+.shop-item button,.gear-item button,.coach-item button,.resource-item button{border-radius:2px!important}
+
+/* cleaner equipment summary */
+.race-gear-summary{gap:6px!important}
+.race-gear-slot{border-radius:2px!important;background:rgba(8,28,18,.91)!important;border-color:rgba(131,160,131,.23)!important}
+.race-gear-slot strong{color:#f0f2ed}.gear-slot-effect{color:#a9c18c!important}
+
+/* Trail-3D style bottom navigation */
+.trail3d-bottom-nav{
+  position:fixed;left:0;right:0;bottom:0;z-index:9998;
+  display:grid;grid-template-columns:repeat(4,1fr);
+  background:rgba(10,27,19,.97);backdrop-filter:blur(14px);
+  border-top:1px solid rgba(139,162,141,.25);
+  padding:8px max(8px,env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));
+}
+.trail3d-bottom-nav button{
+  border:0!important;background:transparent!important;color:#8f9990!important;
+  padding:10px 5px!important;font-size:12px!important;text-transform:uppercase;letter-spacing:.07em;
+}
+.trail3d-bottom-nav button.active{color:var(--accent)!important}
+.trail3d-bottom-nav button span{display:block;font-size:20px;margin-bottom:3px}
+
+/* section headers / highlights */
+#levels>summary,#shop>summary,#resources>summary,#achievements>summary{color:#f1f1ec!important}
+#levels>summary::before,#shop>summary::before,#resources>summary::before,#achievements>summary::before{color:var(--accent)}
+footer,.author-contact-footer,.simulation-disclaimer{opacity:.76!important}
+
+@media(max-width:760px){
+ .app{padding-left:10px;padding-right:10px;padding-bottom:112px}
+ .topbar{margin-left:-10px;margin-right:-10px;padding:14px 15px}
+ .topbar h1{font-size:22px;line-height:1.05}
+ .topbar .eyebrow{font-size:10px}
+ .hud{grid-template-columns:repeat(3,1fr)}
+ .hud>div{padding:13px 11px;min-width:0}
+ .hud b{font-size:23px}.hud small{font-size:11px}
+ .player-name-card{grid-column:span 3}
+ .status-strip{grid-template-columns:repeat(2,1fr)}
+ .status-strip>div{padding:13px;min-height:108px}
+ .status-strip b{font-size:24px}
+ .sim-card{padding:12px!important}
+ .sim-card>.row.between h2{font-size:28px;margin:0}
+ .sim-stats{grid-template-columns:repeat(2,1fr)}
+ .race-gear-summary{grid-template-columns:repeat(2,1fr)!important}
+}

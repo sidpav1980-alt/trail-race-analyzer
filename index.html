@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07111f">
 <title>Trail Runner: Armageddon</title>
-<link rel="stylesheet" href="styles.css?v=102-20260822-clean2">
+<link rel="stylesheet" href="styles.css?v=102-ui3d-20260826">
 </div>
 
 
@@ -117,8 +117,8 @@
 <div class="app">
   <header class="topbar">
     <div>
-      <div class="eyebrow">СИМУЛЯТОР ТРЕЙЛРАННЕРА</div>
-      <h1>Гонка → Экипировка → Армагеддон → на Углях</h1>
+      <div class="eyebrow">TRAIL 3D · СИМУЛЯТОР ТРЕЙЛРАННЕРА</div>
+      <h1>TRAIL ARMAGEDDON 3D</h1>
     </div>
     <div class="topbar-account"><button id="topHelpBtn" class="help-btn top-help-btn" type="button">❓ Помощь</button><div class="version" id="appVersion">v—</div>
   </div></header>
@@ -375,7 +375,7 @@
 <div class="card simulation-disclaimer" style="margin-top:16px;line-height:1.5;font-size:.92rem;opacity:.9">ℹ️ Игра является симуляцией. Броды, погода, питание, состояние покрытия, самочувствие и другие факторы могут существенно повлиять на фактический результат. Расчёты носят исключительно информационно-ознакомительный характер, не являются гарантией результата или рекомендацией к действию. Автор не несёт ответственности за решения, принятые на основании расчётов игры.</div>
   <footer>Trail Runner: Armageddon <span id="footerVersion">v—</span> · игровая симуляция · 2026</footer>
 </div>
-<script src="app.js?v=102-20260822-clean2"></script>
+<script src="app.js?v=102-ui3d-20260826"></script>
 
 <div id="gameErrorToast" class="game-error-toast" role="alert" aria-live="assertive"></div>
 
@@ -508,5 +508,27 @@
   <div>Павел Сидоренко (с) 2006</div>
   <div style="font-size:17px;margin-top:2px;">Обратная связь: <a href="mailto:sim_trail@mail.ru" style="color:#fff;font-size:17px;font-weight:700;">sim_trail@mail.ru</a></div>
 </div>
+
+<nav class="trail3d-bottom-nav" aria-label="Основная навигация">
+  <button type="button" data-target="levels" class="active"><span>🏁</span>Гонки</button>
+  <button type="button" data-target="shop"><span>👕</span>Экипировка</button>
+  <button type="button" data-target="resources"><span>🧃</span>Расходники</button>
+  <button type="button" data-target="achievements"><span>📓</span>Журнал</button>
+</nav>
+<script>
+(function(){
+  function go(id,btn){
+    var el=document.getElementById(id); if(!el)return;
+    if(el.tagName==='DETAILS') el.open=true;
+    document.querySelectorAll('.trail3d-bottom-nav button').forEach(function(b){b.classList.remove('active')});
+    if(btn)btn.classList.add('active');
+    setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'start'})},20);
+  }
+  document.addEventListener('click',function(e){
+    var b=e.target.closest('.trail3d-bottom-nav button'); if(!b)return;
+    go(b.dataset.target,b);
+  });
+})();
+</script>
 </body>
 </html>
