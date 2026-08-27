@@ -156,6 +156,39 @@
 }
 </style>
 
+
+<style>
+/* v1.03 — compact "С собой" and "Об игре" */
+#carrySection .drawer-body{padding:7px!important;}
+#carrySection .card{padding:9px!important;border-radius:11px!important;}
+#carrySection h2{font-size:18px!important;margin:0 0 4px!important;}
+#carrySection .card>p.muted{font-size:10.5px!important;line-height:1.25!important;margin:2px 0 7px!important;}
+#carrySection .carry-buy-grid{gap:6px!important;}
+#carrySection .quick-buy-card{min-height:70px!important;padding:8px 9px!important;border-radius:10px!important;gap:2px!important;}
+#carrySection .quick-buy-card span{font-size:11px!important;line-height:1.15!important;}
+#carrySection .quick-buy-card b{font-size:20px!important;margin:1px 0!important;}
+#carrySection .quick-buy-card small{font-size:9.5px!important;line-height:1.2!important;}
+#carrySection .quick-buy-hint{font-size:9.5px!important;margin-top:2px!important;}
+#carrySection .carry-buy-note{font-size:10px!important;line-height:1.2!important;padding:6px 8px!important;margin-top:6px!important;}
+@media(max-width:700px){
+  #carrySection .carry-buy-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
+  #carrySection .quick-buy-card:last-child{grid-column:auto!important;}
+}
+
+#aboutGameSection{padding:10px 14px 235px!important;}
+#aboutGameSection>.card{padding:10px 12px!important;margin-top:8px!important;border-radius:11px!important;}
+#aboutGameSection h2{font-size:18px!important;margin:0 0 4px!important;}
+#aboutGameSection p.muted{font-size:10.5px!important;line-height:1.3!important;margin:3px 0!important;}
+#aboutGameSection .donate-section{margin:10px auto 7px!important;}
+#aboutGameSection .donate-section a{padding:8px 13px!important;font-size:14px!important;}
+#aboutGameSection .donate-section div{font-size:10px!important;margin-top:4px!important;}
+#aboutGameSection .simulation-disclaimer{font-size:10.5px!important;line-height:1.35!important;padding:9px 10px!important;margin-top:8px!important;}
+#aboutGameSection footer{font-size:11px!important;margin:9px 0!important;}
+#aboutGameSection .author-contact-footer{font-size:13px!important;line-height:1.35!important;margin:6px 0 8px!important;}
+#aboutGameSection .author-contact-footer div,
+#aboutGameSection .author-contact-footer a{font-size:12px!important;}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -421,11 +454,6 @@
     </div>
   </section>
   <div class="card simulation-disclaimer" style="margin-top:16px;line-height:1.5;font-size:.92rem;opacity:.9">ℹ️ Игра является симуляцией. Броды, погода, питание, состояние покрытия, самочувствие и другие факторы могут существенно повлиять на фактический результат. Расчёты носят исключительно информационно-ознакомительный характер, не являются гарантией результата или рекомендацией к действию. Автор не несёт ответственности за решения, принятые на основании расчётов игры.</div>
-  <div class="card about-contacts" style="margin-top:16px;text-align:center;line-height:1.65">
-    <h3>Связь с проектом</h3>
-    <div>📧 <a href="mailto:sim_trail@mail.ru">sim_trail@mail.ru</a></div>
-    <div>✈️ <a href="https://t.me/trail_armageddon" target="_blank" rel="noopener noreferrer">t.me/trail_armageddon</a></div>
-  </div>
   <footer>Trail Runner: Armageddon <span id="footerVersion">v—</span> · игровая симуляция · 2026</footer>
   <div class="author-contact-footer" style="text-align:center;color:#fff;opacity:1;margin:8px 0 14px;font-size:18px;line-height:1.45;font-weight:600;">
     <div>Павел Сидоренко (с) 2006</div>
