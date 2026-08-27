@@ -135,129 +135,24 @@
 </style>
 
 <style>
-/* v1.03 compact cards: С собой / Кампания / Текущее */
-#carrySection .drawer-body,
-#levels .drawer-body,
-#currentEquipmentSection .drawer-body{
-  padding-top:8px!important;
-}
-#carrySection .card,
-#levels .card,
-#currentEquipmentSection .card{
-  padding:12px!important;
-}
-#carrySection h2,
-#levels h2,
-#currentEquipmentSection h2{
-  font-size:20px!important;
-  margin:0 0 6px!important;
-}
-#carrySection .carry-buy-card > .muted,
-#levels .card > .row .muted,
-#currentEquipmentSection .equipment-head .muted{
-  font-size:12px!important;
-  line-height:1.3!important;
-  margin:3px 0 8px!important;
-}
-
-/* С собой */
-#carrySection .carry-buy-grid{
-  gap:8px!important;
-}
-#carrySection .quick-buy-card{
-  min-height:88px!important;
-  padding:10px 11px!important;
-  border-radius:12px!important;
-  gap:4px!important;
-}
-#carrySection .quick-buy-card span{
-  font-size:13px!important;
-}
-#carrySection .quick-buy-card b{
-  font-size:23px!important;
-  margin:2px 0!important;
-}
-#carrySection .quick-buy-card small{
-  font-size:10.5px!important;
-  line-height:1.25!important;
-}
-#carrySection .quick-buy-hint{
-  font-size:10.5px!important;
-  margin-top:4px!important;
-}
-#carrySection .carry-buy-note{
-  padding:8px 10px!important;
-  margin-top:8px!important;
-  font-size:11px!important;
-  line-height:1.3!important;
-}
-
-/* Кампания */
-#levels .levels-grid{
-  gap:7px!important;
-}
-#levels .level{
-  padding:9px 10px!important;
-  border-radius:11px!important;
-}
-#levels .level h3{
-  font-size:15px!important;
-  margin:0 0 3px!important;
-  line-height:1.2!important;
-}
-#levels .level .meta{
-  font-size:11px!important;
-  line-height:1.3!important;
-}
-#levels .level button{
-  min-height:34px!important;
-  padding:6px 9px!important;
-  margin-top:6px!important;
-  font-size:12px!important;
-}
-#levels #resetGameBtn{
-  padding:7px 9px!important;
-  font-size:11px!important;
-}
-
-/* Текущая экипировка */
-#currentEquipmentSection .race-gear-summary{
-  gap:6px!important;
-  margin-top:7px!important;
-}
-#currentEquipmentSection .race-gear-slot{
-  padding:7px 8px!important;
-  border-radius:10px!important;
-  min-height:0!important;
-}
-#currentEquipmentSection .race-gear-slot > strong{
-  font-size:12px!important;
-  margin:3px 0 2px!important;
-}
-#currentEquipmentSection .race-gear-slot small,
-#currentEquipmentSection .race-gear-slot span{
-  font-size:10px!important;
-  line-height:1.2!important;
-}
-#currentEquipmentSection #scrollShopBtn{
-  padding:6px 8px!important;
-  min-height:32px!important;
-  font-size:11px!important;
-}
-
+/* v1.03 compact: магазин экипировки / расходники / ремонт экипа */
+#shop .drawer-body,#resources .drawer-body,#gear .drawer-body{padding:8px!important;}
+#shop .card,#resources .card,#gear .card{padding:10px!important;border-radius:12px!important;}
+#shop h2,#resources h2,#gear h2{font-size:19px!important;margin:0 0 4px!important;}
+#shop .card>p.muted,#resources .card>p.muted,#gear .card p.muted{font-size:11px!important;line-height:1.3!important;margin:3px 0 8px!important;}
+#shop .shop-category-tabs{gap:5px!important;padding:2px 0 7px!important;margin-bottom:4px!important;}
+#shop .shop-cat-btn{padding:7px 10px!important;font-size:11px!important;}
+#shop .shop-grid,#resources .shop-grid,#gear .gear-grid{gap:7px!important;}
+#shop .shop-item,#resources .shop-item,#resources .resource-item,#gear .gear-item{padding:9px!important;border-radius:10px!important;}
+#shop .shop-item h3,#resources .shop-item h3,#resources .resource-item h3,#gear .gear-item h3{font-size:14px!important;margin:0 0 3px!important;line-height:1.2!important;}
+#shop .shop-item .meta,#resources .shop-item .meta,#resources .resource-item .meta,#gear .gear-item .meta{font-size:10.5px!important;line-height:1.3!important;}
+#shop .shop-item button,#resources .shop-item button,#resources .resource-item button,#gear .gear-item button{min-height:32px!important;padding:6px 8px!important;margin-top:6px!important;font-size:11px!important;}
+#shop .equipment-detail summary{padding:9px 10px!important;font-size:13px!important;}
+#shop .shop-item-detail-body{padding:0 10px 10px!important;}
+#gear .row.between{gap:8px!important;align-items:flex-start!important;}
+#gear #repairAllBtn{padding:6px 9px!important;font-size:10.5px!important;min-height:31px!important;}
 @media(max-width:700px){
-  #carrySection .carry-buy-grid{
-    grid-template-columns:1fr 1fr!important;
-  }
-  #carrySection .quick-buy-card:last-child{
-    grid-column:auto!important;
-  }
-  #levels .levels-grid{
-    grid-template-columns:1fr 1fr!important;
-  }
-  #currentEquipmentSection .race-gear-summary{
-    grid-template-columns:repeat(2,minmax(0,1fr))!important;
-  }
+  #shop .shop-grid,#resources .shop-grid,#gear .gear-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
 }
 </style>
 
@@ -678,7 +573,7 @@
   <button type="button" data-target="restSection"><span>😴</span>Отдых</button>
   <button type="button" data-target="itraSection"><span>📈</span>ITRA</button>
   <button type="button" data-target="raceEventsSection" class="wide-label"><span>📜</span>События гонки</button>
-  <button type="button" data-target="gear"><span>🔧</span>Ремонт экипа</button>
+  <button type="button" data-target="gear" class="wide-label"><span>🛠️</span>Ремонт экипа</button>
   <button type="button" data-target="currentEquipmentSection"><span>🎽</span>Текущее</button>
   <button type="button" data-target="training"><span>🏃</span>Тренировка</button>
   <button type="button" data-target="aboutGameSection" class="wide-label"><span>ℹ️</span>Об игре</button>
