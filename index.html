@@ -1272,5 +1272,54 @@ body.bottom-nav-collapsed{padding-bottom:calc(112px + env(safe-area-inset-bottom
 })();
 </script>
 
+<style>
+/* v1.03 iOS Chrome: lift the fixed bottom menu above Chrome's bottom browser controls.
+   Safari is left unchanged. */
+html.ios-chrome #bottomNav.trail3d-bottom-nav{
+  bottom:var(--chrome-visible-bottom,0px)!important;
+}
+html.ios-chrome body.bottom-nav-collapsed #bottomNav.trail3d-bottom-nav{
+  height:88px!important;
+  min-height:88px!important;
+  padding-top:34px!important;
+}
+html.ios-chrome body.bottom-nav-collapsed{
+  padding-bottom:calc(104px + var(--chrome-visible-bottom,0px) + env(safe-area-inset-bottom))!important;
+}
+html.ios-chrome body.bottom-nav-collapsed #bottomNav #bottomNavToggle.bottom-nav-toggle{
+  top:4px!important;
+}
+</style>
+<script>
+(function(){
+  const ua=navigator.userAgent||'';
+  const isIOSChrome=/CriOS\//.test(ua);
+  if(!isIOSChrome)return;
+  document.documentElement.classList.add('ios-chrome');
+  function syncChromeBottom(){
+    const vv=window.visualViewport;
+    if(!vv){
+      document.documentElement.style.setProperty('--chrome-visible-bottom','0px');
+      return;
+    }
+    // Distance between the layout viewport bottom and the currently visible viewport bottom.
+    // On iOS Chrome this is the browser toolbar/controls area that can cover fixed UI.
+    const gap=Math.max(0,Math.round(window.innerHeight-(vv.offsetTop+vv.height)));
+    document.documentElement.style.setProperty('--chrome-visible-bottom',gap+'px');
+  }
+  window.addEventListener('resize',syncChromeBottom,{passive:true});
+  window.addEventListener('orientationchange',syncChromeBottom,{passive:true});
+  window.addEventListener('pageshow',syncChromeBottom);
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize',syncChromeBottom,{passive:true});
+    window.visualViewport.addEventListener('scroll',syncChromeBottom,{passive:true});
+  }
+  document.addEventListener('DOMContentLoaded',syncChromeBottom);
+  setTimeout(syncChromeBottom,0);
+  setTimeout(syncChromeBottom,250);
+  setTimeout(syncChromeBottom,900);
+})();
+</script>
+
 </body>
 </html>
