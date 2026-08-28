@@ -1357,15 +1357,16 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
 #shop .equipment-card,
 #shop .shop-item-detail-body{min-width:0!important;overflow:hidden!important;}
 
-/* Equipment-related pre-start risks are actionable. */
-#raceResourceWarning.risk-gear-link{
+/* v1.03: pre-start risk line opens the correct section.
+   Water, gels and medkit are "С собой"; actual gear opens Equipment. */
+#raceResourceWarning.risk-action-link{
   cursor:pointer!important;
   border-color:#38bdf8!important;
   box-shadow:inset 3px 0 0 #38bdf8!important;
   touch-action:manipulation;
 }
-#raceResourceWarning.risk-gear-link::after{
-  content:'  → экипировка';
+#raceResourceWarning.risk-action-link::after{
+  content:attr(data-risk-link-label);
   color:#7dd3fc;
   font-weight:800;
   white-space:nowrap;
@@ -1373,39 +1374,65 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
 </style>
 <script>
 (function(){
-  const aliases={
+  const gearAliases={
     jacket:[/мембран/i],
     shoes:[/кроссов/i],
     lamp:[/фонар/i],
     pack:[/рюкзак/i,/жилет/i],
     poles:[/палк/i],
     watch:[/час(ы|ов)?/i],
-    medkit:[/аптеч/i],
-    hydration:[/гидратор/i,/ёмкост.*вод/i,/емкост.*вод/i],
     hrm:[/пульсометр/i]
   };
+  // These are consumables / carried supplies, not equipment-shop items.
+  const carryRiskRx=[/\bвод[аы]/i,/гел(ь|и|ей)/i,/аптеч/i,/гидратор/i,/бутыл/i,/фляг/i,/расходник/i];
+
   function gearCatFromRiskText(s){
     s=String(s||'');
-    for(const [cat,rxs] of Object.entries(aliases)) if(rxs.some(rx=>rx.test(s))) return cat;
+    for(const [cat,rxs] of Object.entries(gearAliases)) if(rxs.some(rx=>rx.test(s))) return cat;
     return '';
   }
-  function syncRiskGearLink(){
+  function hasCarryRisk(s){
+    s=String(s||'');
+    return carryRiskRx.some(rx=>rx.test(s));
+  }
+  function syncRiskAction(){
     const el=document.getElementById('raceResourceWarning');
     if(!el)return;
-    const cat=gearCatFromRiskText(el.textContent);
+    const txt=el.textContent||'';
+    const carry=hasCarryRisk(txt);
+    const cat=gearCatFromRiskText(txt);
+    // Consumables take priority when they are shown in this compact line.
+    const target=carry?'carry':(cat?'gear':'');
+    el.dataset.riskTarget=target;
     el.dataset.gearCat=cat;
-    el.classList.toggle('risk-gear-link',!!cat);
-    if(cat){
+    el.classList.toggle('risk-action-link',!!target);
+    el.classList.remove('risk-gear-link');
+    if(target){
+      const label=target==='carry'?'  → с собой':'  → экипировка';
+      el.setAttribute('data-risk-link-label',label);
       el.setAttribute('role','button');
       el.setAttribute('tabindex','0');
-      el.setAttribute('aria-label','Перейти в экипировку и исправить риск');
-      el.title='Нажмите, чтобы перейти к нужной экипировке';
+      el.setAttribute('aria-label',target==='carry'?'Перейти в раздел «С собой»':'Перейти в экипировку и исправить риск');
+      el.title=target==='carry'?'Нажмите, чтобы перейти в «С собой»':'Нажмите, чтобы перейти к нужной экипировке';
     }else{
+      el.removeAttribute('data-risk-link-label');
       el.removeAttribute('role');
       el.removeAttribute('tabindex');
       el.removeAttribute('aria-label');
       el.removeAttribute('title');
     }
+  }
+  function openCarryFromRisk(){
+    const btn=document.querySelector('#bottomNav button[data-target="carrySection"]');
+    if(btn){ btn.click(); }
+    else{
+      const carry=document.getElementById('carrySection');
+      if(carry){ carry.open=true; carry.style.display=''; }
+    }
+    setTimeout(function(){
+      const carry=document.getElementById('carrySection');
+      if(carry){carry.open=true;carry.scrollIntoView({behavior:'smooth',block:'start'});}
+    },90);
   }
   function openGearFromRisk(el){
     const cat=el && el.dataset ? el.dataset.gearCat : '';
@@ -1415,36 +1442,59 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
       if(typeof renderShop==='function') renderShop();
     }catch(e){}
     const shopNav=document.querySelector('#bottomNav button[data-target="shop"]');
-    if(shopNav){
-      shopNav.click();
-    }else if(typeof switchTab==='function'){
-      switchTab('shop');
-    }
+    if(shopNav){ shopNav.click(); }
+    else if(typeof switchTab==='function'){ switchTab('shop'); }
     setTimeout(function(){
-      try{
-        activeShopCategory=cat;
-        if(typeof renderShop==='function') renderShop();
-      }catch(e){}
+      try{ activeShopCategory=cat; if(typeof renderShop==='function') renderShop(); }catch(e){}
       const shop=document.getElementById('shop');
       if(shop){shop.open=true;shop.scrollIntoView({behavior:'smooth',block:'start'});}
     },90);
   }
+  function activate(el){
+    if(!el)return;
+    if(el.dataset.riskTarget==='carry') openCarryFromRisk();
+    else if(el.dataset.riskTarget==='gear') openGearFromRisk(el);
+  }
   document.addEventListener('click',function(e){
-    const el=e.target.closest && e.target.closest('#raceResourceWarning.risk-gear-link');
-    if(el) openGearFromRisk(el);
+    const el=e.target.closest && e.target.closest('#raceResourceWarning.risk-action-link');
+    if(el) activate(el);
   });
   document.addEventListener('keydown',function(e){
-    if((e.key==='Enter'||e.key===' ') && e.target && e.target.matches('#raceResourceWarning.risk-gear-link')){
-      e.preventDefault(); openGearFromRisk(e.target);
+    if((e.key==='Enter'||e.key===' ') && e.target && e.target.matches('#raceResourceWarning.risk-action-link')){
+      e.preventDefault(); activate(e.target);
     }
   });
   document.addEventListener('DOMContentLoaded',function(){
-    syncRiskGearLink();
+    syncRiskAction();
     const el=document.getElementById('raceResourceWarning');
-    if(el)new MutationObserver(syncRiskGearLink).observe(el,{childList:true,subtree:true,characterData:true});
-    setTimeout(syncRiskGearLink,100);
+    if(el)new MutationObserver(syncRiskAction).observe(el,{childList:true,subtree:true,characterData:true});
+    setTimeout(syncRiskAction,100);
   });
-  window.addEventListener('pageshow',syncRiskGearLink);
+  window.addEventListener('pageshow',syncRiskAction);
+})();
+</script>
+
+
+<script>
+(function(){
+  // v1.03: when Start Race is tapped from the collapsed bottom menu,
+  // lift the simulation only as much as needed so the main START button
+  // is fully visible above the fixed bottom navigation (Safari + Chrome iOS).
+  document.addEventListener('click',function(e){
+    const raceBtn=e.target.closest('#bottomNav button[data-target="race"]');
+    if(!raceBtn || !document.body.classList.contains('bottom-nav-collapsed')) return;
+    setTimeout(function(){
+      const start=document.getElementById('startBtn');
+      const nav=document.getElementById('bottomNav');
+      if(!start || !nav) return;
+      const sr=start.getBoundingClientRect();
+      const nr=nav.getBoundingClientRect();
+      const safeBottom=nr.top-14;
+      if(sr.bottom>safeBottom){
+        window.scrollBy({top:Math.ceil(sr.bottom-safeBottom),behavior:'smooth'});
+      }
+    },360);
+  });
 })();
 </script>
 
