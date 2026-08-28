@@ -1948,9 +1948,7 @@ function showDnfNotice(name, extra=''){
   try{
     const ov=$('eventOverlay');
     if(ov){
-      ov.innerHTML=`<div class="overlay-box"><div class="emoji">🚫</div><b>${name} сошёл</b><span>${extra||'гонка продолжается'}</span></div>`;
-      ov.classList.add('show');
-      setTimeout(()=>ov.classList.remove('show'),2000);
+      queueRaceOverlay(`<div class="overlay-box"><div class="emoji">🚫</div><b>${name} сошёл</b><span>${extra||'гонка продолжается'}</span></div>`,2000);
     }
     const el=$('eventLog');
     if(el){
@@ -3042,12 +3040,32 @@ function fireEvents(){
   }
  });
 }
+// Очередь плашек событий: каждая держится ровно 2 реальные секунды,
+// независимо от скорости симуляции (480×, 600× и т.п.). Новое событие
+// больше не затирает текущее раньше времени.
+window.__raceOverlayQueue=window.__raceOverlayQueue||[];
+window.__raceOverlayBusy=window.__raceOverlayBusy||false;
+function queueRaceOverlay(html,duration=2000){
+  window.__raceOverlayQueue.push({html,duration:Math.max(300,Number(duration)||2000)});
+  if(window.__raceOverlayBusy) return;
+  const playNext=()=>{
+    const item=window.__raceOverlayQueue.shift();
+    if(!item){window.__raceOverlayBusy=false;return;}
+    window.__raceOverlayBusy=true;
+    const ov=$('eventOverlay');
+    if(!ov){window.__raceOverlayBusy=false;playNext();return;}
+    ov.innerHTML=item.html;
+    ov.classList.add('show');
+    setTimeout(()=>{
+      ov.classList.remove('show');
+      setTimeout(playNext,80);
+    },item.duration);
+  };
+  playNext();
+}
 function showEvent(ev,sec,extra){
- const ov=$('eventOverlay');ov.innerHTML=`<div class="overlay-box"><div class="emoji">${ev.emoji}</div><b>${ev.name}</b><span>${sec>=0?'+':'−'}${fmt(Math.abs(sec))}${extra}</span></div>`;ov.classList.add('show');
- // Плашка события только визуальная: гонка продолжает идти под ней.
- setTimeout(()=>{
-   ov.classList.remove('show');
- },2000);
+ const html=`<div class="overlay-box"><div class="emoji">${ev.emoji}</div><b>${ev.name}</b><span>${sec>=0?'+':'−'}${fmt(Math.abs(sec))}${extra}</span></div>`;
+ queueRaceOverlay(html,2000);
  const cls=sec<0?'good':sec>0?'bad':'neutral';
  $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>${(run.p*levelData()[1]).toFixed(1)} км</span><b>${ev.emoji} ${ev.name}${extra}</b><span class="${cls}">${sec>=0?'+':'−'}${fmt(Math.abs(sec))}</span></div>`);
 }
