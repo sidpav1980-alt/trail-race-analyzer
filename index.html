@@ -623,6 +623,10 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
             <div id="raceSlotStatus"><b>⛔ 🎟️ Нужен слот на гонку</b><small>Без купленного слота старт недоступен.</small></div>
             <button id="buyRaceSlotBtn" class="primary compact-btn" type="button">Купить</button>
           </div>
+          <div class="slot-replay-row">
+            <small class="slot-replay-text">💰 Можно переиграть предыдущие уровни и заработать ₽ на слот.</small>
+            <button id="slotCampaignBtn" class="secondary compact-btn slot-campaign-btn" type="button">🏁 Кампания</button>
+          </div>
           <small id="raceSlotMerch" class="muted">Иногда вместе со слотом выпадает бесплатный мерч экипировки.</small>
         </div>
         <div style="display:none" aria-hidden="true"><button id="pauseBtn"></button><span id="raceTitle"></span><span id="difficultyBadge"></span><span id="raceDistance"></span><span id="raceGain"></span><span id="raceTarget"></span><span id="raceReward"></span><span id="raceSlotCostCurrent"></span><span id="raceSlotCostCurrentStatus"></span><span id="raceWaterNeed"></span><span id="raceWaterCapacity"></span><span id="raceWaterLive"></span><span id="raceDesc"></span></div>
@@ -1862,5 +1866,39 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
 }
 </style>
 
+
+<style>
+/* v1.03: hint to replay previous levels when money for a race slot is missing */
+#raceSlotCard .slot-replay-row{
+  display:flex!important;align-items:center!important;gap:8px!important;
+  margin-top:6px!important;padding-top:6px!important;border-top:1px solid rgba(255,224,182,.16)!important;
+}
+#raceSlotCard .slot-replay-text{
+  flex:1 1 auto!important;min-width:0!important;color:#f5c89c!important;
+  font-size:9.5px!important;line-height:1.18!important;margin:0!important;
+}
+#raceSlotCard .slot-campaign-btn{
+  flex:0 0 auto!important;width:auto!important;margin:0!important;min-height:30px!important;
+  padding:6px 9px!important;font-size:9.5px!important;white-space:nowrap!important;
+}
+@media(max-width:560px){
+  #raceSlotCard .slot-replay-row{gap:6px!important;margin-top:5px!important;padding-top:5px!important;}
+  #raceSlotCard .slot-replay-text{font-size:8.8px!important;}
+  #raceSlotCard .slot-campaign-btn{min-height:28px!important;padding:5px 7px!important;font-size:8.8px!important;}
+}
+</style>
+<script>
+(function(){
+  document.addEventListener('click',function(e){
+    const b=e.target.closest && e.target.closest('#slotCampaignBtn');
+    if(!b)return;
+    const navBtn=document.querySelector('#bottomNav button[data-target="levels"]');
+    if(navBtn){ navBtn.click(); return; }
+    if(typeof switchTab==='function'){ try{ switchTab('levels'); }catch(err){} }
+    const levels=document.getElementById('levels');
+    if(levels){ levels.open=true; setTimeout(function(){levels.scrollIntoView({behavior:'smooth',block:'start'});},80); }
+  });
+})();
+</script>
 </body>
 </html>
