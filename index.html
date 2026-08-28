@@ -189,6 +189,24 @@
 #aboutGameSection .author-contact-footer a{font-size:12px!important;}
 </style>
 
+
+<style>
+/* v1.03: "С собой" расположен прямо над симуляцией гонки */
+#race>#carrySection{
+  margin:0 0 10px!important;
+}
+#race>#carrySection>summary{
+  font-size:15px!important;
+  padding:9px 12px!important;
+}
+#race>#carrySection .drawer-body{
+  padding:7px!important;
+}
+#race>#carrySection .card{
+  margin:0!important;
+}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -238,6 +256,26 @@
   </section>
   <main>
     <section id="race" class="panel active game-main">
+
+      <details id="carrySection" class="game-drawer"><summary>🎒 С собой</summary><div class="drawer-body">
+        <div class="card carry-buy-card">
+          <h2>🎒 С собой на гонку</h2>
+          <p class="muted">Здесь собран запас на текущую гонку. До старта можно сразу докупить недостающее.</p>
+          <div class="carry-grid carry-buy-grid">
+            <div id="quickBuyGels" class="carry-card quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить гели до нормы этой гонки">
+              <span>🍯 Гели «УГЛИ»</span><b id="gelCount">0</b><small id="gelNeedText">нужно по дистанции</small><small class="quick-buy-hint">Докупить до нормы</small>
+            </div>
+            <div id="quickBuyMedkit" class="carry-card quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить недостающие компоненты аптечки">
+              <span>🩹 Аптечка</span><b id="medkitSummary">—</b><small>бинт · марля · перекись · пластырь · крем от натирания · крем от солнца · спас-одеяло</small><small class="quick-buy-hint">Докупить недостающее</small>
+            </div>
+            <div id="quickBuyWater" class="carry-card quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить воду до нормы этой гонки">
+              <span>💧 Вода</span><b id="waterCount">0</b><small id="waterNeedText">нужно по погоде и дистанции</small><small class="quick-buy-hint">Докупить до нормы</small>
+            </div>
+          </div>
+          <div class="notice carry-buy-note">Нажми на карточку «УГЛИ», «Аптечка» или «Вода» — игра рассчитает недостающее для выбранной гонки и купит его за рубли.</div>
+        </div>
+      </div></details>
+
       <div class="card sim-card">
         <div class="row between">
           <div id="simulationRaceTitle" class="simulation-race-title">Текущая гонка</div><h2>Симуляция гонки</h2>
@@ -343,25 +381,7 @@
     </section>
 
     <section class="game-tools">
-      <details id="carrySection" class="game-drawer"><summary>🎒 С собой</summary><div class="drawer-body">
-        <div class="card carry-buy-card">
-          <h2>🎒 С собой на гонку</h2>
-          <p class="muted">Здесь собран запас на текущую гонку. До старта можно сразу докупить недостающее.</p>
-          <div class="carry-grid carry-buy-grid">
-            <div id="quickBuyGels" class="carry-card quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить гели до нормы этой гонки">
-              <span>🍯 Гели «УГЛИ»</span><b id="gelCount">0</b><small id="gelNeedText">нужно по дистанции</small><small class="quick-buy-hint">Докупить до нормы</small>
-            </div>
-            <div id="quickBuyMedkit" class="carry-card quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить недостающие компоненты аптечки">
-              <span>🩹 Аптечка</span><b id="medkitSummary">—</b><small>бинт · марля · перекись · пластырь · крем от натирания · крем от солнца · спас-одеяло</small><small class="quick-buy-hint">Докупить недостающее</small>
-            </div>
-            <div id="quickBuyWater" class="carry-card quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить воду до нормы этой гонки">
-              <span>💧 Вода</span><b id="waterCount">0</b><small id="waterNeedText">нужно по погоде и дистанции</small><small class="quick-buy-hint">Докупить до нормы</small>
-            </div>
-          </div>
-          <div class="notice carry-buy-note">Нажми на карточку «УГЛИ», «Аптечка» или «Вода» — игра рассчитает недостающее для выбранной гонки и купит его за рубли.</div>
-        </div>
-      </div></details>
-      <details id="levels" class="game-drawer"><summary>🏆 21 уровень кампании</summary><div class="drawer-body">
+<details id="levels" class="game-drawer"><summary>🏆 21 уровень кампании</summary><div class="drawer-body">
       <div class="card">
         <div class="row between">
           <div>
@@ -634,8 +654,10 @@
     if(id==='race'){
       setVisible(race,true);
       const sim=race.querySelector('.sim-card');
-      showOnlyDirect(race,sim);
-      return sim||race;
+      const carry=document.getElementById('carrySection');
+      raceDirect().forEach(function(ch){setVisible(ch,ch===carry || ch===sim);});
+      if(carry)carry.open=true;
+      return carry||sim||race;
     }
     if(race && race.contains(el)){
       setVisible(race,true);
