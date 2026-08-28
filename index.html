@@ -811,6 +811,30 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 <p>Твоя задача — финишировать как можно выше, зарабатывать рубли и XP, улучшать бегуна и пройти всю кампанию до «Армагеддона».</p>
 </div>
 
+
+<div class="help-section help-focus menu-basics-help" id="menuBasicsHelp">
+  <b>🧭 Меню — интерактивная подсказка</b>
+  <p class="menu-basics-intro">Нажми на кнопку ниже — увидишь, для чего нужен раздел. Можно сразу перейти в него.</p>
+  <div class="menu-basics-tabs" role="tablist" aria-label="Основные разделы меню">
+    <button type="button" class="menu-basics-tab active" data-menu-help="race">▶️ Старт</button>
+    <button type="button" class="menu-basics-tab" data-menu-help="levels">🏁 Кампания</button>
+    <button type="button" class="menu-basics-tab" data-menu-help="carrySection">🎒 С собой</button>
+    <button type="button" class="menu-basics-tab" data-menu-help="shop">👕 Экипировка</button>
+    <button type="button" class="menu-basics-tab" data-menu-help="resources">🧃 Расходники</button>
+    <button type="button" class="menu-basics-tab" data-menu-help="restSection">😴 Отдых</button>
+  </div>
+  <div class="menu-basics-card" aria-live="polite">
+    <strong id="menuBasicsTitle">▶️ Старт гонки</strong>
+    <span id="menuBasicsText">Главный экран выбранной гонки. Здесь проверяешь риски, слот и нажимаешь «Старт».</span>
+    <button id="menuBasicsOpen" type="button" class="menu-basics-open" data-target-menu="race">Открыть этот раздел</button>
+  </div>
+  <div class="menu-basics-nav">
+    <button id="menuBasicsPrev" type="button">← Назад</button>
+    <span id="menuBasicsStep">1 / 6</span>
+    <button id="menuBasicsNext" type="button">Далее →</button>
+  </div>
+</div>
+
 <div class="help-section help-focus"><b>▶️ Как пройти одну гонку</b>
 <p><strong>1.</strong> Выбери гонку в «Кампании».</p>
 <p><strong>2.</strong> Проверь блок <strong>«С собой»</strong>: вода, гели «УГЛИ», аптечка.</p>
@@ -906,8 +930,8 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 <p>Во время гонки могут происходить падения, натирания, поломки, проблемы с водой и питанием, дождь, жара, броды и удачные события. Они меняют итоговое время и иногда могут привести к DNF.</p>
 </div>
 
-<div class="help-section help-focus"><b>🏜️ Чара — 134 км</b>
-<p>13-й уровень кампании: 134 км и 4 ПП. Пункты питания отображаются на карте ещё до старта и остаются видны по ходу гонки. На ПП3, 82 км, есть специальное событие <strong>«Река разлилась»</strong>: в 70% случаев продолжить гонку невозможно и происходит DNF; в 30% удаётся найти проход с потерей времени.</p>
+<div class="help-section help-focus"><b>🏜️ Чара — 138 км</b>
+<p>13-й уровень кампании: 138 км и 4 ПП. Пункты питания отображаются на карте ещё до старта и остаются видны по ходу гонки. На ПП3, 82 км, есть специальное событие <strong>«Река разлилась»</strong>: в 70% случаев продолжить гонку невозможно и происходит DNF; в 30% удаётся найти проход с потерей времени.</p>
 </div>
 
 <div class="help-section"><b>📈 XP и ITRA</b>
@@ -939,6 +963,89 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 
 <button id="helpOk" class="help-ok" type="button">Понятно</button>
 </div></div>
+
+<style>
+/* v1.03: interactive menu basics inside Help */
+.menu-basics-help{padding:12px!important;}
+.menu-basics-intro{margin:6px 0 9px!important;}
+.menu-basics-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0;}
+.menu-basics-tab{min-width:0;padding:8px 5px!important;border-radius:8px!important;font-size:10.5px!important;line-height:1.15!important;background:#10263b!important;color:#dbeafe!important;border:1px solid #315879!important;}
+.menu-basics-tab.active{background:#1f6b93!important;border-color:#38bdf8!important;color:#fff!important;}
+.menu-basics-card{display:flex;flex-direction:column;gap:5px;padding:10px;border:1px solid #315879;border-radius:9px;background:#091a2a;}
+.menu-basics-card strong{font-size:14px;color:#e0f2fe;}
+.menu-basics-card span{font-size:11px;line-height:1.35;color:#b8c8da;}
+.menu-basics-open{margin-top:4px!important;padding:8px 10px!important;min-height:34px!important;font-size:11px!important;background:#38bdf8!important;color:#06131f!important;border:0!important;border-radius:8px!important;font-weight:800!important;}
+.menu-basics-nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:7px;margin-top:8px;}
+.menu-basics-nav button{padding:7px 8px!important;min-height:32px!important;font-size:10px!important;}
+.menu-basics-nav button:last-child{justify-self:stretch;}
+#menuBasicsStep{text-align:center;font-size:10px;color:#93c5fd;white-space:nowrap;}
+@media(max-width:430px){
+ .menu-basics-tabs{grid-template-columns:repeat(2,minmax(0,1fr));}
+ .menu-basics-tab{font-size:10px!important;padding:7px 4px!important;}
+}
+</style>
+
+<script>
+(function(){
+  const items=[
+    {id:'race',title:'▶️ Старт гонки',text:'Главный экран выбранной гонки. Здесь проверяешь риски, слот и нажимаешь «Старт».'},
+    {id:'levels',title:'🏁 Кампания',text:'Здесь выбираешь уровень и гонку. Предыдущие уровни можно переигрывать, чтобы заработать рубли на слот и покупки.'},
+    {id:'carrySection',title:'🎒 С собой',text:'Перед стартом проверь воду, гели и аптечку. Если чего-то не хватает — докупи здесь.'},
+    {id:'shop',title:'👕 Экипировка',text:'Покупай и надевай кроссовки, мембранку, палки и другое снаряжение нужного уровня.'},
+    {id:'resources',title:'🧃 Расходники',text:'Здесь покупаются вода, гели, гуарана и компоненты аптечки.'},
+    {id:'restSection',title:'😴 Отдых',text:'Высокая усталость мешает гонке. Открой «Отдых» и восстановись перед следующим стартом.'}
+  ];
+  let index=0;
+  function render(i){
+    index=(i+items.length)%items.length;
+    const item=items[index];
+    const title=document.getElementById('menuBasicsTitle');
+    const text=document.getElementById('menuBasicsText');
+    const open=document.getElementById('menuBasicsOpen');
+    const step=document.getElementById('menuBasicsStep');
+    if(title)title.textContent=item.title;
+    if(text)text.textContent=item.text;
+    if(open)open.dataset.targetMenu=item.id;
+    if(step)step.textContent=(index+1)+' / '+items.length;
+    document.querySelectorAll('.menu-basics-tab').forEach(function(b){
+      b.classList.toggle('active',b.dataset.menuHelp===item.id);
+    });
+  }
+  function closeHelp(){
+    const modal=document.getElementById('helpModal');
+    if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}
+    document.body.classList.remove('help-open');
+  }
+  function openMenuTarget(id){
+    closeHelp();
+    document.body.classList.remove('bottom-nav-collapsed');
+    const nav=document.getElementById('bottomNav');
+    const toggle=document.getElementById('bottomNavToggle');
+    if(nav){nav.style.removeProperty('display');nav.style.removeProperty('visibility');nav.style.removeProperty('opacity');}
+    if(toggle){toggle.setAttribute('aria-expanded','true');toggle.textContent='⌄ Свернуть меню';}
+    setTimeout(function(){
+      const btn=document.querySelector('#bottomNav button[data-target="'+id+'"]');
+      if(btn)btn.click();
+      else{
+        const el=document.getElementById(id);
+        if(el){el.style.display='';if('open' in el)el.open=true;el.scrollIntoView({behavior:'smooth',block:'start'});}
+      }
+    },80);
+  }
+  document.addEventListener('click',function(e){
+    const tab=e.target.closest && e.target.closest('.menu-basics-tab');
+    if(tab){
+      const i=items.findIndex(function(x){return x.id===tab.dataset.menuHelp;});
+      if(i>=0)render(i);
+      return;
+    }
+    if(e.target && e.target.id==='menuBasicsPrev'){render(index-1);return;}
+    if(e.target && e.target.id==='menuBasicsNext'){render(index+1);return;}
+    if(e.target && e.target.id==='menuBasicsOpen'){openMenuTarget(e.target.dataset.targetMenu||items[index].id);}
+  });
+  render(0);
+})();
+</script>
 
 
 <script>
