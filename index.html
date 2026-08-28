@@ -836,6 +836,21 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
   </div>
 </div>
 
+<div class="help-section help-focus collapsed-start-help" id="collapsedStartHelp">
+  <b>▶️ Старт гонки при свёрнутом меню — попробуй</b>
+  <p>Нажми <strong>«Свернуть меню»</strong>. Внизу останется только <strong>«Старт гонки»</strong>. Нажатие на него возвращает к экрану симуляции.</p>
+  <div class="collapsed-start-demo" id="collapsedStartDemo">
+    <button type="button" class="collapsed-start-toggle" id="collapsedStartDemoToggle">⌄ Свернуть меню</button>
+    <div class="collapsed-start-grid" id="collapsedStartDemoGrid">
+      <button type="button" data-demo="race"><span>▶️</span>Старт гонки</button>
+      <button type="button"><span>🎒</span>С собой</button>
+      <button type="button"><span>🏁</span>Кампания</button>
+      <button type="button"><span>👕</span>Экипировка</button>
+    </div>
+    <div class="collapsed-start-status" id="collapsedStartDemoStatus" aria-live="polite">Шаг 1: сверни меню.</div>
+  </div>
+</div>
+
 <div class="help-section help-focus"><b>▶️ Как пройти одну гонку</b>
 <p><strong>1.</strong> Выбери гонку в «Кампании».</p>
 <p><strong>2.</strong> Проверь блок <strong>«С собой»</strong>: вода, гели «УГЛИ», аптечка.</p>
@@ -984,6 +999,17 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
  .menu-basics-tabs{grid-template-columns:repeat(2,minmax(0,1fr));}
  .menu-basics-tab{font-size:10px!important;padding:7px 4px!important;}
 }
+/* v1.03: interactive collapsed-menu Start Race lesson */
+.collapsed-start-help{padding:12px!important;}
+.collapsed-start-demo{margin-top:8px;padding:9px;border:1px solid #315879;border-radius:10px;background:#061625;}
+.collapsed-start-toggle{width:100%!important;min-height:34px!important;padding:7px 8px!important;font-size:10px!important;background:#0b1d2d!important;color:#9fb6cc!important;border:0!important;}
+.collapsed-start-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:7px;}
+.collapsed-start-grid button{min-width:0;min-height:42px!important;padding:6px!important;font-size:10px!important;line-height:1.1!important;background:#10263b!important;border:1px solid #294a67!important;color:#dbeafe!important;border-radius:8px!important;}
+.collapsed-start-grid button span{display:block;font-size:18px;margin-bottom:2px;}
+.collapsed-start-demo.is-collapsed .collapsed-start-grid{grid-template-columns:1fr;}
+.collapsed-start-demo.is-collapsed .collapsed-start-grid button:not([data-demo="race"]){display:none!important;}
+.collapsed-start-demo.is-collapsed .collapsed-start-grid button[data-demo="race"]{background:#123b59!important;border-color:#38bdf8!important;color:#38bdf8!important;font-weight:800!important;}
+.collapsed-start-status{margin-top:7px;padding:7px 8px;border-radius:7px;background:#0a2032;color:#b8c8da;font-size:10.5px;line-height:1.3;}
 </style>
 
 <script>
@@ -1045,6 +1071,49 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
     if(e.target && e.target.id==='menuBasicsOpen'){openMenuTarget(e.target.dataset.targetMenu||items[index].id);}
   });
   render(0);
+})();
+
+(function(){
+  const demo=document.getElementById('collapsedStartDemo');
+  const toggle=document.getElementById('collapsedStartDemoToggle');
+  const grid=document.getElementById('collapsedStartDemoGrid');
+  const status=document.getElementById('collapsedStartDemoStatus');
+  if(!demo||!toggle||!grid)return;
+  let collapsed=false;
+  function setCollapsed(v){
+    collapsed=!!v;
+    demo.classList.toggle('is-collapsed',collapsed);
+    toggle.textContent=collapsed?'⌃ Развернуть меню':'⌄ Свернуть меню';
+    if(status)status.textContent=collapsed?'Шаг 2: нажми «▶️ Старт гонки».':'Шаг 1: сверни меню.';
+  }
+  toggle.addEventListener('click',function(){setCollapsed(!collapsed);});
+  grid.addEventListener('click',function(e){
+    const race=e.target.closest && e.target.closest('button[data-demo="race"]');
+    if(!race)return;
+    if(!collapsed){
+      if(status)status.textContent='Сначала нажми «Свернуть меню».';
+      return;
+    }
+    if(status)status.textContent='Готово: открываю экран старта гонки.';
+    const modal=document.getElementById('helpModal');
+    if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}
+    document.body.classList.remove('help-open');
+    document.body.classList.add('bottom-nav-collapsed');
+    const nav=document.getElementById('bottomNav');
+    const realToggle=document.getElementById('bottomNavToggle');
+    if(realToggle){realToggle.setAttribute('aria-expanded','false');realToggle.textContent='⌃ Развернуть меню';}
+    setTimeout(function(){
+      const raceBtn=document.querySelector('#bottomNav button[data-target="race"]');
+      if(raceBtn)raceBtn.click();
+      const sim=document.querySelector('#race .sim-card');
+      const topbar=document.querySelector('.topbar');
+      if(sim){
+        const off=(topbar?topbar.getBoundingClientRect().height:0)+4;
+        window.scrollTo({top:Math.max(0,sim.getBoundingClientRect().top+window.scrollY-off),behavior:'smooth'});
+      }
+    },100);
+  });
+  setCollapsed(false);
 })();
 </script>
 
