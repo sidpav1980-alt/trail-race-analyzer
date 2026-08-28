@@ -77,7 +77,7 @@ function ensureRussianElitesAfterLevel7(race, runners){
   const elites=[
     {name:'Алексей Береснев',itra:905},
     {name:'Антонина Юшина',itra:890},
-    {name:'Анастасия Кабенина',itra:750},
+    {name:'Анастасия Кабенина',itra:850},
     {name:'Алексей Толстенко',itra:865},
     {name:'Константин Иванов',itra:850},
     {name:'Елена Носкова',itra:840},
@@ -209,7 +209,7 @@ const ELITE_RUNNERS=[
 {name:'Алексей Макалюкин',itra:825,country:'🇷🇺'},{name:'Алексей Бабушкин',itra:815,country:'🇷🇺'},
 {name:'Павел Тарасов',itra:805,country:'🇷🇺'},{name:'Виктория Жукова',itra:795,country:'🇷🇺'},
 {name:'Мария Гостева',itra:785,country:'🇷🇺'},{name:'Вера Чекалина',itra:775,country:'🇷🇺'},
-{name:'Анастасия Кабенина',itra:750,country:'🇷🇺'}];
+{name:'Анастасия Кабенина',itra:850,country:'🇷🇺'}];
 function loadGame(){
   try{
     const x=JSON.parse(localStorage.getItem('trailArmageddonSave')||'null');
@@ -473,7 +473,7 @@ const RUSSIAN_ITRA_RIVALS=[
  {name:'Артем Чернов',itra:920},
  {name:'Алексей Береснев',itra:905},
  {name:'Антонина Юшина',itra:890},
- {name:'Анастасия Кабенина',itra:750},
+ {name:'Анастасия Кабенина',itra:850},
  {name:'Алексей Толстенко',itra:865},
  {name:'Константин Иванов',itra:850},
  {name:'Елена Носкова',itra:840},
@@ -563,18 +563,21 @@ function createLeadersForAttempt(raceIndex=game.current){
    return [top,a,b,...extras];
  }
 
- // С 8 уровня до старта показываем ТОП-14: российские ITRA + международные лидеры.
- // ТОП-14: гарантированно включаем Анастасию Кабенину. При ITRA 750 она
- // занимает 14-ю строку стартового ТОП-14, а остальные 13 мест формируются из сильных соперников.
+ // С 8 уровня до старта показываем сильный состав лидеров.
+ // На Чаре Анастасия Кабенина участвует всегда. На остальных гонках
+ // она появляется иногда (примерно в 35% попыток), ITRA 850.
  const kabenina='Анастасия Кабенина';
+ const isChara=Number(raceIndex)===12;
+ const includeKabenina=isChara || Math.random()<0.35;
  const ru=shuffledCopy(RUSSIAN_ITRA_RIVALS.map(r=>r.name).filter(n=>n!==kabenina));
  const intl=shuffledCopy(TOP_ITRA_LEADERS);
  const combined=[...ru,...intl].filter((n,i,a)=>n!==kabenina && a.indexOf(n)===i);
- while(combined.length<13){
+ const need=includeKabenina?13:14;
+ while(combined.length<need){
    const x=randomFio(Math.floor(Math.random()*1000000));
    if(x!==kabenina && !combined.includes(x)) combined.push(x);
  }
- return [...combined.slice(0,13),kabenina];
+ return includeKabenina ? [...combined.slice(0,13),kabenina] : combined.slice(0,14);
 }
 
 function leadersForRace(raceIndex=game.current){
@@ -587,7 +590,7 @@ function leadersForRace(raceIndex=game.current){
  if(!game.preStartLeadersByRace) game.preStartLeadersByRace={};
  const key=String(raceIndex);
  const cached=game.preStartLeadersByRace[key];
- const mustHaveKabenina=Number(raceIndex)>=7;
+ const mustHaveKabenina=Number(raceIndex)===12;
  if(!Array.isArray(cached) || cached.length<14 || (mustHaveKabenina && !cached.includes('Анастасия Кабенина'))){
    game.preStartLeadersByRace[key]=createLeadersForAttempt(raceIndex);
    try{ saveGame(); }catch(e){}
@@ -2644,7 +2647,7 @@ function startRaceCore(){
                     run.playerItraPlace<=15?'TOP-15':'обычный');
  attachRivalNamesToVirtualField();
 
- // Чара 138 км: Анастасия Кабенина (ITRA 750) обязательно участвует в каждой попытке.
+ // Чара 138 км: Анастасия Кабенина (ITRA 850) обязательно участвует в каждой попытке.
  // Даже старый сохранённый/закэшированный состав не может исключить её из виртуального поля.
  if(Math.abs(Number(L[1]||0)-138)<0.01 && Array.isArray(run.virtualField) && run.virtualField.length){
    const kabName='Анастасия Кабенина';
@@ -2656,7 +2659,7 @@ function startRaceCore(){
      kab.name=kabName;
    }
    kab.country='RU';
-   kab.itra=750;
+   kab.itra=850;
    kab.charaGuaranteed=true;
    if(!Array.isArray(run.raceLeaders)) run.raceLeaders=[];
    if(!run.raceLeaders.includes(kabName)){
@@ -2729,6 +2732,7 @@ function startRaceCore(){
      sorted.forEach(c=>{ if(c) c.liveStartBoost=0; });
    }
  }
+ applyKabeninaHiddenPerformanceBoost(L);
  run.p=0;
  run.elapsed=0;
  const expectedStart=Math.max(1,Math.min(run.fieldSize,
@@ -2804,6 +2808,32 @@ function startRaceCore(){
 }
 
 
+
+function applyKabeninaHiddenPerformanceBoost(L){
+  try{
+    if(!run || !Array.isArray(run.virtualField) || !run.virtualField.length) return;
+    const kabName='Анастасия Кабенина';
+    const kab=run.virtualField.find(c=>String(c?.name||'').trim()===kabName);
+    if(!kab || kab.dnf) return;
+
+    // Иногда Кабенина проводит особенно сильную гонку и бежит так,
+    // будто её текущая форма примерно на +100 ITRA выше базового рейтинга.
+    // Это скрытый соревновательный буст: в таблицах базовый ITRA остаётся прежним.
+    const isChara=Math.abs(Number(L?.[1]||0)-138)<0.01;
+    const triggerChance=isChara ? 0.45 : 0.30;
+    kab.hiddenItraBoostActive=Math.random()<triggerChance;
+    if(!kab.hiddenItraBoostActive) return;
+
+    kab.hiddenItraEquivalent=Math.min(980, Number(kab.itra||850)+100);
+    const minOpponentFinish=isChara ? 18*60*60 : 0;
+    const currentFinish=Math.max(60, Number(kab.finishSec||0));
+    const fasterFactor=isChara ? (0.94 + Math.random()*0.02) : (0.89 + Math.random()*0.04);
+    kab.finishSec=Math.max(minOpponentFinish, currentFinish*fasterFactor);
+    kab.liveStartBoost=Math.max(Number(kab.liveStartBoost||0), (isChara?0.020:0.014) + Math.random()*0.010);
+    kab.hiddenHotFormLabel='Скрытая форма: бежит сильнее своего ITRA';
+  }catch(e){}
+}
+
 function buildAidStations(distanceKm){
   const d=Math.max(0,Number(distanceKm||0));
   // Чара 138 км: фиксированные 4 пункта питания.
@@ -2867,21 +2897,31 @@ function triggerCharaFloodEvent(ppKm, dist){
 
     ov.innerHTML=
       `<div class="overlay-box river-dnf-all-card">
-        <div class="emoji">🌊</div>
-        <b>РЕКА РАЗЛИЛАСЬ · СОШЛО ${affected}</b>
-        <span class="river-dnf-scroll">${rows}</span>
-        <span class="river-player-safe">Игрок нашёл обход · +20:00</span>
+        <div class="river-dnf-head">
+          <div class="emoji">🌊</div>
+          <div class="river-dnf-title">РЕКА РАЗЛИЛАСЬ</div>
+          <div class="river-dnf-subtitle">Список DNF из-за разлива · всего ${affected}</div>
+        </div>
+        <div class="river-dnf-scroll"><div class="river-dnf-list">${rows}</div></div>
+        <div class="river-player-safe">Игрок нашёл обход · +20:00</div>
       </div>`;
-    ov.classList.add('show');
+    ov.classList.add('show','river-mass-show');
+    const scrollBox=ov.querySelector('.river-dnf-scroll');
+    if(scrollBox) scrollBox.scrollTop=0;
+    run.eventPause=true;
+    lastTs=performance.now();
 
     const riverEpoch=(run.riverOverlayEpoch=Number(run.riverOverlayEpoch||0)+1);
     setTimeout(()=>{
       if(!run || Number(run.riverOverlayEpoch||0)!==riverEpoch) return;
-      ov.classList.remove('show');
+      ov.classList.remove('show','river-mass-show');
       ov.innerHTML='';
       run.riverMassOverlayActive=false;
+      run.eventPause=false;
+      lastTs=performance.now();
     },5000);
   }else{
+    try{ ov?.classList.remove('river-mass-show'); }catch(e){}
     run.riverMassOverlayActive=false;
   }
 
