@@ -3726,6 +3726,7 @@ render();
   document.addEventListener('click',function(e){
     if(e.target.closest('#helpBtn') || e.target.closest('#topHelpBtn') || e.target.closest('#navHelpBtn')) openHelp();
     if(e.target.closest('#helpClose') || e.target.closest('#helpOk')) closeHelp();
+    if(e.target.closest('#helpModal a[href^="mailto:"]')) closeHelp();
     if(e.target && e.target.id==='helpModal') closeHelp();
   });
 })();
