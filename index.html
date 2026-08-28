@@ -1567,5 +1567,87 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
 })();
 </script>
 
+
+
+<script>
+(function(){
+  // v1.03: when Equipment is opened with the bottom menu expanded,
+  // lift the shop a little farther so the first "Купить / Надеть" action
+  // is not hidden behind the fixed navigation on iPhone.
+  function revealEquipmentAction(){
+    if(document.body.classList.contains('bottom-nav-collapsed')) return;
+    const shop=document.getElementById('shop');
+    const nav=document.getElementById('bottomNav');
+    if(!shop || !nav) return;
+
+    // Prefer an action button in the currently visible equipment cards.
+    const candidates=Array.from(shop.querySelectorAll('#shopGrid button, .shop-grid button, .shop-item button'))
+      .filter(function(b){
+        const r=b.getBoundingClientRect();
+        const cs=getComputedStyle(b);
+        return r.width>0 && r.height>0 && cs.display!=='none' && cs.visibility!=='hidden';
+      });
+    const action=candidates[0];
+    if(!action) return;
+
+    const ar=action.getBoundingClientRect();
+    const nr=nav.getBoundingClientRect();
+    const safeBottom=nr.top-18;
+    if(ar.bottom>safeBottom){
+      window.scrollBy({top:Math.ceil(ar.bottom-safeBottom)+20,behavior:'smooth'});
+    }
+  }
+
+  document.addEventListener('click',function(e){
+    const b=e.target.closest && e.target.closest('#bottomNav button[data-target="shop"]');
+    if(!b) return;
+    setTimeout(revealEquipmentAction,260);
+    setTimeout(revealEquipmentAction,520);
+  });
+
+  // If the menu is expanded while already in Equipment, keep the buy/wear action visible.
+  const toggle=document.getElementById('bottomNavToggle');
+  if(toggle) toggle.addEventListener('click',function(){
+    setTimeout(function(){
+      const shopBtn=document.querySelector('#bottomNav button[data-target="shop"].active');
+      if(shopBtn) revealEquipmentAction();
+    },220);
+  });
+})();
+</script>
+
+<style>
+/* v1.03: compact Campaign intro so level cards stay visible above expanded bottom menu */
+#levels .drawer-body>.card:first-child{
+  padding:10px 12px!important;
+}
+#levels .drawer-body>.card:first-child h2{
+  font-size:18px!important;
+  line-height:1.05!important;
+  margin:0 0 6px!important;
+}
+#levels .drawer-body>.card:first-child p.muted{
+  font-size:11px!important;
+  line-height:1.25!important;
+  margin:0 0 8px!important;
+  max-width:none!important;
+}
+#levels .drawer-body>.card:first-child .row,
+#levels .drawer-body>.card:first-child .between{
+  gap:8px!important;
+}
+#levels .drawer-body>.card:first-child button{
+  padding:9px 10px!important;
+  font-size:11px!important;
+}
+@media(max-width:760px){
+  #levels .drawer-body{padding:6px!important;}
+  #levels .drawer-body>.card:first-child{padding:8px 9px!important;}
+  #levels .drawer-body>.card:first-child h2{font-size:16px!important;margin-bottom:4px!important;}
+  #levels .drawer-body>.card:first-child p.muted{font-size:9.8px!important;line-height:1.2!important;margin-bottom:6px!important;}
+  #levels .drawer-body>.card:first-child button{padding:7px 8px!important;font-size:10px!important;}
+}
+</style>
+
 </body>
 </html>
