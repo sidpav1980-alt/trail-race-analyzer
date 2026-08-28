@@ -194,6 +194,26 @@
 #aboutGameSection .author-contact-footer a{font-size:12px!important;}
 </style>
 
+
+<style>
+/* v1.03: guarana activation is always visible when opening Start Race */
+#race .guarana-top-visible{
+  display:flex!important;
+  align-items:center;
+  gap:8px;
+  margin:8px 0 10px!important;
+}
+#race .guarana-top-visible #raceGuaranaBtn{
+  display:inline-flex!important;
+  width:100%;
+  min-height:42px;
+  justify-content:center;
+  font-size:13px!important;
+  font-weight:800;
+}
+#race .guarana-top-visible #raceGelStatus{flex:0 0 auto;}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -272,6 +292,7 @@
             <option value="600">600×</option>
           </select>
         </div>
+        <div class="race-consumable-live guarana-top-visible"><button id="raceGuaranaBtn" class="secondary compact-btn" type="button" disabled>🫘 Гуарана · доступна в гонке</button><span id="raceGelStatus" class="badge" style="display:none">🍯 Гели в гонке: 0 / 0</span></div>
 
         <div class="track-visual">
           <canvas id="trackCanvas" width="900" height="440"></canvas>
@@ -291,7 +312,7 @@
           <button id="startBtn" class="primary">▶ Старт</button>
         </div>
         <div id="startRequirementsError" class="start-requirements-error" style="display:none"></div>
-        <div class="race-consumable-live"><button id="raceGuaranaBtn" class="secondary compact-btn" type="button" disabled>🫘 Гуарана · доступна в гонке</button><span id="raceGelStatus" class="badge" style="display:none">🍯 Гели в гонке: 0 / 0</span></div><div style="display:none" aria-hidden="true"><button id="pauseBtn"></button><span id="raceTitle"></span><span id="difficultyBadge"></span><span id="raceDistance"></span><span id="raceGain"></span><span id="raceTarget"></span><span id="raceReward"></span><span id="raceSlotCostCurrent"></span><span id="raceSlotCostCurrentStatus"></span><span id="raceWaterNeed"></span><span id="raceWaterCapacity"></span><span id="raceWaterLive"></span><span id="raceDesc"></span></div>
+        <div style="display:none" aria-hidden="true"><button id="pauseBtn"></button><span id="raceTitle"></span><span id="difficultyBadge"></span><span id="raceDistance"></span><span id="raceGain"></span><span id="raceTarget"></span><span id="raceReward"></span><span id="raceSlotCostCurrent"></span><span id="raceSlotCostCurrentStatus"></span><span id="raceWaterNeed"></span><span id="raceWaterCapacity"></span><span id="raceWaterLive"></span><span id="raceDesc"></span></div>
 
         <div class="sim-stats">
           <div><span>Темп</span><b id="pace">6:48 /км</b><small id="paceGuide">Пульсометр: базовая раскладка</small></div>
@@ -643,7 +664,7 @@
       const carry=document.getElementById('carrySection');
       Array.from(race.children).forEach(function(ch){ setVisible(ch, ch===carry || ch===sim); });
       if(carry) carry.open=true;
-      return carry||sim||race;
+      return sim||carry||race;
     }
     if(race && race.contains(el)){
       setVisible(race,true);
