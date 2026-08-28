@@ -3891,6 +3891,18 @@ if(jumpLastUnplayedBtn && jumpLastUnplayedBtn.dataset.bound!=='1'){
    saveGame();
    render();
    switchTab('race');
+   // После перехода к первому непройденному уровню сразу поднимаем
+   // экран симуляции максимально вверх, чтобы новый уровень был виден целиком.
+   const scrollSimulationTop=()=>{
+     const sim=document.querySelector('#race .sim-card');
+     const topbar=document.querySelector('.topbar');
+     if(!sim) return;
+     const topOffset=(topbar?topbar.getBoundingClientRect().height:0)+4;
+     const y=Math.max(0,sim.getBoundingClientRect().top+window.scrollY-topOffset);
+     window.scrollTo({top:y,behavior:'smooth'});
+   };
+   setTimeout(scrollSimulationTop,80);
+   setTimeout(scrollSimulationTop,360);
  });
 }
 
