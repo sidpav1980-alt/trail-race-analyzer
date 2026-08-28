@@ -954,7 +954,24 @@ function renderLevels(){
   <button class="secondary" ${locked?'disabled':''} data-level="${i}">${i<game.completed?'Переиграть':i===game.current?'Текущий уровень':'Выбрать'}</button>`;
   g.appendChild(d);
  });
- g.querySelectorAll('button[data-level]').forEach(b=>b.onclick=()=>{game.current=+b.dataset.level;saveGame();render();switchTab('race')});
+ g.querySelectorAll('button[data-level]').forEach(b=>b.onclick=()=>{
+  game.current=+b.dataset.level;
+  saveGame();
+  render();
+  switchTab('race');
+  // При выборе или переигрывании уровня через Кампанию сразу поднимаем
+  // экран симуляции максимально вверх, как и у кнопки «К последнему уровню».
+  const scrollSimulationTop=()=>{
+    const sim=document.querySelector('#race .sim-card');
+    const topbar=document.querySelector('.topbar');
+    if(!sim) return;
+    const topOffset=(topbar?topbar.getBoundingClientRect().height:0)+4;
+    const y=Math.max(0,sim.getBoundingClientRect().top+window.scrollY-topOffset);
+    window.scrollTo({top:y,behavior:'smooth'});
+  };
+  setTimeout(scrollSimulationTop,80);
+  setTimeout(scrollSimulationTop,360);
+ });
 }
 let activeShopCategory='shoes';
 function renderShop(){
