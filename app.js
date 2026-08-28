@@ -1151,9 +1151,11 @@ function updateRestUi(){
  const startBtn=$('startBtn');
  if(startBtn && !(run&&run.running)){
    if(resting || isInHospital() || needsHospitalTreatment()){
-     setStartButtonState(true,isInHospital()?`🏥 Лечение ${fmtRest(hospitalRemainingMs())}`:needsHospitalTreatment()?'🏥 Требуется лечение':`😴 Отдых ${fmtRest(restMs)}`);
+     startBtn.disabled=true;
+     startBtn.textContent=isInHospital()?`🏥 Лечение ${fmtRest(hospitalRemainingMs())}`:needsHospitalTreatment()?'🏥 Требуется лечение':`😴 Отдых ${fmtRest(restMs)}`;
    }else if(!trainingActive()){
-     setStartButtonState(false,'▶ Старт');
+     startBtn.disabled=false;
+     startBtn.textContent='▶ Старт';
    }
  }
 
@@ -1210,15 +1212,6 @@ function trainingCountdownText(){
  const s=Math.ceil(ms/1000),m=Math.floor(s/60),r=s%60;
  return `${m}:${String(r).padStart(2,'0')}`;
 }
-
-function setStartButtonState(disabled,text){
-  const b=$('startBtn');
-  if(!b)return;
-  const wantDisabled=!!disabled;
-  if(b.disabled!==wantDisabled)b.disabled=wantDisabled;
-  if(typeof text==='string' && b.textContent!==text)b.textContent=text;
-}
-
 function updateRaceStartTrainingLock(){
  const b=$('startBtn');
  if(!b)return;
@@ -1229,7 +1222,8 @@ function updateRaceStartTrainingLock(){
  // Лечение имеет абсолютный приоритет над остальными состояниями.
  // Это исключает мигание/краткое включение кнопки "Старт" между таймерами UI.
  if(isInHospital() || needsHospitalTreatment()){
-   setStartButtonState(true,isInHospital()?`🏥 Лечение ${fmtRest(hospitalRemainingMs())}`:'🏥 Требуется лечение');
+   b.disabled=true;
+   b.textContent=isInHospital()?`🏥 Лечение ${fmtRest(hospitalRemainingMs())}`:'🏥 Требуется лечение';
    const el=$('startRequirementsError');
    if(el){
      el.innerHTML=isInHospital()
@@ -1240,14 +1234,16 @@ function updateRaceStartTrainingLock(){
    return;
  }
  if(trainingActive()){
-   setStartButtonState(true,`🏃 Тренировка ${trainingCountdownText()}`);
+   b.disabled=true;
+   b.textContent=`🏃 Тренировка ${trainingCountdownText()}`;
    const el=$('startRequirementsError');
    if(el){
      el.innerHTML=`<b>🏃 Идёт тренировка</b><ul><li>Старт гонки будет доступен через ${trainingCountdownText()}.</li></ul>`;
      el.style.display='block';
    }
  }else{
-   setStartButtonState(isResting() || !hasRaceSlot(),!hasRaceSlot()?`🎟️ Купить слот ${fmtMoney(raceSlotCost())}`:'▶ Старт');
+   b.disabled=isResting() || !hasRaceSlot();
+   b.textContent=!hasRaceSlot()?`🎟️ Купить слот ${fmtMoney(raceSlotCost())}`:'▶ Старт';
    const el=$('startRequirementsError');
    if(el && /Идёт тренировка/.test(el.textContent||'')){
      el.style.display='none';
@@ -2520,34 +2516,6 @@ function updateAidStationsAndWater(){
 
     run.aidStationsPassed.add(key);
 
-    // Уровень 13 «Чара»: на ПП3 (82 км) река может разлиться.
-    // В 70% попыток пройти дальше физически невозможно → DNF.
-    if(game.current===12 && Math.abs(Number(ppKm)-82)<0.01 && !run.charaRiverChecked){
-      run.charaRiverChecked=true;
-      if(Math.random()<0.70){
-        run.dnf=true;
-        run.condition='река разлилась';
-        showEvent({emoji:'🌊',name:'Река разлилась'},0,' · невозможно пройти → DNF');
-        try{
-          $('eventLog').insertAdjacentHTML(
-            'afterbegin',
-            `<div class="event-row dnf-event-row"><span>${ppKm.toFixed(1)} км</span><b>🌊 Река разлилась</b><span class="bad">Невозможно пройти · DNF</span></div>`
-          );
-        }catch(e){}
-        setTimeout(()=>finishRace(true,'river'),900);
-        return;
-      }else{
-        showEvent({emoji:'🌊',name:'Река разлилась'},120,' · удалось найти проход · +2:00');
-        run.penalty=(Number(run.penalty)||0)+120;
-        try{
-          $('eventLog').insertAdjacentHTML(
-            'afterbegin',
-            `<div class="event-row"><span>${ppKm.toFixed(1)} км</span><b>🌊 Река разлилась · проход найден</b><span class="bad">+2:00</span></div>`
-          );
-        }catch(e){}
-      }
-    }
-
     // Refill enough water for the next ~70 km section.
     const rate=Math.max(0.001,Number(run.waterNeed||1)/dist);
     const refill=Math.max(1,Math.ceil(rate*70));
@@ -3063,8 +3031,6 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
      ov.innerHTML=`<div class="overlay-box"><div class="emoji">🥵</div><b>DNF · перегрев</b><span>Жара и нагрузка привели к сходу с дистанции.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
    }else if(dnfReason==='weather'){
      ov.innerHTML=`<div class="overlay-box"><div class="emoji">🌪️</div><b>DNF · плохая погода</b><span>Тяжёлые погодные условия привели к сходу.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
-   }else if(dnfReason==='river'){
-     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🌊</div><b>DNF · река разлилась</b><span>На ПП3 вода поднялась настолько, что продолжить маршрут невозможно.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
    }else{
      ov.innerHTML=`<div class="overlay-box"><div class="emoji">🦴</div><b>DNF · перелом ноги</b><span>Слишком высокая нагрузка и мало отдыха. Отдохните 1 минуту перед новой попыткой.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
    }
@@ -3232,8 +3198,8 @@ $('startBtn').onclick=()=>{
   }
 };
 
-function updateRaceGuaranaButton(){const b=$('raceGuaranaBtn');const g=$('raceGelStatus');const active=!!(run&&run.running);const qty=Number(game.resources.guarana||0);if(b){b.style.display='inline-flex';b.disabled=!active||!!(run&&run.guaranaTriggered)||qty<=0;if(run&&run.guaranaTriggered)b.textContent='🫘 Гуарана использована';else if(active)b.textContent=`🫘 Использовать гуарану (${qty})`;else b.textContent=qty>0?`🫘 Гуарана (${qty}) · доступна в гонке`:'🫘 Гуарана: 0 · купить в расходниках';}if(g){g.style.display=active?'inline-flex':'none';if(active)g.textContent=`🍯 Гели в гонке: ${Number(run.gelsRemaining||0)} / ${Number(run.gelsStart||0)}`;}}
-$('raceGuaranaBtn')?.addEventListener('click',()=>{if(!run||!run.running||run.guaranaTriggered)return;if(Number(game.resources.guarana||0)<=0){showGameError('Гуарана закончилась.');return;}useResource('guarana',1,'event');run.guaranaTaken=true;run.guaranaTriggered=true;const km=Number(run.p||0)*Number(levelData()[1]||0);if(Math.random()<0.30){run.guaranaBoostUntil=Number(run.elapsed||0)+600;run.guaranaTriggerKm=km;showEvent({emoji:'🫘',name:'Гуарана сработала'},-60,' · буст на 10 мин');}else{showEvent({emoji:'🫘',name:'Гуарана не сработала'},0,' · буста нет');}saveGame();updateRaceGuaranaButton();});
+function updateRaceGuaranaButton(){const b=$('raceGuaranaBtn');const g=$('raceGelStatus');const active=!!(run&&run.running);const qty=Number(game.resources.guarana||0);if(b){b.style.display='inline-flex';const used=!!(run&&run.guaranaTriggered);b.disabled=used||(active&&qty<=0);if(used)b.textContent='🫘 Гуарана использована';else if(active)b.textContent=qty>0?`🫘 Использовать гуарану (${qty})`:'🫘 Гуарана: 0 · нет в гонке';else b.textContent=qty>0?`🫘 Гуарана (${qty}) · доступна в гонке`:'🫘 Гуарана: 0 · купить в расходниках';}if(g){g.style.display=active?'inline-flex':'none';if(active)g.textContent=`🍯 Гели в гонке: ${Number(run.gelsRemaining||0)} / ${Number(run.gelsStart||0)}`;}}
+$('raceGuaranaBtn')?.addEventListener('click',()=>{const qty=Number(game.resources.guarana||0);const active=!!(run&&run.running);if(qty<=0&&!active){const nav=document.querySelector('.trail3d-bottom-nav button[data-target="resources"]');if(nav){nav.click();return;}document.getElementById('resources')?.scrollIntoView({behavior:'smooth',block:'start'});return;}if(!run||!run.running||run.guaranaTriggered)return;if(qty<=0){showGameError('Гуарана закончилась. Во время гонки докупка недоступна.');return;}useResource('guarana',1,'event');run.guaranaTaken=true;run.guaranaTriggered=true;const km=Number(run.p||0)*Number(levelData()[1]||0);if(Math.random()<0.30){run.guaranaBoostUntil=Number(run.elapsed||0)+600;run.guaranaTriggerKm=km;showEvent({emoji:'🫘',name:'Гуарана сработала'},-60,' · буст на 10 мин');}else{showEvent({emoji:'🫘',name:'Гуарана не сработала'},0,' · буста нет');}saveGame();updateRaceGuaranaButton();});
 $('resetGameBtn').onclick=()=>{if(confirm('Сбросить весь прогресс, деньги и экипировку?')){localStorage.removeItem('trailArmageddonSave');game=loadGame();render()}};
 
 function drawRunnerFacingForward(ctx,x,y,scale=1){

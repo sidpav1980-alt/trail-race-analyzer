@@ -33,6 +33,11 @@
 .player-name-card input::placeholder{color:#7f90a8}
 .player-name-card input:focus{border-color:#39bdf3;box-shadow:0 0 0 2px rgba(57,189,243,.12)}
 
+
+/* v1.03: carry block shown above simulation on Start tab */
+#race > #carrySection{margin-bottom:14px;}
+#race > #carrySection .drawer-body{padding-top:8px;}
+
 </style>
 
 
@@ -189,24 +194,6 @@
 #aboutGameSection .author-contact-footer a{font-size:12px!important;}
 </style>
 
-
-<style>
-/* v1.03: "С собой" расположен прямо над симуляцией гонки */
-#race>#carrySection{
-  margin:0 0 10px!important;
-}
-#race>#carrySection>summary{
-  font-size:15px!important;
-  padding:9px 12px!important;
-}
-#race>#carrySection .drawer-body{
-  padding:7px!important;
-}
-#race>#carrySection .card{
-  margin:0!important;
-}
-</style>
-
 </head>
 <body>
 <div class="app">
@@ -257,7 +244,7 @@
   <main>
     <section id="race" class="panel active game-main">
 
-      <details id="carrySection" class="game-drawer"><summary>🎒 С собой</summary><div class="drawer-body">
+      <details id="carrySection" class="game-drawer" open><summary>🎒 С собой</summary><div class="drawer-body">
         <div class="card carry-buy-card">
           <h2>🎒 С собой на гонку</h2>
           <p class="muted">Здесь собран запас на текущую гонку. До старта можно сразу докупить недостающее.</p>
@@ -275,7 +262,6 @@
           <div class="notice carry-buy-note">Нажми на карточку «УГЛИ», «Аптечка» или «Вода» — игра рассчитает недостающее для выбранной гонки и купит его за рубли.</div>
         </div>
       </div></details>
-
       <div class="card sim-card">
         <div class="row between">
           <div id="simulationRaceTitle" class="simulation-race-title">Текущая гонка</div><h2>Симуляция гонки</h2>
@@ -381,7 +367,7 @@
     </section>
 
     <section class="game-tools">
-<details id="levels" class="game-drawer"><summary>🏆 21 уровень кампании</summary><div class="drawer-body">
+      <details id="levels" class="game-drawer"><summary>🏆 21 уровень кампании</summary><div class="drawer-body">
       <div class="card">
         <div class="row between">
           <div>
@@ -565,7 +551,7 @@
 <div class="help-section"><b>🏥 Травмы и лечение</b><p>После перелома доступна кнопка <strong>«🏥 Лечение»</strong>. Лечение длится <strong>5 минут реального времени</strong>; таймер оставшегося времени показывается в связанных блоках. До окончания лечения нельзя стартовать, тренироваться или отдыхать. После завершения лечения усталость полностью восстанавливается до <strong>0%</strong>.</p></div>
 <div class="help-section"><b>🩹 Аптечка</b><p>Бинт, марля, перекись, пластырь и крем от натирания помогают при соответствующих проблемах. Высокая усталость и недостаточная подготовка увеличивают риск травмы. Тяжёлая травма может закончиться DNF.</p></div>
 <div class="help-section"><b>🌦 Погода и мембранка</b><p>Жара и солнце увеличивают расход воды. Холод и ливень требуют мембранки подходящего уровня. Если для гонки нужна более сильная мембранка, игра показывает минимальный уровень и блокирует опасный старт.</p></div>
-<div class="help-section help-focus"><b>🏜️ Чара — 134 км</b><p>Отдельный 13-й уровень кампании: 134 км по мотивам Чарских песков с 4 пунктами питания. На ПП3 (82 км) действует специальное событие «Река разлилась»: в 70% случаев продолжить маршрут невозможно и игрок получает DNF; в 30% удаётся найти проход с дополнительной потерей времени. Длинные открытые участки также повышают важность воды, защиты от солнца и правильного темпа.</p></div>
+<div class="help-section help-focus"><b>🏜️ Чара — 134 км</b><p>Отдельный 13-й уровень кампании: 134 км по мотивам Чарских песков с 4 пунктами питания. В симуляции используются песчаные барханы и заснеженные горы на фоне. Длинные открытые участки повышают важность воды, защиты от солнца и правильного темпа.</p></div>
 <div class="help-section"><b>🎲 События</b><p>Дождь, проблемы с питанием, падения, натирания, поломки и удачные события меняют ход гонки. ТОП ITRA не сходит раньше 130 км. Хорошая подготовка уменьшает последствия, но случайность остаётся частью игры.</p></div>
 <div class="help-section"><b>💰 Деньги, слоты и DNF</b><p>Чем лучше прохождение, тем выше награда. Рубли тратятся на экипировку, ремонт, расходники, тренеров и <strong>слоты гонок</strong>. Первые 3 уровня кампании имеют бесплатный слот. С 4-го уровня слот нужно покупать отдельно даже после разблокировки гонки; чем сложнее трасса, тем выше цена. Стоимость показана в списке кампании; с 9 уровня она увеличивается в 3 раза. При покупке слота иногда выпадает бесплатный мерч экипировки. За DNF награда — ₽0.</p></div>
 <div class="help-section"><b>📈 XP и ITRA</b><p>Запись «151 / 208 XP» означает: накоплено 151 XP из 208, необходимых для перехода на следующий уровень трейлраннера.</p><p>Финиши повышают XP, уровень трейлраннера, тренированность и игровой ITRA-рейтинг. По мере развития ты переходишь от обычных соперников к борьбе с сильнейшими лидерами.</p></div>
@@ -655,8 +641,8 @@
       setVisible(race,true);
       const sim=race.querySelector('.sim-card');
       const carry=document.getElementById('carrySection');
-      raceDirect().forEach(function(ch){setVisible(ch,ch===carry || ch===sim);});
-      if(carry)carry.open=true;
+      Array.from(race.children).forEach(function(ch){ setVisible(ch, ch===carry || ch===sim); });
+      if(carry) carry.open=true;
       return carry||sim||race;
     }
     if(race && race.contains(el)){
