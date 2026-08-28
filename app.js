@@ -166,6 +166,7 @@ function consumeReloadedRaceFlag(){
   }catch(e){ return false; }
 }
 function clearTransientRaceUi(){
+  try{ if(typeof clearRaceOverlayQueue==='function') clearRaceOverlayQueue(); }catch(e){}
   try{ if(timer) cancelAnimationFrame(timer); }catch(e){}
   timer=null;
   lastTs=0;
@@ -1323,6 +1324,7 @@ $('playerNameInput')?.addEventListener('change',e=>{
 $('hospitalBtn')?.addEventListener('click',startHospitalTreatment);
 
 $('restBtn')?.addEventListener('click',()=>{
+  try{ if(typeof clearRaceOverlayQueue==='function') clearRaceOverlayQueue(); }catch(e){}
   if(run && run.running){ showGameError('Во время гонки отдых недоступен. Сначала завершите гонку.'); return; }
   if(isInHospital() || needsHospitalTreatment()){ showGameError(isInHospital()?`Во время лечения отдых недоступен. Осталось ${fmtRest(hospitalRemainingMs())}.`:'Сначала необходимо пройти лечение в больнице.'); return; }
   if(trainingActive()){showGameError(`Во время тренировки отдых недоступен. До конца тренировки: ${trainingCountdownText()}.`);updateRestUi();return;}
@@ -3057,6 +3059,7 @@ function clearRaceOverlayQueue(){
   if(ov){ov.classList.remove('show');ov.innerHTML='';}
 }
 function queueRaceOverlay(html,duration=2000){
+  if(!run || !run.running) return;
   if(!Array.isArray(window.__raceOverlayQueue)) window.__raceOverlayQueue=[];
   const epoch=Number(window.__raceOverlayEpoch||0);
   window.__raceOverlayQueue.push({html,duration:Math.max(300,Number(duration)||2000),epoch});
@@ -3276,6 +3279,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  // При DNF фиксируем игрока ровно в точке схода. Только успешный финиш ставит прогресс на 100%.
  run.finishHold=!isPlayerDnf;
  if(!isPlayerDnf){
+   clearRaceOverlayQueue();
    run.p=1;
    drawTrack(1);
    renderRaceLeaders(Number(L[1]||0));
@@ -3436,6 +3440,9 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  }, 5000);
 }
 function startRace(){
+  // A previous DNF/finish may still have real-time overlay timers pending.
+  // Invalidate them before any new start/navigation so old race cards can never reappear at 0.0 km.
+  try{ if(typeof clearRaceOverlayQueue==='function') clearRaceOverlayQueue(); }catch(e){}
   const gameSnapshot=JSON.parse(JSON.stringify(game));
 
   function makeFullyMutableState(src){
