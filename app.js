@@ -2562,6 +2562,27 @@ function startRaceCore(){
                     run.playerItraPlace<=15?'TOP-15':'обычный');
  attachRivalNamesToVirtualField();
 
+ // Чара 138 км: Анастасия Кабенина (ITRA 750) обязательно участвует в каждой попытке.
+ // Даже старый сохранённый/закэшированный состав не может исключить её из виртуального поля.
+ if(Math.abs(Number(L[1]||0)-138)<0.01 && Array.isArray(run.virtualField) && run.virtualField.length){
+   const kabName='Анастасия Кабенина';
+   let kab=run.virtualField.find(c=>String(c?.name||'').trim()===kabName);
+   if(!kab){
+     const field=[...run.virtualField].sort((a,b)=>a.finishSec-b.finishSec);
+     // Закрепляем её в сильной части стартового поля, но не гарантируем конкретное место по ходу гонки.
+     kab=field[Math.min(13,Math.max(0,field.length-1))];
+     kab.name=kabName;
+   }
+   kab.country='RU';
+   kab.itra=750;
+   kab.charaGuaranteed=true;
+   if(!Array.isArray(run.raceLeaders)) run.raceLeaders=[];
+   if(!run.raceLeaders.includes(kabName)){
+     if(run.raceLeaders.length>=14) run.raceLeaders[13]=kabName;
+     else run.raceLeaders.push(kabName);
+   }
+ }
+
  // Армагеддон: Артём Чернов — главный соперник.
  // В большинстве попыток он ведёт почти всю гонку и часто выигрывает.
  if(Number(game.current||0)===20 && Array.isArray(run.virtualField) && run.virtualField.length){
