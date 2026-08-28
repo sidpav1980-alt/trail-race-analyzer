@@ -756,3 +756,6 @@ select{background:#0a1d33!important;color:#eef7ff!important;border-color:#315a80
   text-align:left;
   touch-action:pan-y;
 }
+
+#eventOverlay .river-dnf-all-card .river-player-safe{display:block;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.18);font-weight:800;text-align:center;color:#9be7ff}
+#eventOverlay .river-dnf-all-card .river-dnf-scroll{max-height:46vh!important;min-height:80px;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;touch-action:pan-y!important}

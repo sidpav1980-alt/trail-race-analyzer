@@ -2825,6 +2825,11 @@ function triggerCharaFloodEvent(ppKm, dist){
   if(Math.abs(Number(ppKm||0)-82)>0.2) return;
   run.charaFloodResolved=true;
 
+  // На 82 км «Река разлилась» имеет собственную массовую плашку.
+  // Не даём накопленным обычным сходам показать пятёрку поверх неё.
+  if(Array.isArray(run.dnfDisplayPending)) run.dnfDisplayPending.length=0;
+  clearRaceOverlayQueue();
+
   if(!(run.dnfNames instanceof Set)){
     run.dnfNames=new Set(Array.isArray(run.dnfNames)?run.dnfNames:[]);
   }
@@ -2833,7 +2838,6 @@ function triggerCharaFloodEvent(ppKm, dist){
     ? run.virtualField.filter(c=>c && !c.dnf)
     : [];
   const target=Math.max(0,Math.min(active.length,Math.round(active.length*0.70)));
-  let affected=0;
   const floodDnfs=[];
   const shuffled=[...active].sort(()=>Math.random()-0.5);
   for(let i=0;i<target;i++){
@@ -2845,35 +2849,33 @@ function triggerCharaFloodEvent(ppKm, dist){
     const n=String(c.name||c.runnerName||c.fullName||'Участник').trim();
     if(n) run.dnfNames.add(n.toLowerCase());
     floodDnfs.push({name:n,km:Number(ppKm||82)});
-    affected++;
   }
+  const affected=floodDnfs.length;
   run.liveDnfCount=Math.max(0,Number(run.liveDnfCount||0)+affected);
 
-  // Только для события «Река разлилась»: все сошедшие показываются
-  // в одной прокручиваемой плашке на 5 реальных секунд.
-  // Обычные сходы по-прежнему группируются по 5 человек.
-  if(floodDnfs.length){
-    const rows=floodDnfs.map(x=>`${String(x.name||'Участник')} — ${Number(x.km||82).toFixed(1)} км`);
+  // ВСЕ участники, которых накрыл разлив, показываются ОДНОВРЕМЕННО
+  // в одной прокручиваемой плашке. Никакого разбиения по 5 для реки.
+  if(affected){
+    const rows=floodDnfs.map((x,i)=>`${i+1}. ${String(x.name||'Участник')} — ${Number(x.km||82).toFixed(1)} км`);
     queueRaceOverlay(
-      `<div class="overlay-box river-dnf-all-card"><div class="emoji">🌊</div><b>Река разлилась · сошло ${floodDnfs.length}</b><span class="river-dnf-scroll">${rows.join('<br>')}</span></div>`,
+      `<div class="overlay-box river-dnf-all-card"><div class="emoji">🌊</div><b>Река разлилась · сошло ${affected}</b><span class="river-dnf-scroll">${rows.join('<br>')}</span><span class="river-player-safe">Игрок нашёл обход · +20:00</span></div>`,
       5000
     );
   }
+
   try{
     $('eventLog').insertAdjacentHTML(
       'afterbegin',
-      `<div class="event-row"><span>${Number(ppKm||82).toFixed(1)} км</span><b>🌊 Река разлилась</b><span class="bad">всего сошло ${affected} участников</span></div>`
+      `<div class="event-row dnf-event-row"><span>${Number(ppKm||82).toFixed(1)} км</span><b>🌊 Река разлилась · сошло ${affected}</b><span class="neutral">${floodDnfs.map(x=>String(x.name||'Участник')).join(' · ')}</span></div>`
     );
   }catch(e){}
 
-  // Правило массового схода 70% действует только на соперников.
-  // Игрок всегда продолжает гонку: находит обход с фиксированной потерей времени.
+  // 70% действует только на соперников. Игрок всегда находит обход.
   run.penalty=(Number(run.penalty)||0)+1200;
-  showEvent({emoji:'🌊',name:'Река разлилась'},1200,` · игрок нашёл обход · +20:00 · сошло ${affected} участников`);
   try{
     $('eventLog').insertAdjacentHTML(
       'afterbegin',
-      `<div class="event-row"><span>${Number(ppKm||82).toFixed(1)} км</span><b>🌊 Найден обход</b><span class="bad">+20:00 · сошло ${affected} участников</span></div>`
+      `<div class="event-row"><span>${Number(ppKm||82).toFixed(1)} км</span><b>🌊 Найден обход</b><span class="bad">+20:00</span></div>`
     );
   }catch(e){}
 }
