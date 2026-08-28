@@ -127,7 +127,7 @@ const CATEGORY_NAMES={shoes:'Кроссовки',pack:'Рюкзак / жилет
 const RESOURCE_CATALOG={
   waterBottles:{name:'Вода 0,5 л',price:80,unit:'бут.',desc:'Обязательна с 4 уровня. Расход зависит от дистанции, жары и солнца.'},
   gels:{name:'Энергетический гель «УГЛИ»',price:60,unit:'шт.',desc:'Снижает голод и потерю темпа на длинной гонке.'},
-  guarana:{name:'Гуарана',price:180,unit:'шт.',desc:'До 100 км — 1 приём за гонку; свыше 100 км — до 2 приёмов. 30% шанс получить 10 минут ускорения. Через 20 км после срабатывания скорость падает на 40% только на следующие 30 км.'},
+  guarana:{name:'Гуарана',price:180,unit:'шт.',desc:'До 100 км — 1 приём за гонку; свыше 100 км — до 2 приёмов; на 500 км и больше — до 4 приёмов. 60% шанс получить 10 минут ускорения. После успешного буста через 20 км есть 30% шанс отката: скорость −40% на следующие 30 км.'},
   batteries:{name:'Комплект батареек',price:130,unit:'компл.',desc:'Для фонарей 1–4 уровня. Один комплект ≈ 5 часов света.'},
   bandage:{name:'Бинт',price:40,unit:'шт.',desc:'Сильные ссадины и растяжения.'},
   gauze:{name:'Марля',price:22,unit:'уп.',desc:'Кровь и глубокие царапины.'},
@@ -2536,7 +2536,7 @@ function startRaceCore(){
    condition:game.fatigue>=75?'сильная усталость':'нормально',
    waterStart:waterUsed,waterRemaining:waterUsed,waterCapacity:waterCapacity,medkitsRemaining:medkitsForRace,waterNeed:needWater,waterSegmentStartKm:0,waterSegmentStartAmount:waterUsed,waterEmptyNotified:(waterAvailable<=0),aidStations:buildAidStations(Number(L[1]||0)),aidStationsPassed:new Set(),waterShortage,gelShortage,lightShortageHours,gelsStart:gelsAvailable,gelsRemaining:gelsAvailable,gelsPlannedUsed:0,
    fractureRisk:Math.min(.42, Math.max(0,((game.fatigue-55)/140) * (1-coachRaceBonuses().injury)) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08*(1-coachRaceBonuses().injury) : 0)),
-   guaranaTaken:false,guaranaAvailable:Number(game.resources.guarana||0)>0,guaranaTriggered:false,guaranaUses:0,guaranaMaxUses:(Number(L[1]||0)>100?2:1),guaranaBoostUntil:0,guaranaTriggerKm:0,guaranaCrash:false,guaranaCrashEndKm:0,
+   guaranaTaken:false,guaranaAvailable:Number(game.resources.guarana||0)>0,guaranaTriggered:false,guaranaUses:0,guaranaMaxUses:(Number(L[1]||0)>=500?4:(Number(L[1]||0)>100?2:1)),guaranaBoostUntil:0,guaranaTriggerKm:0,guaranaCrash:false,guaranaCrashChecked:false,guaranaCrashEndKm:0,charaFloodResolved:false,
    dnf:false
  };
  run.virtualField=createVirtualField(L,run.fieldSize,Math.max(60,run.base+run.penalty));
@@ -2653,6 +2653,55 @@ function buildAidStations(distanceKm){
   return pts;
 }
 
+
+function triggerCharaFloodEvent(ppKm, dist){
+  if(!run || !run.running) return;
+  if(run.charaFloodResolved) return;
+  if(Math.abs(Number(dist||0)-138)>=0.01) return;
+  if(Math.abs(Number(ppKm||0)-82)>0.2) return;
+  run.charaFloodResolved=true;
+
+  if(!(run.dnfNames instanceof Set)){
+    run.dnfNames=new Set(Array.isArray(run.dnfNames)?run.dnfNames:[]);
+  }
+
+  const active=Array.isArray(run.virtualField)
+    ? run.virtualField.filter(c=>c && !c.dnf)
+    : [];
+  const target=Math.max(0,Math.min(active.length,Math.round(active.length*0.70)));
+  let affected=0;
+  const shuffled=[...active].sort(()=>Math.random()-0.5);
+  for(let i=0;i<target;i++){
+    const c=shuffled[i];
+    if(!c || c.dnf) continue;
+    c.dnf=true;
+    c.dnfKm=Number(ppKm||82);
+    c.dnfReason='река разлилась';
+    const n=String(c.name||c.runnerName||c.fullName||'').trim();
+    if(n) run.dnfNames.add(n.toLowerCase());
+    affected++;
+  }
+  run.liveDnfCount=Math.max(0,Number(run.liveDnfCount||0)+affected);
+
+  try{
+    $('eventLog').insertAdjacentHTML(
+      'afterbegin',
+      `<div class="event-row"><span>${Number(ppKm||82).toFixed(1)} км</span><b>🌊 Река разлилась</b><span class="bad">сошло ${affected} участников</span></div>`
+    );
+  }catch(e){}
+
+  // Правило массового схода 70% действует только на соперников.
+  // Игрок всегда продолжает гонку: находит обход с фиксированной потерей времени.
+  run.penalty=(Number(run.penalty)||0)+1200;
+  showEvent({emoji:'🌊',name:'Река разлилась'},1200,` · игрок нашёл обход · +20:00 · сошло ${affected} участников`);
+  try{
+    $('eventLog').insertAdjacentHTML(
+      'afterbegin',
+      `<div class="event-row"><span>${Number(ppKm||82).toFixed(1)} км</span><b>🌊 Найден обход</b><span class="bad">+20:00 · сошло ${affected} участников</span></div>`
+    );
+  }catch(e){}
+}
+
 function updateAidStationsAndWater(){
   if(!run || !run.running) return;
   const L=levelData();
@@ -2688,6 +2737,9 @@ function updateAidStationsAndWater(){
         `<div class="event-row"><span>${ppKm.toFixed(1)} км</span><b>🥤 Пункт питания · вода пополнена: ${refill} × 0,5 л</b><span class="bad">+1:00</span></div>`
       );
     }catch(e){}
+
+    triggerCharaFloodEvent(ppKm, dist);
+    if(run?.dnf) return;
   }
 }
 
@@ -2753,8 +2805,22 @@ function tick(ts){
  if(!run.paused && !run.eventPause){
    const total=Math.max(60,run.base+run.penalty);
    const raceKmBefore=Math.max(0,Number(run.p||0)*Number(L[1]||0));
-   // Гуарана: до 100 км — 1 использование, свыше 100 км — 2. Эффекты не накладываются друг на друга.
-   if(run.guaranaTriggerKm>0&&!run.guaranaCrash&&raceKmBefore>=run.guaranaTriggerKm+20){run.guaranaCrash=true;run.guaranaCrashEndKm=run.guaranaTriggerKm+50;showEvent({emoji:'⚠️',name:'Откат после гуараны'},0,' · скорость −40% на 30 км');} if(run.guaranaCrash&&raceKmBefore>=Number(run.guaranaCrashEndKm||0)){run.guaranaCrash=false;showEvent({emoji:'✅',name:'Откат гуараны закончился'},0,' · обычный темп восстановлен');}
+   // Гуарана: до 100 км — 1 использование, свыше 100 км — 2, на 500 км+ — 4.
+   // После успешного буста через 20 км отрицательный откат срабатывает только с шансом 30%.
+   if(run.guaranaTriggerKm>0&&!run.guaranaCrashChecked&&raceKmBefore>=run.guaranaTriggerKm+20){
+     run.guaranaCrashChecked=true;
+     if(Math.random()<0.30){
+       run.guaranaCrash=true;
+       run.guaranaCrashEndKm=run.guaranaTriggerKm+50;
+       showEvent({emoji:'⚠️',name:'Откат после гуараны'},0,' · шанс 30% сработал · скорость −40% на 30 км');
+     }else{
+       run.guaranaCrash=false;
+       run.guaranaCrashEndKm=0;
+       run.guaranaTriggerKm=0;
+       showEvent({emoji:'✅',name:'Без отката после гуараны'},0,' · отрицательный эффект не сработал');
+     }
+   }
+   if(run.guaranaCrash&&raceKmBefore>=Number(run.guaranaCrashEndKm||0)){run.guaranaCrash=false;run.guaranaTriggerKm=0;run.guaranaCrashEndKm=0;showEvent({emoji:'✅',name:'Откат гуараны закончился'},0,' · обычный темп восстановлен');}
    let speedMult=1;
    if(Number(run.guaranaBoostUntil||0)>Number(run.elapsed||0)) speedMult*=1.15;
    if(run.guaranaCrash) speedMult*=0.60;
@@ -3209,6 +3275,8 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
      ov.innerHTML=`<div class="overlay-box"><div class="emoji">🥵</div><b>DNF · перегрев</b><span>Жара и нагрузка привели к сходу с дистанции.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
    }else if(dnfReason==='weather'){
      ov.innerHTML=`<div class="overlay-box"><div class="emoji">🌪️</div><b>DNF · плохая погода</b><span>Тяжёлые погодные условия привели к сходу.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
+   }else if(dnfReason==='flood'){
+     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🌊</div><b>DNF · река разлилась</b><span>После ПП на 82 км переход оказался невозможен.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
    }else{
      ov.innerHTML=`<div class="overlay-box"><div class="emoji">🦴</div><b>DNF · перелом ноги</b><span>Слишком высокая нагрузка и мало отдыха. Отдохните 1 минуту перед новой попыткой.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
    }
@@ -3452,7 +3520,7 @@ function updateRaceGuaranaButton(){
  const qty=Number(game.resources.guarana||0);
  if(b){
    b.style.display='inline-flex';
-   const maxUses=run?Number(run.guaranaMaxUses||(Number(levelData()[1]||0)>100?2:1)):(Number(levelData()[1]||0)>100?2:1);
+   const maxUses=run?Number(run.guaranaMaxUses||(Number(levelData()[1]||0)>=500?4:(Number(levelData()[1]||0)>100?2:1))):(Number(levelData()[1]||0)>=500?4:(Number(levelData()[1]||0)>100?2:1));
    const uses=run?Number(run.guaranaUses||0):0;
    const raceKm=run?Number(run.p||0)*Number(levelData()[1]||0):0;
    const effectPending=!!(run&&(
@@ -3470,7 +3538,7 @@ function updateRaceGuaranaButton(){
      else b.textContent='🫘 Гуарана: 0 · нет в гонке';
    }else{
      b.textContent=qty>0
-       ?`🫘 Гуарана (${qty}) · ${Number(levelData()[1]||0)>100?'до 2 раз':'1 раз'}`
+       ?`🫘 Гуарана (${qty}) · ${Number(levelData()[1]||0)>=500?'до 4 раз':(Number(levelData()[1]||0)>100?'до 2 раз':'1 раз')}`
        :'🫘 Гуарана: 0 · купить в расходниках';
    }
  }
@@ -3491,7 +3559,7 @@ $('raceGuaranaBtn')?.addEventListener('click',()=>{
  }
  if(!run||!run.running)return;
 
- const maxUses=Number(run.guaranaMaxUses||(Number(levelData()[1]||0)>100?2:1));
+ const maxUses=Number(run.guaranaMaxUses||(Number(levelData()[1]||0)>=500?4:(Number(levelData()[1]||0)>100?2:1)));
  const uses=Number(run.guaranaUses||0);
  if(uses>=maxUses)return;
  if(qty<=0){
@@ -3516,16 +3584,18 @@ $('raceGuaranaBtn')?.addEventListener('click',()=>{
  run.guaranaUses=uses+1;
 
  const km=raceKm;
- if(Math.random()<0.30){
+ if(Math.random()<0.60){
    run.guaranaBoostUntil=Number(run.elapsed||0)+600;
    run.guaranaTriggerKm=km;
    run.guaranaCrash=false;
+   run.guaranaCrashChecked=false;
    run.guaranaCrashEndKm=0;
    showEvent({emoji:'🫘',name:'Гуарана сработала'},-60,` · буст на 10 мин · ${run.guaranaUses}/${maxUses}`);
  }else{
    run.guaranaBoostUntil=0;
    run.guaranaTriggerKm=0;
    run.guaranaCrash=false;
+   run.guaranaCrashChecked=false;
    run.guaranaCrashEndKm=0;
    showEvent({emoji:'🫘',name:'Гуарана не сработала'},0,` · буста нет · ${run.guaranaUses}/${maxUses}`);
  }
