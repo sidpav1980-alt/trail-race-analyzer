@@ -3394,6 +3394,45 @@ function finishTop3Html(playerPos, playerFinalSec){
   return `<br><br><b>🏆 Первые 3 места:</b><br>${rows.map((r,i)=>`${medal[i]} ${i+1}. ${r.name}${r.player?' (Вы)':''} — ${fmt(Math.max(1,Number(r.finishSec||0)))}`).join('<br>')}`;
 }
 
+
+function logFinishTop3ToRaceEvents(playerPos, playerFinalSec){
+  try{
+    const log=$('eventLog');
+    if(!log) return;
+    const medal=['🥇','🥈','🥉'];
+    const npcs=(Array.isArray(run?.virtualField)?run.virtualField:[])
+      .filter(c=>c && !c.dnf)
+      .slice()
+      .sort((a,b)=>Number(a.finishSec||Infinity)-Number(b.finishSec||Infinity));
+    const player={player:true,name:safeProfileNameForRace(),finishSec:Number(playerFinalSec||0)};
+    const p=Math.max(1,Math.round(Number(playerPos||1)));
+    let rows=[];
+    if(p<=3){
+      let ni=0;
+      for(let rank=1;rank<=3;rank++){
+        if(rank===p){
+          rows.push(player);
+        }else{
+          const c=npcs[ni++];
+          if(c) rows.push({player:false,name:String(c.name||('Участник '+(Number(c.id||0)+1))),finishSec:Number(c.finishSec||0)});
+        }
+      }
+    }else{
+      rows=npcs.slice(0,3).map(c=>({player:false,name:String(c.name||('Участник '+(Number(c.id||0)+1))),finishSec:Number(c.finishSec||0)}));
+    }
+    if(!rows.length) return;
+    const dist=Number(levelData()?.[1]||0);
+    for(let i=rows.length-1;i>=0;i--){
+      const r=rows[i];
+      log.insertAdjacentHTML(
+        'afterbegin',
+        `<div class="event-row finish-top3-event"><span>${dist.toFixed(1)} км</span><b>${medal[i]} ${i+1}. ${r.name}${r.player?' (Вы)':''}</b><span class="good">${fmt(Math.max(1,Number(r.finishSec||0)))}</span></div>`
+      );
+    }
+    log.insertAdjacentHTML('afterbegin',`<div class="event-row finish-top3-title"><span>ФИНИШ</span><b>🏆 ТОП-3 · время финиша</b><span class="neutral">итог</span></div>`);
+  }catch(e){console.warn('TOP-3 event log error',e);}
+}
+
 function finishRace(forceDnf=false,dnfReason='fracture'){
  if(!run||!run.running)return;
  // После завершения любой гонки автоматически сворачиваем блок «Текущая экипировка».
@@ -3550,6 +3589,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  }
 
  const totalDnfs=Math.min(run.fieldSize,run.liveDnfCount??run.otherDnfCount??0);
+ logFinishTop3ToRaceEvents(pos,final);
  const top3Finish=finishTop3Html(pos,final);
  ov.innerHTML=`<div class="overlay-box"><div class="emoji">${champ?'👑🏆':'🏁'}</div><b>${champ?'ТЫ ЧЕМПИОН АРМАГЕДДОНА!':`Финиш · ${pos} место`}</b><span>Время ${fmt(final)} · заработано ${fmtMoney(reward)} · +${xp} XP<br>🚫 Сошло с дистанции: ${totalDnfs} из ${run.fieldSize}<br>Тренированность: ${Math.round(game.fitness)}/100<br>Усталость: ${Math.round(game.fatigue)}%${breaks.length?`<br>Сломалось: ${breaks.join(', ')}`:''}${newRareAchievement?'<br>🏆 Получена редкая ачивка уровня!':''}${coachAdvice}${top3Finish}</span></div>`;
  ov.classList.add('show');
