@@ -2842,12 +2842,9 @@ function fireEvents(){
 }
 function showEvent(ev,sec,extra){
  const ov=$('eventOverlay');ov.innerHTML=`<div class="overlay-box"><div class="emoji">${ev.emoji}</div><b>${ev.name}</b><span>${sec>=0?'+':'−'}${fmt(Math.abs(sec))}${extra}</span></div>`;ov.classList.add('show');
- // Пока плашка события видна, игровое время и движение по трассе стоят.
- // Пользовательская пауза при этом остаётся независимой.
- if(run && run.running) run.eventPause=true;
+ // Плашка события только визуальная: гонка продолжает идти под ней.
  setTimeout(()=>{
    ov.classList.remove('show');
-   if(run){ run.eventPause=false; lastTs=performance.now(); }
  },2000);
  const cls=sec<0?'good':sec>0?'bad':'neutral';
  $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>${(run.p*levelData()[1]).toFixed(1)} км</span><b>${ev.emoji} ${ev.name}${extra}</b><span class="${cls}">${sec>=0?'+':'−'}${fmt(Math.abs(sec))}</span></div>`);
