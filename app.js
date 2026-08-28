@@ -1966,22 +1966,48 @@ function competitorProgressAt(c,elapsed,L){
 
 
 
-function showDnfNotice(name, extra=''){
+function showDnfNotice(name, extra='', kmOverride=null){
   try{
     // После схода игрока новые плашки сходов соперников больше не показываем.
     if(!run || !run.running || run.dnf) return;
+    const km=Number.isFinite(Number(kmOverride)) ? Number(kmOverride) : ((run?.p||0)*levelData()[1]);
     const ov=$('eventOverlay');
     if(ov){
-      queueRaceOverlay(`<div class="overlay-box"><div class="emoji">🚫</div><b>${name} сошёл</b><span>${extra||'гонка продолжается'}</span></div>`,2000);
+      queueRaceOverlay(`<div class="overlay-box"><div class="emoji">🚫</div><b>${name} сошёл</b><span>${km.toFixed(1)} км${extra?` · ${extra}`:' · гонка продолжается'}</span></div>`,2000);
     }
     const el=$('eventLog');
     if(el){
       el.insertAdjacentHTML(
         'afterbegin',
-        `<div class="event-row dnf-event-row"><span>${((run?.p||0)*levelData()[1]).toFixed(1)} км</span><b>🚫 ${name} сошёл</b><span class="neutral">${extra||''}</span></div>`
+        `<div class="event-row dnf-event-row"><span>${km.toFixed(1)} км</span><b>🚫 ${name} сошёл</b><span class="neutral">${extra||''}</span></div>`
       );
     }
     // Important: opponent DNF must never pause the race.
+    if(run) run.eventPause=false;
+  }catch(e){}
+}
+
+function showDnfBatch(batch, reason=''){
+  try{
+    if(!run || !run.running || run.dnf || !Array.isArray(batch) || !batch.length) return;
+    const rows=batch.map(x=>`${String(x.name||'Участник')} — ${Number(x.km||0).toFixed(1)} км`);
+    const ov=$('eventOverlay');
+    if(ov){
+      queueRaceOverlay(
+        `<div class="overlay-box"><div class="emoji">🚫</div><b>Сошли ${batch.length} участников</b><span>${rows.join('<br>')}${reason?`<br>${reason}`:''}</span></div>`,
+        2000
+      );
+    }
+    const el=$('eventLog');
+    if(el){
+      const kmMin=Math.min(...batch.map(x=>Number(x.km||0)));
+      const kmMax=Math.max(...batch.map(x=>Number(x.km||0)));
+      const kmLabel=Math.abs(kmMax-kmMin)<0.05 ? `${kmMin.toFixed(1)} км` : `${kmMin.toFixed(1)}–${kmMax.toFixed(1)} км`;
+      el.insertAdjacentHTML(
+        'afterbegin',
+        `<div class="event-row dnf-event-row"><span>${kmLabel}</span><b>🚫 Сошли ${batch.length}</b><span class="neutral">${rows.join(' · ')}${reason?` · ${reason}`:''}</span></div>`
+      );
+    }
     if(run) run.eventPause=false;
   }catch(e){}
 }
@@ -2018,7 +2044,9 @@ function updateLiveDnfs(){
 
  const already=Number(run.liveDnfCount||0);
  if(targetCount>already){
-   const requested=targetCount-already;
+   // Не вываливаем десятки сходов одной лавиной: за одно обновление
+   // оформляем максимум 5 участников, остальные дойдут следующими пачками.
+   const requested=Math.min(5,targetCount-already);
    const active=(run.virtualField||[]).filter(c=>c && !c.dnf);
 
    if(!(run.dnfNames instanceof Set)){
@@ -2026,6 +2054,7 @@ function updateLiveDnfs(){
    }
 
    let actuallyAdded=0;
+   const dnfBatch=[];
 
    for(let i=0;i<requested && active.length;i++){
      const L=levelData();
@@ -2078,12 +2107,18 @@ function updateLiveDnfs(){
      ).trim();
 
      dnfRunner.dnf=true;
+     const dnfKm=Math.max(0,Math.min(Number(L?.[1]||0),raceKm));
+     dnfRunner.dnfKm=dnfKm;
+     dnfRunner.dnfReason=dnfRunner.dnfReason||'сход';
      active.splice(idx,1);
      run.dnfNames.add(dnfName.toLowerCase());
+     dnfBatch.push({name:dnfName,km:dnfKm});
      actuallyAdded++;
+   }
 
-     try{ showDnfNotice(dnfName); }
-     catch(e){ console.warn('DNF notice error',e); }
+   if(dnfBatch.length){
+     try{ showDnfBatch(dnfBatch); }
+     catch(e){ console.warn('DNF batch notice error',e); }
    }
 
    // Count only DNF events that were really allowed and created.
@@ -2190,7 +2225,7 @@ function maybeLeaderDNF(){
   const reasons=['травма','сильная усталость','проблемы с желудком','падение','переохлаждение'];
   c.dnfReason=reasons[Math.floor(Math.random()*reasons.length)];
   run.dnfNames.add(n.trim().toLowerCase());
-  try{ showDnfNotice(n||'Лидер',c.dnfReason||''); }catch(e){}
+  try{ showDnfNotice(n||'Лидер',c.dnfReason||'',c.dnfKm); }catch(e){}
 }
 
 function dynamicLeaderRows(L){
@@ -2800,6 +2835,7 @@ function triggerCharaFloodEvent(ppKm, dist){
     : [];
   const target=Math.max(0,Math.min(active.length,Math.round(active.length*0.70)));
   let affected=0;
+  const floodDnfs=[];
   const shuffled=[...active].sort(()=>Math.random()-0.5);
   for(let i=0;i<target;i++){
     const c=shuffled[i];
@@ -2807,16 +2843,22 @@ function triggerCharaFloodEvent(ppKm, dist){
     c.dnf=true;
     c.dnfKm=Number(ppKm||82);
     c.dnfReason='река разлилась';
-    const n=String(c.name||c.runnerName||c.fullName||'').trim();
+    const n=String(c.name||c.runnerName||c.fullName||'Участник').trim();
     if(n) run.dnfNames.add(n.toLowerCase());
+    floodDnfs.push({name:n,km:Number(ppKm||82)});
     affected++;
   }
   run.liveDnfCount=Math.max(0,Number(run.liveDnfCount||0)+affected);
 
+  // Массовый сход показываем не одной огромной плашкой, а пачками по 5 имён.
+  // В каждой записи указан километр схода.
+  for(let i=0;i<floodDnfs.length;i+=5){
+    showDnfBatch(floodDnfs.slice(i,i+5),'🌊 река разлилась');
+  }
   try{
     $('eventLog').insertAdjacentHTML(
       'afterbegin',
-      `<div class="event-row"><span>${Number(ppKm||82).toFixed(1)} км</span><b>🌊 Река разлилась</b><span class="bad">сошло ${affected} участников</span></div>`
+      `<div class="event-row"><span>${Number(ppKm||82).toFixed(1)} км</span><b>🌊 Река разлилась</b><span class="bad">всего сошло ${affected} участников</span></div>`
     );
   }catch(e){}
 
