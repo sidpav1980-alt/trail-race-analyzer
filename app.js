@@ -127,7 +127,7 @@ const CATEGORY_NAMES={shoes:'Кроссовки',pack:'Рюкзак / жилет
 const RESOURCE_CATALOG={
   waterBottles:{name:'Вода 0,5 л',price:80,unit:'бут.',desc:'Обязательна с 4 уровня. Расход зависит от дистанции, жары и солнца.'},
   gels:{name:'Энергетический гель «УГЛИ»',price:60,unit:'шт.',desc:'Снижает голод и потерю темпа на длинной гонке.'},
-  guarana:{name:'Гуарана',price:180,unit:'шт.',desc:'До 100 км — 1 приём за гонку; свыше 100 км — до 2 приёмов; на 500 км и больше — до 4 приёмов. 60% шанс получить 10 минут ускорения. После успешного буста через 20 км есть 30% шанс отката: скорость −40% на следующие 30 км.'},
+  guarana:{name:'Гуарана',price:180,unit:'шт.',desc:'До 100 км — 1 приём за гонку; свыше 100 км — до 2 приёмов; на 500 км и больше — до 4 приёмов. 60% шанс получить ускорение на следующие 20 км. После окончания этих 20 км есть 30% шанс отката: скорость −40% на следующие 30 км.'},
   batteries:{name:'Комплект батареек',price:130,unit:'компл.',desc:'Для фонарей 1–4 уровня. Один комплект ≈ 5 часов света.'},
   bandage:{name:'Бинт',price:40,unit:'шт.',desc:'Сильные ссадины и растяжения.'},
   gauze:{name:'Марля',price:22,unit:'уп.',desc:'Кровь и глубокие царапины.'},
@@ -2822,7 +2822,7 @@ function tick(ts){
    }
    if(run.guaranaCrash&&raceKmBefore>=Number(run.guaranaCrashEndKm||0)){run.guaranaCrash=false;run.guaranaTriggerKm=0;run.guaranaCrashEndKm=0;showEvent({emoji:'✅',name:'Откат гуараны закончился'},0,' · обычный темп восстановлен');}
    let speedMult=1;
-   if(Number(run.guaranaBoostUntil||0)>Number(run.elapsed||0)) speedMult*=1.15;
+   if(Number(run.guaranaTriggerKm||0)>0 && !run.guaranaCrashChecked && raceKmBefore<Number(run.guaranaTriggerKm||0)+20) speedMult*=1.15;
    if(run.guaranaCrash) speedMult*=0.60;
    run.elapsed+=dt*speedMult;
    run.p=Math.min(1,run.elapsed/total);
@@ -3524,7 +3524,7 @@ function updateRaceGuaranaButton(){
    const uses=run?Number(run.guaranaUses||0):0;
    const raceKm=run?Number(run.p||0)*Number(levelData()[1]||0):0;
    const effectPending=!!(run&&(
-     Number(run.guaranaBoostUntil||0)>Number(run.elapsed||0) ||
+     (Number(run.guaranaTriggerKm||0)>0 && !run.guaranaCrashChecked && raceKm<Number(run.guaranaTriggerKm||0)+20) ||
      run.guaranaCrash ||
      (Number(run.guaranaTriggerKm||0)>0 && raceKm<Number(run.guaranaTriggerKm||0)+50)
    ));
@@ -3569,12 +3569,12 @@ $('raceGuaranaBtn')?.addEventListener('click',()=>{
 
  const raceKm=Number(run.p||0)*Number(levelData()[1]||0);
  const effectPending=(
-   Number(run.guaranaBoostUntil||0)>Number(run.elapsed||0) ||
+   (Number(run.guaranaTriggerKm||0)>0 && !run.guaranaCrashChecked && raceKm<Number(run.guaranaTriggerKm||0)+20) ||
    run.guaranaCrash ||
    (Number(run.guaranaTriggerKm||0)>0 && raceKm<Number(run.guaranaTriggerKm||0)+50)
  );
  if(effectPending){
-   showGameError('Сначала должен закончиться текущий эффект и откат гуараны.');
+   showGameError('Сначала должен закончиться текущий буст на 20 км и возможный откат гуараны.');
    return;
  }
 
@@ -3585,12 +3585,12 @@ $('raceGuaranaBtn')?.addEventListener('click',()=>{
 
  const km=raceKm;
  if(Math.random()<0.60){
-   run.guaranaBoostUntil=Number(run.elapsed||0)+600;
+   run.guaranaBoostUntil=0;
    run.guaranaTriggerKm=km;
    run.guaranaCrash=false;
    run.guaranaCrashChecked=false;
    run.guaranaCrashEndKm=0;
-   showEvent({emoji:'🫘',name:'Гуарана сработала'},-60,` · буст на 10 мин · ${run.guaranaUses}/${maxUses}`);
+   showEvent({emoji:'🫘',name:'Гуарана сработала'},-60,` · буст на 20 км · ${run.guaranaUses}/${maxUses}`);
  }else{
    run.guaranaBoostUntil=0;
    run.guaranaTriggerKm=0;
