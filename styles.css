@@ -737,3 +737,22 @@ select{background:#0a1d33!important;color:#eef7ff!important;border-color:#315a80
   .carry-grid{grid-template-columns:1fr!important}
   .app{padding-bottom:calc(178px + env(safe-area-inset-bottom))!important}
 }
+
+
+/* v1.03: river flood mass-DNF overlay — one scrollable card for 5 seconds */
+#eventOverlay .river-dnf-all-card{
+  width:min(88vw,520px);
+  max-width:520px;
+}
+#eventOverlay .river-dnf-all-card .river-dnf-scroll{
+  display:block;
+  max-height:42vh;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  padding:6px 8px 8px;
+  margin-top:4px;
+  line-height:1.42;
+  text-align:left;
+  touch-action:pan-y;
+}

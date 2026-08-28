@@ -2849,10 +2849,15 @@ function triggerCharaFloodEvent(ppKm, dist){
   }
   run.liveDnfCount=Math.max(0,Number(run.liveDnfCount||0)+affected);
 
-  // Массовый сход показываем не одной огромной плашкой, а пачками по 5 имён.
-  // В каждой записи указан километр схода.
-  for(let i=0;i<floodDnfs.length;i+=5){
-    showDnfBatch(floodDnfs.slice(i,i+5),'🌊 река разлилась');
+  // Только для события «Река разлилась»: все сошедшие показываются
+  // в одной прокручиваемой плашке на 5 реальных секунд.
+  // Обычные сходы по-прежнему группируются по 5 человек.
+  if(floodDnfs.length){
+    const rows=floodDnfs.map(x=>`${String(x.name||'Участник')} — ${Number(x.km||82).toFixed(1)} км`);
+    queueRaceOverlay(
+      `<div class="overlay-box river-dnf-all-card"><div class="emoji">🌊</div><b>Река разлилась · сошло ${floodDnfs.length}</b><span class="river-dnf-scroll">${rows.join('<br>')}</span></div>`,
+      5000
+    );
   }
   try{
     $('eventLog').insertAdjacentHTML(
