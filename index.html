@@ -549,12 +549,6 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
       <div class="mini-progress"><div id="fatigueBar"></div></div>
       <small id="restText">Готов к гонке</small><div class="fatigue-actions"><button id="quickRestBtn" class="secondary compact-btn" type="button">😴 Отдых</button><button id="quickTreatBtn" class="secondary compact-btn" type="button">🏥 Лечение</button></div>
     </div>
-    <div id="quickBuyLampPower" class="quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить питание фонаря до нормы этой гонки">
-      <span>Питание фонаря</span>
-      <b id="lampPowerText">—</b>
-      <small id="lampPowerSub">—</small>
-      <small class="quick-buy-hint">Нажмите, чтобы докупить</small>
-    </div>
     <div>
       <span>Погода гонки</span>
       <b id="weatherText">—</b>
@@ -582,8 +576,11 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
             <div id="quickBuyWater" class="carry-card quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить воду до нормы этой гонки">
               <span>💧 Вода</span><b id="waterCount">0</b><small id="waterNeedText">нужно по погоде и дистанции</small><small class="quick-buy-hint">Докупить до нормы</small>
             </div>
+            <div id="quickBuyLampPower" class="carry-card quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить питание фонаря до нормы этой гонки">
+              <span>🔦 Питание фонаря</span><b id="lampPowerText">—</b><small id="lampPowerSub">—</small><small class="quick-buy-hint">Докупить до нормы</small>
+            </div>
           </div>
-          <div class="notice carry-buy-note">Нажми на карточку «УГЛИ», «Аптечка» или «Вода» — игра рассчитает недостающее для выбранной гонки и купит его за рубли.</div>
+          <div class="notice carry-buy-note">Нажми на карточку «УГЛИ», «Аптечка», «Вода» или «Питание фонаря» — игра рассчитает недостающее для выбранной гонки и купит его за рубли.</div>
         </div>
       </div></details>
       <div class="card sim-card">
