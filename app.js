@@ -3621,10 +3621,19 @@ function drawTrack(p){
  const leaderColors=['#fbbf24','#cbd5e1','#d97706'];
  const leaderXs=leaderKms.map(km=>65+(km/L[1])*(W-160));
 
- // Пункты питания на длинных дистанциях: показываем прямо на схеме трассы.
- if(run && Number(L[1]||0)>=100 && Array.isArray(run.aidStations)){
-   const passed=run.aidStationsPassed instanceof Set ? run.aidStationsPassed : new Set();
-   run.aidStations.forEach((ppKm,idx)=>{
+ // Пункты питания (ПП) показываем на карте и ДО старта, если они есть на дистанции.
+ // Для Чары это фиксированные 27/54/82/109 км; для других длинных гонок
+ // превью запоминается, чтобы метки не прыгали при перерисовке.
+ const distForPP=Number(L[1]||0);
+ window.__aidPreviewCache=window.__aidPreviewCache||{};
+ const ppKey=String(L[0]||'')+'|'+distForPP;
+ if(!run && !Array.isArray(window.__aidPreviewCache[ppKey])){
+   window.__aidPreviewCache[ppKey]=buildAidStations(distForPP);
+ }
+ const ppList=(run && Array.isArray(run.aidStations)) ? run.aidStations : (window.__aidPreviewCache[ppKey]||[]);
+ if(Array.isArray(ppList) && ppList.length){
+   const passed=(run && run.aidStationsPassed instanceof Set) ? run.aidStationsPassed : new Set();
+   ppList.forEach((ppKm,idx)=>{
      const ppX=65+(Number(ppKm)/Number(L[1]))*(W-160);
      const ppY=H*.61 + (idx%2)*34;
      const isPassed=passed.has(String(ppKm));

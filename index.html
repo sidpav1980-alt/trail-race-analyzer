@@ -507,13 +507,13 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 .header-donate-btn:active{transform:scale(.98);}
 @media(max-width:620px){
   .topbar.topbar-no-game-title{padding-top:12px!important;padding-bottom:12px!important;align-items:flex-start!important;}
-  .topbar-title-actions{gap:7px!important;max-width:56%;}
-  .topbar.topbar-no-game-title .eyebrow{font-size:14px!important;letter-spacing:.13em!important;white-space:normal!important;}
+  .topbar-title-actions{gap:6px!important;max-width:58%;}
+  .topbar.topbar-no-game-title .eyebrow{font-size:11px!important;line-height:1.05!important;letter-spacing:.09em!important;white-space:normal!important;}
   .header-donate-btn{min-height:34px!important;padding:7px 9px!important;font-size:9.5px!important;}
   .topbar-account{margin-left:auto!important;}
 }
 @media(max-width:390px){
-  .topbar.topbar-no-game-title .eyebrow{font-size:13px!important;}
+  .topbar.topbar-no-game-title .eyebrow{font-size:10px!important;line-height:1.04!important;letter-spacing:.08em!important;}
   .header-donate-btn{font-size:9px!important;padding:7px 8px!important;}
 }
 </style>
@@ -1732,5 +1732,90 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
 #raceSlotCard.compact-slot-card #buyRaceSlotBtn{flex:0 0 auto!important;padding:8px 10px!important;font-size:11px!important;min-height:34px!important;white-space:nowrap!important;}
 #raceSlotCard.compact-slot-card #raceSlotMerch{display:none!important;}
 </style>
+
+<style>
+/* v1.03: compact slot buy button aligned to the right */
+#raceSlotCard.compact-slot-card .row{
+  display:flex!important;
+  flex-direction:row!important;
+  flex-wrap:nowrap!important;
+  align-items:center!important;
+}
+#raceSlotCard.compact-slot-card #raceSlotStatus{
+  flex:1 1 auto!important;
+  min-width:0!important;
+}
+#raceSlotCard.compact-slot-card #buyRaceSlotBtn{
+  width:auto!important;
+  min-width:0!important;
+  flex:0 0 auto!important;
+  margin:0 0 0 auto!important;
+  padding:7px 11px!important;
+  min-height:32px!important;
+  font-size:10px!important;
+  line-height:1!important;
+  border-radius:5px!important;
+}
+</style>
+
+
+<style>
+/* v1.03: tidy compact slot card/button */
+#raceSlotCard.compact-slot-card{
+  position:relative!important;
+  padding:10px 12px!important;
+}
+#raceSlotCard.compact-slot-card .row{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  gap:10px!important;
+  align-items:center!important;
+}
+#raceSlotCard.compact-slot-card #raceSlotStatus{
+  min-width:0!important;
+  padding-right:2px!important;
+}
+#raceSlotCard.compact-slot-card #raceSlotStatus b{
+  font-size:12px!important;
+  line-height:1.12!important;
+  margin:0!important;
+}
+#raceSlotCard.compact-slot-card #raceSlotStatus small{
+  font-size:9.5px!important;
+  line-height:1.15!important;
+  margin-top:3px!important;
+}
+#raceSlotCard.compact-slot-card #buyRaceSlotBtn{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  width:auto!important;
+  max-width:124px!important;
+  min-width:92px!important;
+  min-height:34px!important;
+  padding:7px 10px!important;
+  margin:0!important;
+  border-radius:7px!important;
+  font-size:10px!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+  justify-self:end!important;
+  align-self:center!important;
+  box-sizing:border-box!important;
+}
+@media(max-width:430px){
+  #raceSlotCard.compact-slot-card{padding:9px 10px!important;}
+  #raceSlotCard.compact-slot-card .row{gap:7px!important;}
+  #raceSlotCard.compact-slot-card #raceSlotStatus b{font-size:11.5px!important;}
+  #raceSlotCard.compact-slot-card #raceSlotStatus small{font-size:9px!important;}
+  #raceSlotCard.compact-slot-card #buyRaceSlotBtn{
+    min-width:86px!important;
+    max-width:112px!important;
+    min-height:32px!important;
+    padding:6px 8px!important;
+    font-size:9.5px!important;
+  }
+}
+</style>
+
 </body>
 </html>
