@@ -4124,11 +4124,11 @@ function drawTrack(p){
  if(run){
    const liveRows=dynamicLeaderRows(L).slice(0,7);
    if(liveRows.length){
-     const panelW=226;
-     const rowH=17;
-     const headH=23;
-     const panelH=headH+liveRows.length*rowH+7;
-     const px=W-panelW-10;
+     const panelW=Math.min(340,W-24);
+     const rowH=23;
+     const headH=31;
+     const panelH=headH+liveRows.length*rowH+9;
+     const px=(W-panelW)/2;
      const py=10;
 
      ctx.save();
@@ -4140,21 +4140,21 @@ function drawTrack(p){
      ctx.textBaseline='middle';
      ctx.textAlign='left';
      ctx.fillStyle='#bae6fd';
-     ctx.font='bold 12px sans-serif';
-     ctx.fillText('🏆 ТОП-7',px+9,py+12);
+     ctx.font='bold 15px sans-serif';
+     ctx.fillText('🏆 ТОП-7',px+12,py+16);
 
      liveRows.forEach((r,i)=>{
        const y=py+headH+i*rowH+rowH/2;
        const name=String(r?.c?.name||'Участник');
-       const shortName=name.length>20?name.slice(0,19)+'…':name;
+       const shortName=name.length>25?name.slice(0,24)+'…':name;
        ctx.fillStyle=i<3?'#fde68a':'#e2e8f0';
-       ctx.font=(i<3?'bold ':'')+'10.5px sans-serif';
-       ctx.fillText(`${i+1}. ${shortName}`,px+9,y);
+       ctx.font=(i<3?'bold ':'')+'13px sans-serif';
+       ctx.fillText(`${i+1}. ${shortName}`,px+12,y);
 
        ctx.textAlign='right';
        ctx.fillStyle='#93c5fd';
-       ctx.font='10px sans-serif';
-       ctx.fillText(`${Number(r.liveKm||0).toFixed(1)} км`,px+panelW-8,y);
+       ctx.font='12px sans-serif';
+       ctx.fillText(`${Number(r.liveKm||0).toFixed(1)} км`,px+panelW-12,y);
        ctx.textAlign='left';
      });
      ctx.restore();
