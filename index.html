@@ -202,7 +202,16 @@ body.nav-section-focus main{min-height:calc(100vh - 250px);}
 #aboutGameSection .author-contact-footer div,
 #aboutGameSection .author-contact-footer a{font-size:12px!important;}
 </style>
-
+<style>
+/* v1.03: About tab must keep support and contacts visible */
+body.nav-section-focus #aboutGameSection .donate-section,
+body.nav-section-focus #aboutGameSection .simulation-disclaimer,
+body.nav-section-focus #aboutGameSection footer,
+body.nav-section-focus #aboutGameSection .author-contact-footer{display:block!important;}
+#aboutGameSection .about-contact-actions{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin:8px 0 4px;}
+#aboutGameSection .about-contact-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:7px 10px;border:1px solid #315a80;border-radius:10px;background:#0a2035;color:#fff!important;font-size:12px!important;font-weight:800;text-decoration:none;}
+#aboutGameSection .about-contact-actions a.support{background:#ffdd2d;color:#111827!important;border-color:#ffdd2d;}
+</style>
 
 <style>
 /* v1.03: guarana activation is always visible when opening Start Race */
@@ -797,6 +806,11 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
   <div class="card">
     <h2>ℹ️ Об игре</h2>
     <p class="muted">Trail Runner: Armageddon — игровой симулятор трейлраннера. Здесь собран подвал сайта, контакты проекта и служебная информация.</p>
+    <div class="about-contact-actions">
+      <a href="mailto:sim_trail@mail.ru">✉️ ПОЧТА</a>
+      <a href="https://t.me/trail_armageddon" target="_blank" rel="noopener noreferrer">✈️ TELEGRAM</a>
+      <a class="support" href="https://www.tbank.ru/cf/49SEnJlLa0Y" target="_blank" rel="noopener noreferrer">❤️ ПОДДЕРЖАТЬ</a>
+    </div>
   </div>
   <section class="donate-section" style="text-align:center;margin:22px auto 14px;max-width:720px;">
     <a href="https://www.tbank.ru/cf/49SEnJlLa0Y" target="_blank" rel="noopener noreferrer"
@@ -816,7 +830,7 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
   </div>
 </section>
 </div>
-<script src="app.js?v=103-guarana20km-20260828-1545"></script>
+<script src="app.js?v=103-about-contacts-20260828"></script>
 
 <div id="gameErrorToast" class="game-error-toast" role="alert" aria-live="assertive"></div>
 
