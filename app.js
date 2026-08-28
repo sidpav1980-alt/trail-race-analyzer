@@ -3448,27 +3448,16 @@ $('raceGuaranaBtn')?.addEventListener('click',()=>{
 });
 $('resetGameBtn').onclick=()=>{if(confirm('Сбросить весь прогресс, деньги и экипировку?')){localStorage.removeItem('trailArmageddonSave');game=loadGame();render()}};
 
-function drawRunnerFacingForward(ctx,x,y,scale=1){
- // Stylised runner moving to the right: face/body orientation follows the finish.
- ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);
- ctx.lineCap='round';ctx.lineJoin='round';
- // legs
- ctx.strokeStyle='#f5f7fb';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(-3,8);ctx.lineTo(12,30);ctx.lineTo(28,31);ctx.stroke();
- ctx.beginPath();ctx.moveTo(-1,8);ctx.lineTo(-15,27);ctx.lineTo(-28,24);ctx.stroke();
- // torso leaning forward
- ctx.strokeStyle='#f59e0b';ctx.lineWidth=14;ctx.beginPath();ctx.moveTo(-3,-22);ctx.lineTo(6,7);ctx.stroke();
- // backpack
- ctx.fillStyle='#dc2626';ctx.fillRect(-17,-24,14,24);
- // arms
- ctx.strokeStyle='#f5c7a7';ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(0,-15);ctx.lineTo(19,-3);ctx.lineTo(29,-12);ctx.stroke();
- ctx.beginPath();ctx.moveTo(-5,-13);ctx.lineTo(-17,-3);ctx.stroke();
- // head, looking forward/right
- ctx.fillStyle='#f5c7a7';ctx.beginPath();ctx.arc(8,-35,10,0,Math.PI*2);ctx.fill();
- // cap visor points toward finish
- ctx.fillStyle='#2563eb';ctx.fillRect(-2,-46,19,7);ctx.fillRect(14,-42,13,4);
- ctx.restore();
-}
-function drawOpponent(ctx,x,y,scale=1,color='#60a5fa',rank=0){
+function drawSnailBase(ctx,x,y,scale=1,opts={}){
+ const bodyColor=opts.bodyColor||'#f5d0a6';
+ const shellColor=opts.shellColor||'#ef4444';
+ const shellStroke=opts.shellStroke||'rgba(15,23,42,.75)';
+ const eyeColor=opts.eyeColor||'#07111f';
+ const shellSpiral=opts.shellSpiral||'rgba(255,245,230,.68)';
+ const showBadge=Number(opts.rank||0)>0;
+ const badgeRank=Number(opts.rank||0)||0;
+ const showTrailDots=!!opts.trailDots;
+
  ctx.save();
  ctx.translate(x,y);
  ctx.scale(scale,scale);
@@ -3476,88 +3465,118 @@ function drawOpponent(ctx,x,y,scale=1,color='#60a5fa',rank=0){
  ctx.lineJoin='round';
 
  // Ground shadow.
- ctx.fillStyle='rgba(0,0,0,.28)';
+ ctx.fillStyle='rgba(0,0,0,.24)';
  ctx.beginPath();
- ctx.ellipse(5,17,12,3,0,0,Math.PI*2);
+ ctx.ellipse(2,15,21,5,0,0,Math.PI*2);
  ctx.fill();
 
- // Legs with clear running pose.
- ctx.strokeStyle='#dbeafe';
- ctx.lineWidth=4.2;
+ // Body.
+ ctx.fillStyle=bodyColor;
  ctx.beginPath();
- ctx.moveTo(4,2); ctx.lineTo(-3,10); ctx.lineTo(-9,16);
- ctx.moveTo(5,2); ctx.lineTo(12,9); ctx.lineTo(17,14);
- ctx.stroke();
-
- // Shorts.
- ctx.fillStyle='#0f172a';
- ctx.beginPath();
- ctx.roundRect(-1,-1,12,8,3);
- ctx.fill();
-
- // Torso / running shirt.
- ctx.fillStyle=color;
- ctx.beginPath();
- ctx.moveTo(-1,-16);
- ctx.quadraticCurveTo(5,-20,11,-15);
- ctx.lineTo(10,1);
- ctx.quadraticCurveTo(5,4,0,1);
+ ctx.moveTo(-28,13);
+ ctx.quadraticCurveTo(-18,2,-5,2);
+ ctx.quadraticCurveTo(9,1,19,-2);
+ ctx.quadraticCurveTo(31,-6,35,0);
+ ctx.quadraticCurveTo(39,6,31,11);
+ ctx.quadraticCurveTo(18,18,-3,17);
+ ctx.quadraticCurveTo(-18,17,-28,13);
  ctx.closePath();
  ctx.fill();
 
- // Arms in running motion.
- ctx.strokeStyle='#f1c7a5';
- ctx.lineWidth=3.6;
+ // Belly line.
+ ctx.strokeStyle='rgba(255,255,255,.32)';
+ ctx.lineWidth=1.7;
  ctx.beginPath();
- ctx.moveTo(0,-12); ctx.lineTo(-7,-6); ctx.lineTo(-3,-1);
- ctx.moveTo(10,-12); ctx.lineTo(16,-7); ctx.lineTo(13,-2);
+ ctx.moveTo(-18,13);
+ ctx.quadraticCurveTo(4,16,27,11);
  ctx.stroke();
 
- // Neck.
- ctx.strokeStyle='#f1c7a5';
- ctx.lineWidth=3.4;
+ // Shell.
+ ctx.fillStyle=shellColor;
+ ctx.strokeStyle=shellStroke;
+ ctx.lineWidth=2.2;
  ctx.beginPath();
- ctx.moveTo(5,-17); ctx.lineTo(5,-21);
+ ctx.arc(-8,-3,15,0,Math.PI*2);
+ ctx.fill();
+ ctx.stroke();
+
+ // Shell spiral.
+ ctx.strokeStyle=shellSpiral;
+ ctx.lineWidth=2.2;
+ ctx.beginPath();
+ ctx.arc(-8,-3,8,0.15*Math.PI,2.1*Math.PI);
+ ctx.stroke();
+ ctx.beginPath();
+ ctx.arc(-8,-3,3.7,0,2*Math.PI);
  ctx.stroke();
 
  // Head.
- ctx.fillStyle='#f1c7a5';
+ ctx.fillStyle=bodyColor;
  ctx.beginPath();
- ctx.arc(5,-27,7,0,Math.PI*2);
+ ctx.ellipse(28,2,9,7,0,0,Math.PI*2);
  ctx.fill();
 
- // Hair/cap.
- ctx.fillStyle=rank>0 ? '#111827' : '#1e293b';
+ // Eye stalks.
+ ctx.strokeStyle=bodyColor;
+ ctx.lineWidth=3.2;
  ctx.beginPath();
- ctx.arc(5,-29,7,Math.PI,Math.PI*2);
- ctx.lineTo(12,-27);
- ctx.lineTo(-2,-27);
- ctx.closePath();
- ctx.fill();
+ ctx.moveTo(27,-1); ctx.lineTo(31,-13);
+ ctx.moveTo(33,0); ctx.lineTo(40,-11);
+ ctx.stroke();
 
- // Tiny backpack on group runners for a more trail-like silhouette.
- if(rank===0){
-   ctx.fillStyle='rgba(15,23,42,.95)';
-   ctx.beginPath();
-   ctx.roundRect(-5,-15,6,14,3);
-   ctx.fill();
+ ctx.fillStyle='#ffffff';
+ ctx.beginPath(); ctx.arc(31,-13,2.9,0,Math.PI*2); ctx.fill();
+ ctx.beginPath(); ctx.arc(40,-11,2.9,0,Math.PI*2); ctx.fill();
+ ctx.fillStyle=eyeColor;
+ ctx.beginPath(); ctx.arc(31,-13,1.3,0,Math.PI*2); ctx.fill();
+ ctx.beginPath(); ctx.arc(40,-11,1.3,0,Math.PI*2); ctx.fill();
+
+ // Cheerful mouth.
+ ctx.strokeStyle='rgba(7,17,31,.65)';
+ ctx.lineWidth=1.6;
+ ctx.beginPath();
+ ctx.arc(27,5,3.4,0.15*Math.PI,0.85*Math.PI);
+ ctx.stroke();
+
+ if(showTrailDots){
+   ctx.fillStyle='rgba(255,255,255,.4)';
+   [[-34,15],[-40,14],[-46,15]].forEach(function(pt){
+     ctx.beginPath();ctx.arc(pt[0],pt[1],1.3,0,Math.PI*2);ctx.fill();
+   });
  }
 
- // Leader rank badge.
- if(rank>0){
-   const badgeColor=rank===1?'#fbbf24':rank===2?'#cbd5e1':'#d97706';
+ if(showBadge){
+   const badgeColor=badgeRank===1?'#fbbf24':badgeRank===2?'#cbd5e1':'#d97706';
    ctx.fillStyle=badgeColor;
    ctx.beginPath();
-   ctx.arc(19,-31,8.5,0,Math.PI*2);
+   ctx.arc(18,-22,8.5,0,Math.PI*2);
    ctx.fill();
    ctx.fillStyle='#07111f';
    ctx.font='bold 10px sans-serif';
    ctx.textAlign='center';
    ctx.textBaseline='middle';
-   ctx.fillText(String(rank),19,-31);
+   ctx.fillText(String(badgeRank),18,-22);
  }
 
  ctx.restore();
+}
+function drawRunnerFacingForward(ctx,x,y,scale=1){
+ drawSnailBase(ctx,x,y,scale,{
+   bodyColor:'#f5cfaa',
+   shellColor:'#dc2626',
+   shellStroke:'rgba(127,29,29,.95)',
+   shellSpiral:'rgba(255,230,230,.72)',
+   trailDots:true
+ });
+}
+function drawOpponent(ctx,x,y,scale=1,color='#60a5fa',rank=0){
+ drawSnailBase(ctx,x,y,scale,{
+   bodyColor:'#ead8ba',
+   shellColor:color,
+   shellStroke:'rgba(15,23,42,.85)',
+   shellSpiral:'rgba(226,232,240,.6)',
+   rank:rank
+ });
 }
 function drawTrack(p){
  const c=$('trackCanvas'),ctx=c.getContext('2d'),W=c.width,H=c.height,L=levelData();
