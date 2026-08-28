@@ -202,12 +202,14 @@ const COACHES=[
   desc:'Готовит до 100/100 и даёт максимальные бонусы на ★★★★–★★★★★.'}
 ];
 const ELITE_RUNNERS=[
+{name:'Артем Чернов',itra:920,country:'🇷🇺'},
 {name:'Алексей Береснев',itra:905,country:'🇷🇺'},{name:'Антонина Юшина',itra:890,country:'🇷🇺'},
 {name:'Алексей Толстенко',itra:865,country:'🇷🇺'},{name:'Константин Иванов',itra:850,country:'🇷🇺'},
 {name:'Елена Носкова',itra:840,country:'🇷🇺'},{name:'Василий Корыткин',itra:835,country:'🇷🇺'},
 {name:'Алексей Макалюкин',itra:825,country:'🇷🇺'},{name:'Алексей Бабушкин',itra:815,country:'🇷🇺'},
 {name:'Павел Тарасов',itra:805,country:'🇷🇺'},{name:'Виктория Жукова',itra:795,country:'🇷🇺'},
-{name:'Мария Гостева',itra:785,country:'🇷🇺'},{name:'Вера Чекалина',itra:775,country:'🇷🇺'}];
+{name:'Мария Гостева',itra:785,country:'🇷🇺'},{name:'Вера Чекалина',itra:775,country:'🇷🇺'},
+{name:'Анастасия Кабенина',itra:750,country:'🇷🇺'}];
 function loadGame(){
   try{
     const x=JSON.parse(localStorage.getItem('trailArmageddonSave')||'null');
