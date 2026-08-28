@@ -229,6 +229,25 @@ body.bottom-nav-collapsed{padding-bottom:calc(82px + env(safe-area-inset-bottom)
   body.bottom-nav-collapsed .bottom-nav-toggle{bottom:calc(62px + env(safe-area-inset-bottom));}
 }
 </style>
+
+<style>
+/* v1.03: during treatment keep the menu toggle clear of the treatment/start button */
+body.treatment-nav-state .bottom-nav-toggle{
+  bottom:calc(286px + env(safe-area-inset-bottom))!important;
+}
+body.treatment-nav-state.bottom-nav-collapsed .bottom-nav-toggle{
+  bottom:calc(98px + env(safe-area-inset-bottom))!important;
+}
+@media(max-width:760px){
+  body.treatment-nav-state .bottom-nav-toggle{
+    bottom:calc(292px + env(safe-area-inset-bottom))!important;
+  }
+  body.treatment-nav-state.bottom-nav-collapsed .bottom-nav-toggle{
+    bottom:calc(100px + env(safe-area-inset-bottom))!important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -720,8 +739,7 @@ body.bottom-nav-collapsed{padding-bottom:calc(82px + env(safe-area-inset-bottom)
     setTimeout(function(){
       const header=document.querySelector('.topbar');
       const offset=(header?header.getBoundingClientRect().height:0)+16;
-      const extraUp=(id==='race')?105:0;
-      const top=el.getBoundingClientRect().top+window.scrollY-offset+extraUp;
+      const top=el.getBoundingClientRect().top+window.scrollY-offset;
       window.scrollTo({top:Math.max(0,top),behavior:instant?'auto':'smooth'});
     },instant?0:30);
   }
@@ -755,8 +773,15 @@ body.bottom-nav-collapsed{padding-bottom:calc(82px + env(safe-area-inset-bottom)
     // На экране старта сворачиваем меню автоматически, чтобы кнопка Старт была видна.
     if(b.dataset.target==='race') setTimeout(function(){
       apply(true);
-      setTimeout(function(){ window.scrollBy({top:70,behavior:'smooth'}); },40);
-    },80);
+      setTimeout(function(){
+        const sim=document.querySelector('#race .sim-card');
+        const header=document.querySelector('.topbar');
+        if(!sim)return;
+        const offset=(header?header.getBoundingClientRect().height:0)+10;
+        const top=sim.getBoundingClientRect().top+window.scrollY-offset;
+        window.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+      },140);
+    },40);
   });
   window.addEventListener('DOMContentLoaded',function(){
     // На стартовом экране сразу компактное меню. Пользователь может развернуть его одной кнопкой.
@@ -767,5 +792,43 @@ body.bottom-nav-collapsed{padding-bottom:calc(82px + env(safe-area-inset-bottom)
   });
 })();
 </script>
+
+<script>
+(function(){
+  function syncTreatmentNavState(){
+    const b=document.getElementById('startBtn');
+    const t=(b&&b.textContent||'').toLowerCase();
+    const treatment=t.includes('лечение') || t.includes('требуется лечение');
+    const resting=t.includes('отдых');
+    document.body.classList.toggle('treatment-nav-state',treatment || resting);
+  }
+  window.addEventListener('DOMContentLoaded',function(){
+    syncTreatmentNavState();
+    const b=document.getElementById('startBtn');
+    if(b){
+      new MutationObserver(syncTreatmentNavState).observe(b,{childList:true,subtree:true,characterData:true});
+    }
+  });
+})();
+</script>
+
+
+<script>
+(function(){
+  document.addEventListener('click',function(e){
+    const b=e.target.closest('.trail3d-bottom-nav button[data-target="race"]');
+    if(!b)return;
+    setTimeout(function(){
+      const sim=document.querySelector('#race .sim-card');
+      const header=document.querySelector('.topbar');
+      if(!sim)return;
+      const offset=(header?header.getBoundingClientRect().height:0)+10;
+      const top=sim.getBoundingClientRect().top+window.scrollY-offset;
+      window.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+    },260);
+  });
+})();
+</script>
+
 </body>
 </html>
