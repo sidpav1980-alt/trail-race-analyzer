@@ -2222,6 +2222,31 @@ function dynamicLeaderRows(L){
 
   rows.sort((a,b)=>b.liveKm-a.liveKm);
 
+  // Живая борьба за позицию: даже в победном сценарии игрок не должен
+  // однажды выйти на 1-е место и оставаться там до финиша. Пока не пройдено
+  // ~92% дистанции, несколько сильнейших соперников могут темповыми рывками
+  // снова выходить вперёд. Итоговое место всё равно определяется реальными
+  // финишными временами и событиями гонки.
+  if((run.playerWinBoostActive || run.playerPodiumBoostActive) && p>0.10 && p<0.92 && rows.length){
+    const playerKm=Math.max(0,Math.min(dist,p*dist));
+    const challengers=rows.slice(0,Math.min(5,rows.length));
+    challengers.forEach((r,i)=>{
+      const id=Number(r.c?.id||i);
+      const phase=p*Math.PI*(13.5+i*1.25)+(id%11)*0.71;
+      const pulse=Math.sin(phase);
+      // Диапазон около ±0,2–0,55% дистанции: достаточно для обгонов,
+      // но без огромных скачков по карте.
+      const amp=dist*(0.0055-i*0.00065);
+      const target=playerKm + pulse*amp;
+      // Подтягиваем соперника к борьбе, но не телепортируем далеко назад.
+      if(target>r.liveKm || pulse<0){
+        const floor=playerKm-dist*0.0065;
+        r.liveKm=Math.max(floor,Math.min(dist,target));
+      }
+    });
+    rows.sort((a,b)=>b.liveKm-a.liveKm);
+  }
+
   // Levels 12-19: Beresnev and Yushina appear near the leaders much more often.
   // Level 20 is reserved for Artem Chernov's special Armageddon behavior.
   const shownLevel=Number(game.current||0);
