@@ -737,3 +737,13 @@ select{background:#0a1d33!important;color:#eef7ff!important;border-color:#315a80
   .carry-grid{grid-template-columns:1fr!important}
   .app{padding-bottom:calc(178px + env(safe-area-inset-bottom))!important}
 }
+
+/* v1.03 Chrome/iOS: keep Start button composited and visually stable */
+#startBtn{
+  -webkit-tap-highlight-color:transparent;
+  -webkit-backface-visibility:hidden;
+  backface-visibility:hidden;
+  transform:translateZ(0);
+  will-change:auto;
+}
+#startBtn:focus{outline:none;}
