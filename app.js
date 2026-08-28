@@ -1946,6 +1946,8 @@ function competitorProgressAt(c,elapsed,L){
 
 function showDnfNotice(name, extra=''){
   try{
+    // После схода игрока новые плашки сходов соперников больше не показываем.
+    if(!run || !run.running || run.dnf) return;
     const ov=$('eventOverlay');
     if(ov){
       queueRaceOverlay(`<div class="overlay-box"><div class="emoji">🚫</div><b>${name} сошёл</b><span>${extra||'гонка продолжается'}</span></div>`,2000);
@@ -1976,6 +1978,7 @@ function isItraDnfProtectedRunner(c){
 }
 
 function updateLiveDnfs(){
+ if(!run || !run.running || run.dnf) return;
  const raceKmNow=Number(run.p||0)*Number(levelData()?.[1]||0);
  if(raceKmNow<30){
    const box=$('liveDnfStatus');
@@ -2118,6 +2121,7 @@ function enforceMinRussianTop7(L){
 }
 
 function maybeLeaderDNF(){
+  if(!run || !run.running || run.dnf) return;
   const leaderDnfKm=Number(run.p||0)*Number(levelData()?.[1]||0);
   if(leaderDnfKm<30) return;
   if(!run || !run.running || !Array.isArray(run.virtualField)) return;
@@ -3045,20 +3049,36 @@ function fireEvents(){
 // больше не затирает текущее раньше времени.
 window.__raceOverlayQueue=window.__raceOverlayQueue||[];
 window.__raceOverlayBusy=window.__raceOverlayBusy||false;
+function clearRaceOverlayQueue(){
+  window.__raceOverlayEpoch=Number(window.__raceOverlayEpoch||0)+1;
+  if(Array.isArray(window.__raceOverlayQueue)) window.__raceOverlayQueue.length=0;
+  window.__raceOverlayBusy=false;
+  const ov=$('eventOverlay');
+  if(ov){ov.classList.remove('show');ov.innerHTML='';}
+}
 function queueRaceOverlay(html,duration=2000){
-  window.__raceOverlayQueue.push({html,duration:Math.max(300,Number(duration)||2000)});
+  if(!Array.isArray(window.__raceOverlayQueue)) window.__raceOverlayQueue=[];
+  const epoch=Number(window.__raceOverlayEpoch||0);
+  window.__raceOverlayQueue.push({html,duration:Math.max(300,Number(duration)||2000),epoch});
   if(window.__raceOverlayBusy) return;
   const playNext=()=>{
+    const currentEpoch=Number(window.__raceOverlayEpoch||0);
     const item=window.__raceOverlayQueue.shift();
     if(!item){window.__raceOverlayBusy=false;return;}
+    if(item.epoch!==currentEpoch){window.__raceOverlayBusy=false;playNext();return;}
     window.__raceOverlayBusy=true;
     const ov=$('eventOverlay');
     if(!ov){window.__raceOverlayBusy=false;playNext();return;}
     ov.innerHTML=item.html;
     ov.classList.add('show');
     setTimeout(()=>{
+      if(item.epoch!==Number(window.__raceOverlayEpoch||0)) return;
       ov.classList.remove('show');
-      setTimeout(playNext,80);
+      setTimeout(()=>{
+        if(item.epoch!==Number(window.__raceOverlayEpoch||0)) return;
+        window.__raceOverlayBusy=false;
+        playNext();
+      },80);
     },item.duration);
   };
   playNext();
@@ -3252,15 +3272,22 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  if(equipmentSection) equipmentSection.open=false;
  cancelAnimationFrame(timer);$('pauseBtn').disabled=true;$('startBtn').disabled=false;updateRaceGuaranaButton();
  const L=levelData();
- // Keep the finished race visible while the result overlay is shown.
- // run.running remains true temporarily so TOP-7 can still include the player.
- run.finishHold=true;
- run.p=1;
- drawTrack(1);
- renderRaceLeaders(Number(L[1]||0)); updateRestUi();
+ const isPlayerDnf=Boolean(forceDnf || run.dnf);
+ // При DNF фиксируем игрока ровно в точке схода. Только успешный финиш ставит прогресс на 100%.
+ run.finishHold=!isPlayerDnf;
+ if(!isPlayerDnf){
+   run.p=1;
+   drawTrack(1);
+   renderRaceLeaders(Number(L[1]||0));
+ }else{
+   drawTrack(run.p||0);
+   renderRaceLeaders((run.p||0)*Number(L[1]||0));
+ }
+ updateRestUi();
 
- if(forceDnf || run.dnf){
+ if(isPlayerDnf){
    run.running=false; run.finishHold=false;
+   clearRaceOverlayQueue();
    setRaceSessionFlag(false);
    // DNF never gives race money.
    game.fatigue=Math.min(100,game.fatigue+18+L[5]*3);
