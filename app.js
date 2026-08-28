@@ -127,7 +127,7 @@ const CATEGORY_NAMES={shoes:'Кроссовки',pack:'Рюкзак / жилет
 const RESOURCE_CATALOG={
   waterBottles:{name:'Вода 0,5 л',price:80,unit:'бут.',desc:'Обязательна с 4 уровня. Расход зависит от дистанции, жары и солнца.'},
   gels:{name:'Энергетический гель «УГЛИ»',price:60,unit:'шт.',desc:'Снижает голод и потерю темпа на длинной гонке.'},
-  guarana:{name:'Гуарана',price:180,unit:'шт.',desc:'Один приём на гонку: 30% шанс получить 10 минут ускорения. Через 20 км после срабатывания скорость падает на 40% только на следующие 30 км.'},
+  guarana:{name:'Гуарана',price:180,unit:'шт.',desc:'До 100 км — 1 приём за гонку; свыше 100 км — до 2 приёмов. 30% шанс получить 10 минут ускорения. Через 20 км после срабатывания скорость падает на 40% только на следующие 30 км.'},
   batteries:{name:'Комплект батареек',price:130,unit:'компл.',desc:'Для фонарей 1–4 уровня. Один комплект ≈ 5 часов света.'},
   bandage:{name:'Бинт',price:40,unit:'шт.',desc:'Сильные ссадины и растяжения.'},
   gauze:{name:'Марля',price:22,unit:'уп.',desc:'Кровь и глубокие царапины.'},
@@ -2415,7 +2415,7 @@ function startRaceCore(){
    condition:game.fatigue>=75?'сильная усталость':'нормально',
    waterStart:waterUsed,waterRemaining:waterUsed,waterCapacity:waterCapacity,medkitsRemaining:medkitsForRace,waterNeed:needWater,waterSegmentStartKm:0,waterSegmentStartAmount:waterUsed,waterEmptyNotified:(waterAvailable<=0),aidStations:buildAidStations(Number(L[1]||0)),aidStationsPassed:new Set(),waterShortage,gelShortage,lightShortageHours,gelsStart:gelsAvailable,gelsRemaining:gelsAvailable,gelsPlannedUsed:0,
    fractureRisk:Math.min(.42, Math.max(0,((game.fatigue-55)/140) * (1-coachRaceBonuses().injury)) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08*(1-coachRaceBonuses().injury) : 0)),
-   guaranaTaken:false,guaranaAvailable:Number(game.resources.guarana||0)>0,guaranaTriggered:false,guaranaBoostUntil:0,guaranaTriggerKm:0,guaranaCrash:false,guaranaCrashEndKm:0,
+   guaranaTaken:false,guaranaAvailable:Number(game.resources.guarana||0)>0,guaranaTriggered:false,guaranaUses:0,guaranaMaxUses:(Number(L[1]||0)>100?2:1),guaranaBoostUntil:0,guaranaTriggerKm:0,guaranaCrash:false,guaranaCrashEndKm:0,
    dnf:false
  };
  run.virtualField=createVirtualField(L,run.fieldSize,Math.max(60,run.base+run.penalty));
@@ -2617,7 +2617,7 @@ function tick(ts){
  if(!run.paused && !run.eventPause){
    const total=Math.max(60,run.base+run.penalty);
    const raceKmBefore=Math.max(0,Number(run.p||0)*Number(L[1]||0));
-   // Гуарана: один шанс на гонку. При успехе ускоряет на 10 игровых минут; через 20 км после срабатывания скорость падает на 40%.
+   // Гуарана: до 100 км — 1 использование, свыше 100 км — 2. Эффекты не накладываются друг на друга.
    if(run.guaranaTriggerKm>0&&!run.guaranaCrash&&raceKmBefore>=run.guaranaTriggerKm+20){run.guaranaCrash=true;run.guaranaCrashEndKm=run.guaranaTriggerKm+50;showEvent({emoji:'⚠️',name:'Откат после гуараны'},0,' · скорость −40% на 30 км');} if(run.guaranaCrash&&raceKmBefore>=Number(run.guaranaCrashEndKm||0)){run.guaranaCrash=false;showEvent({emoji:'✅',name:'Откат гуараны закончился'},0,' · обычный темп восстановлен');}
    let speedMult=1;
    if(Number(run.guaranaBoostUntil||0)>Number(run.elapsed||0)) speedMult*=1.15;
@@ -3224,8 +3224,92 @@ $('startBtn').onclick=()=>{
   }
 };
 
-function updateRaceGuaranaButton(){const b=$('raceGuaranaBtn');const g=$('raceGelStatus');const active=!!(run&&run.running);const qty=Number(game.resources.guarana||0);if(b){b.style.display='inline-flex';const used=!!(run&&run.guaranaTriggered);b.disabled=used||(active&&qty<=0);if(used)b.textContent='🫘 Гуарана использована';else if(active)b.textContent=qty>0?`🫘 Использовать гуарану (${qty})`:'🫘 Гуарана: 0 · нет в гонке';else b.textContent=qty>0?`🫘 Гуарана (${qty}) · доступна в гонке`:'🫘 Гуарана: 0 · купить в расходниках';}if(g){g.style.display=active?'inline-flex':'none';if(active)g.textContent=`🍯 Гели в гонке: ${Number(run.gelsRemaining||0)} / ${Number(run.gelsStart||0)}`;}}
-$('raceGuaranaBtn')?.addEventListener('click',()=>{const qty=Number(game.resources.guarana||0);const active=!!(run&&run.running);if(qty<=0&&!active){const nav=document.querySelector('.trail3d-bottom-nav button[data-target="resources"]');if(nav){nav.click();return;}document.getElementById('resources')?.scrollIntoView({behavior:'smooth',block:'start'});return;}if(!run||!run.running||run.guaranaTriggered)return;if(qty<=0){showGameError('Гуарана закончилась. Во время гонки докупка недоступна.');return;}useResource('guarana',1,'event');run.guaranaTaken=true;run.guaranaTriggered=true;const km=Number(run.p||0)*Number(levelData()[1]||0);if(Math.random()<0.30){run.guaranaBoostUntil=Number(run.elapsed||0)+600;run.guaranaTriggerKm=km;showEvent({emoji:'🫘',name:'Гуарана сработала'},-60,' · буст на 10 мин');}else{showEvent({emoji:'🫘',name:'Гуарана не сработала'},0,' · буста нет');}saveGame();updateRaceGuaranaButton();});
+function updateRaceGuaranaButton(){
+ const b=$('raceGuaranaBtn');const g=$('raceGelStatus');
+ const active=!!(run&&run.running);
+ const qty=Number(game.resources.guarana||0);
+ if(b){
+   b.style.display='inline-flex';
+   const maxUses=run?Number(run.guaranaMaxUses||(Number(levelData()[1]||0)>100?2:1)):(Number(levelData()[1]||0)>100?2:1);
+   const uses=run?Number(run.guaranaUses||0):0;
+   const raceKm=run?Number(run.p||0)*Number(levelData()[1]||0):0;
+   const effectPending=!!(run&&(
+     Number(run.guaranaBoostUntil||0)>Number(run.elapsed||0) ||
+     run.guaranaCrash ||
+     (Number(run.guaranaTriggerKm||0)>0 && raceKm<Number(run.guaranaTriggerKm||0)+50)
+   ));
+   const limitReached=uses>=maxUses;
+   b.disabled=active&&(qty<=0||limitReached||effectPending);
+
+   if(active){
+     if(limitReached)b.textContent=`🫘 Гуарана: лимит ${uses}/${maxUses}`;
+     else if(effectPending)b.textContent=`🫘 Гуарана: эффект активен · ${uses}/${maxUses}`;
+     else if(qty>0)b.textContent=`🫘 Использовать гуарану (${qty}) · ${uses}/${maxUses}`;
+     else b.textContent='🫘 Гуарана: 0 · нет в гонке';
+   }else{
+     b.textContent=qty>0
+       ?`🫘 Гуарана (${qty}) · ${Number(levelData()[1]||0)>100?'до 2 раз':'1 раз'}`
+       :'🫘 Гуарана: 0 · купить в расходниках';
+   }
+ }
+ if(g){
+   g.style.display=active?'inline-flex':'none';
+   if(active)g.textContent=`🍯 Гели в гонке: ${Number(run.gelsRemaining||0)} / ${Number(run.gelsStart||0)}`;
+ }
+}
+
+$('raceGuaranaBtn')?.addEventListener('click',()=>{
+ const qty=Number(game.resources.guarana||0);
+ const active=!!(run&&run.running);
+ if(qty<=0&&!active){
+   const nav=document.querySelector('.trail3d-bottom-nav button[data-target="resources"]');
+   if(nav){nav.click();return;}
+   document.getElementById('resources')?.scrollIntoView({behavior:'smooth',block:'start'});
+   return;
+ }
+ if(!run||!run.running)return;
+
+ const maxUses=Number(run.guaranaMaxUses||(Number(levelData()[1]||0)>100?2:1));
+ const uses=Number(run.guaranaUses||0);
+ if(uses>=maxUses)return;
+ if(qty<=0){
+   showGameError('Гуарана закончилась. Во время гонки докупка недоступна.');
+   return;
+ }
+
+ const raceKm=Number(run.p||0)*Number(levelData()[1]||0);
+ const effectPending=(
+   Number(run.guaranaBoostUntil||0)>Number(run.elapsed||0) ||
+   run.guaranaCrash ||
+   (Number(run.guaranaTriggerKm||0)>0 && raceKm<Number(run.guaranaTriggerKm||0)+50)
+ );
+ if(effectPending){
+   showGameError('Сначала должен закончиться текущий эффект и откат гуараны.');
+   return;
+ }
+
+ useResource('guarana',1,'event');
+ run.guaranaTaken=true;
+ run.guaranaTriggered=true;
+ run.guaranaUses=uses+1;
+
+ const km=raceKm;
+ if(Math.random()<0.30){
+   run.guaranaBoostUntil=Number(run.elapsed||0)+600;
+   run.guaranaTriggerKm=km;
+   run.guaranaCrash=false;
+   run.guaranaCrashEndKm=0;
+   showEvent({emoji:'🫘',name:'Гуарана сработала'},-60,` · буст на 10 мин · ${run.guaranaUses}/${maxUses}`);
+ }else{
+   run.guaranaBoostUntil=0;
+   run.guaranaTriggerKm=0;
+   run.guaranaCrash=false;
+   run.guaranaCrashEndKm=0;
+   showEvent({emoji:'🫘',name:'Гуарана не сработала'},0,` · буста нет · ${run.guaranaUses}/${maxUses}`);
+ }
+ saveGame();
+ updateRaceGuaranaButton();
+});
 $('resetGameBtn').onclick=()=>{if(confirm('Сбросить весь прогресс, деньги и экипировку?')){localStorage.removeItem('trailArmageddonSave');game=loadGame();render()}};
 
 function drawRunnerFacingForward(ctx,x,y,scale=1){

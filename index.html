@@ -367,6 +367,49 @@ body.treatment-nav-state.bottom-nav-collapsed .bottom-nav-toggle{
 }
 </style>
 
+
+<style>
+/* v1.03: stable bottom-menu toggle — no jumping between sections during rest/treatment */
+.bottom-nav-toggle{
+  bottom:calc(292px + env(safe-area-inset-bottom))!important;
+  transition:none!important;
+}
+body.bottom-nav-collapsed .bottom-nav-toggle{
+  bottom:calc(100px + env(safe-area-inset-bottom))!important;
+}
+body.treatment-nav-state .bottom-nav-toggle,
+body.treatment-nav-state.bottom-nav-collapsed .bottom-nav-toggle{
+  transition:none!important;
+}
+body.treatment-nav-state .bottom-nav-toggle{
+  bottom:calc(292px + env(safe-area-inset-bottom))!important;
+}
+body.treatment-nav-state.bottom-nav-collapsed .bottom-nav-toggle{
+  bottom:calc(100px + env(safe-area-inset-bottom))!important;
+}
+</style>
+
+
+<style>
+/* v1.03: UGLI icon stays next to title, but farther from Help */
+.brand-title-inline .brand-ugli-icon{
+  transform:translateX(-18px)!important;
+  width:32px!important;
+  height:32px!important;
+}
+.topbar-account{
+  margin-left:22px!important;
+}
+@media(max-width:520px){
+  .brand-title-inline .brand-ugli-icon{
+    transform:translateX(-14px)!important;
+    width:30px!important;
+    height:30px!important;
+  }
+  .topbar-account{margin-left:18px!important;}
+}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -722,6 +765,7 @@ body.treatment-nav-state.bottom-nav-collapsed .bottom-nav-toggle{
 
 <div class="help-section"><b>🫘 Гуарана</b>
 <p>Кнопка гуараны видна на экране гонки. Если гуараны 0, нажатие до старта переводит в «Расходники».</p>
+<p>На гонках до 100 км гуарану можно использовать 1 раз. На гонках <strong>больше 100 км — до 2 раз за гонку</strong>. Второй приём доступен после завершения эффекта и отката от первого.</p>
 <p>После применения есть 30% шанс ускорения на 10 минут. Если ускорение сработало, через 20 км начинается откат: скорость падает на 40% на следующие 30 км, затем обычный темп восстанавливается.</p>
 </div>
 
@@ -952,24 +996,6 @@ body.treatment-nav-state.bottom-nav-collapsed .bottom-nav-toggle{
 })();
 </script>
 
-<script>
-(function(){
-  function syncTreatmentNavState(){
-    const b=document.getElementById('startBtn');
-    const t=(b&&b.textContent||'').toLowerCase();
-    const treatment=t.includes('лечение') || t.includes('требуется лечение');
-    const resting=t.includes('отдых');
-    document.body.classList.toggle('treatment-nav-state',treatment || resting);
-  }
-  window.addEventListener('DOMContentLoaded',function(){
-    syncTreatmentNavState();
-    const b=document.getElementById('startBtn');
-    if(b){
-      new MutationObserver(syncTreatmentNavState).observe(b,{childList:true,subtree:true,characterData:true});
-    }
-  });
-})();
-</script>
 
 
 <script>
