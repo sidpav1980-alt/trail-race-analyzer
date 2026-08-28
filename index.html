@@ -1156,9 +1156,23 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
     const top0=vv ? vv.offsetTop : 0;
     const h=vv ? vv.height : window.innerHeight;
     const collapsed=document.body.classList.contains('bottom-nav-collapsed');
-    const reserve=collapsed ? 132 : 255;
-    const y=Math.max(top0+76, top0+h-reserve);
-    document.documentElement.style.setProperty('--menu-toggle-top',y+'px');
+    const nav=document.getElementById('bottomNav');
+    const btnRect=btn.getBoundingClientRect();
+    const navRect=nav ? nav.getBoundingClientRect() : null;
+
+    // На iPhone при первом открытии стартовый экран находится прямо под кнопкой меню.
+    // Ставим переключатель непосредственно НАД нижней навигацией, а не поверх кнопки «СТАРТ».
+    let y;
+    if(collapsed && navRect && navRect.top>0){
+      y=navRect.top-Math.max(40,btnRect.height)-10;
+    }else{
+      const reserve=collapsed ? 92 : 255;
+      y=top0+h-reserve;
+    }
+    const minY=top0+76;
+    const maxY=top0+h-Math.max(44,btnRect.height)-8;
+    y=Math.max(minY,Math.min(maxY,y));
+    document.documentElement.style.setProperty('--menu-toggle-top',Math.round(y)+'px');
   }
   const mo=new MutationObserver(placeMenuToggle);
   mo.observe(document.body,{attributes:true,attributeFilter:['class']});
