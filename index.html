@@ -410,6 +410,32 @@ body.treatment-nav-state.bottom-nav-collapsed .bottom-nav-toggle{
 }
 </style>
 
+
+<style>
+/* v1.03: keep menu toggle always visible */
+#bottomNavToggle.bottom-nav-toggle{
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+  z-index:5000!important;
+  left:50%!important;
+  transform:translateX(-50%)!important;
+  bottom:calc(286px + env(safe-area-inset-bottom))!important;
+}
+body.bottom-nav-collapsed #bottomNavToggle.bottom-nav-toggle{
+  bottom:calc(82px + env(safe-area-inset-bottom))!important;
+}
+@media(max-width:760px){
+  #bottomNavToggle.bottom-nav-toggle{
+    bottom:calc(292px + env(safe-area-inset-bottom))!important;
+  }
+  body.bottom-nav-collapsed #bottomNavToggle.bottom-nav-toggle{
+    bottom:calc(84px + env(safe-area-inset-bottom))!important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -714,6 +740,13 @@ body.treatment-nav-state.bottom-nav-collapsed .bottom-nav-toggle{
 
 <div class="help-section"><b>🏁 Финиш и развитие</b>
 <p>После финиша ты получаешь рубли, XP, тренированность и игровой ITRA-рейтинг. Чем выше место и лучше результат, тем больше награда. За DNF денежной награды нет.</p>
+</div>
+
+
+<div class="help-section help-focus"><b>🫘 Гуарана — коротко</b>
+<p>До 100 км гуарану можно использовать <strong>1 раз за гонку</strong>. На дистанциях <strong>больше 100 км — до 2 раз</strong>.</p>
+<p>После применения есть <strong>30% шанс</strong> получить ускорение на 10 минут. Если ускорение сработало, через 20 км начинается откат: скорость снижается на 40% на следующие 30 км. Второй приём на длинной гонке доступен только после окончания первого эффекта и отката.</p>
+<p>Если гуараны нет, нажатие на кнопку до старта переводит в раздел <strong>«Расходники»</strong>.</p>
 </div>
 
 <div class="help-section help-focus"><b>🎒 Что проверить перед стартом</b>
