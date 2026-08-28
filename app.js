@@ -77,7 +77,7 @@ function ensureRussianElitesAfterLevel7(race, runners){
   const elites=[
     {name:'Алексей Береснев',itra:905},
     {name:'Антонина Юшина',itra:890},
-    {name:'Анастасия Кабенина',itra:880},
+    {name:'Анастасия Кабенина',itra:750},
     {name:'Алексей Толстенко',itra:865},
     {name:'Константин Иванов',itra:850},
     {name:'Елена Носкова',itra:840},
@@ -471,7 +471,7 @@ const RUSSIAN_ITRA_RIVALS=[
  {name:'Артем Чернов',itra:920},
  {name:'Алексей Береснев',itra:905},
  {name:'Антонина Юшина',itra:890},
- {name:'Анастасия Кабенина',itra:880},
+ {name:'Анастасия Кабенина',itra:750},
  {name:'Алексей Толстенко',itra:865},
  {name:'Константин Иванов',itra:850},
  {name:'Елена Носкова',itra:840},
