@@ -2555,6 +2555,18 @@ function startRaceCore(){
    dnf:false
  };
  run.virtualField=createVirtualField(L,run.fieldSize,Math.max(60,run.base+run.penalty));
+ // Чара 138 км: реальный ориентир результатов — даже самый быстрый соперник
+ // не финиширует быстрее 18:00:00. Остальные сохраняют свой естественный разрыв.
+ if(Math.abs(Number(L[1]||0)-138)<0.01 && Array.isArray(run.virtualField) && run.virtualField.length){
+   const minCharaNpcFinish=18*60*60;
+   const fastest=Math.min(...run.virtualField.map(c=>Number(c?.finishSec||Infinity)));
+   if(Number.isFinite(fastest) && fastest<minCharaNpcFinish){
+     const shift=minCharaNpcFinish-fastest;
+     run.virtualField.forEach(c=>{ if(c) c.finishSec=Math.max(minCharaNpcFinish,Number(c.finishSec||0)+shift); });
+   }else{
+     run.virtualField.forEach(c=>{ if(c) c.finishSec=Math.max(minCharaNpcFinish,Number(c.finishSec||0)); });
+   }
+ }
  run.playerItraPlace=playerItraPlace();
  run.itraBoostTier=(run.playerItraPlace<=3?'TOP-3':
                     run.playerItraPlace<=5?'TOP-5':
