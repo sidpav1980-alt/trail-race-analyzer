@@ -3296,6 +3296,13 @@ function startRace(){
 }
 
 $('buyRaceSlotBtn')?.addEventListener('click',buyRaceSlot);
+
+// Плашка «Нужен слот на гонку» тоже является кнопкой покупки.
+$('startRequirementsError')?.addEventListener('click',()=>{
+  const el=$('startRequirementsError');
+  if(!el || hasRaceSlot()) return;
+  if(/Нужен слот на гонку/i.test(el.textContent||'')) buyRaceSlot();
+});
 const quickRestBtn=$('quickRestBtn');
 if(quickRestBtn){
   quickRestBtn.addEventListener('click',()=>{$('restBtn')?.click();});
@@ -3324,6 +3331,12 @@ if(quickTreatBtn){
   syncQuickTreat();
 }
 $('startBtn').onclick=()=>{
+  // Если для выбранной гонки ещё нет слота, нажатие на основную кнопку
+  // сразу покупает его (если хватает рублей), вместо показа пассивного предупреждения.
+  if(!hasRaceSlot()){
+    buyRaceSlot();
+    return;
+  }
   if(isInHospital() || needsHospitalTreatment()){
     const nav=document.querySelector('.trail3d-bottom-nav button[data-target="restSection"]');
     if(nav) nav.click();

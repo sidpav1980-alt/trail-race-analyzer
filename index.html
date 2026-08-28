@@ -476,11 +476,45 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 
 
 <style>
-/* v1.03: header without the large game name */
-.topbar.topbar-no-game-title{align-items:flex-start!important;}
-.topbar.topbar-no-game-title .eyebrow{margin-top:2px!important;}
-@media(max-width:520px){
-  .topbar.topbar-no-game-title{padding-top:12px!important;padding-bottom:12px!important;}
+/* v1.03: compact header without the large game name */
+.topbar.topbar-no-game-title{align-items:center!important;gap:10px!important;}
+.topbar-title-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0;}
+.topbar.topbar-no-game-title .eyebrow{
+  margin:0!important;
+  font-size:17px!important;
+  line-height:1.12!important;
+  letter-spacing:.16em!important;
+  font-weight:900!important;
+  white-space:nowrap;
+}
+.header-donate-btn{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-height:38px!important;
+  padding:8px 12px!important;
+  border-radius:10px!important;
+  background:#ffdd2d!important;
+  border:1px solid #ffe866!important;
+  color:#111827!important;
+  font-size:11px!important;
+  line-height:1!important;
+  font-weight:900!important;
+  letter-spacing:.03em!important;
+  text-decoration:none!important;
+  white-space:nowrap!important;
+}
+.header-donate-btn:active{transform:scale(.98);}
+@media(max-width:620px){
+  .topbar.topbar-no-game-title{padding-top:12px!important;padding-bottom:12px!important;align-items:flex-start!important;}
+  .topbar-title-actions{gap:7px!important;max-width:56%;}
+  .topbar.topbar-no-game-title .eyebrow{font-size:14px!important;letter-spacing:.13em!important;white-space:normal!important;}
+  .header-donate-btn{min-height:34px!important;padding:7px 9px!important;font-size:9.5px!important;}
+  .topbar-account{margin-left:auto!important;}
+}
+@media(max-width:390px){
+  .topbar.topbar-no-game-title .eyebrow{font-size:13px!important;}
+  .header-donate-btn{font-size:9px!important;padding:7px 8px!important;}
 }
 </style>
 
@@ -488,8 +522,9 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 <body>
 <div class="app">
   <header class="topbar topbar-no-game-title">
-    <div>
+    <div class="topbar-title-actions">
       <div class="eyebrow">СИМУЛЯТОР ТРЕЙЛРАННЕРА</div>
+      <a class="header-donate-btn" href="https://www.tbank.ru/cf/49SEnJlLa0Y" target="_blank" rel="noopener noreferrer">❤️ ПОДДЕРЖАТЬ</a>
     </div>
     <div class="topbar-account"><button id="topHelpBtn" class="help-btn top-help-btn" type="button">❓ Помощь</button><div class="version" id="appVersion">v—</div>
   </div></header>
