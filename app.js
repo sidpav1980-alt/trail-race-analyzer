@@ -1281,8 +1281,13 @@ function updateRaceStartTrainingLock(){
    }
  }else{
    delete b.dataset.treatmentJump;
-   b.disabled=isResting() || !hasRaceSlot();
-   b.textContent=!hasRaceSlot()?`🎟️ Купить слот ${fmtMoney(raceSlotCost())}`:'▶ Старт';
+   if(isResting()){
+     b.disabled=true;
+     b.textContent=`😴 Отдых ${fmtRest(restRemainingMs())}`;
+   }else{
+     b.disabled=!hasRaceSlot();
+     b.textContent=!hasRaceSlot()?`🎟️ Купить слот ${fmtMoney(raceSlotCost())}`:'▶ Старт';
+   }
    const el=$('startRequirementsError');
    if(el && /Идёт тренировка/.test(el.textContent||'')){
      el.style.display='none';

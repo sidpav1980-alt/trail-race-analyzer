@@ -1385,6 +1385,7 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
   };
   // These are consumables / carried supplies, not equipment-shop items.
   const carryRiskRx=[/\bвод[аы]/i,/гел(ь|и|ей)/i,/аптеч/i,/гидратор/i,/бутыл/i,/фляг/i,/расходник/i];
+  const restRiskRx=[/усталост/i,/отдых/i];
 
   function gearCatFromRiskText(s){
     s=String(s||'');
@@ -1395,25 +1396,30 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
     s=String(s||'');
     return carryRiskRx.some(rx=>rx.test(s));
   }
+  function hasRestRisk(s){
+    s=String(s||'');
+    return restRiskRx.some(rx=>rx.test(s));
+  }
   function syncRiskAction(){
     const el=document.getElementById('raceResourceWarning');
     if(!el)return;
     const txt=el.textContent||'';
     const carry=hasCarryRisk(txt);
+    const rest=hasRestRisk(txt);
     const cat=gearCatFromRiskText(txt);
-    // Consumables take priority when they are shown in this compact line.
-    const target=carry?'carry':(cat?'gear':'');
+    // Fatigue opens Rest; consumables open Carry; equipment opens Shop.
+    const target=rest?'rest':(carry?'carry':(cat?'gear':''));
     el.dataset.riskTarget=target;
     el.dataset.gearCat=cat;
     el.classList.toggle('risk-action-link',!!target);
     el.classList.remove('risk-gear-link');
     if(target){
-      const label=target==='carry'?'  → с собой':'  → экипировка';
+      const label=target==='rest'?'  → отдых':(target==='carry'?'  → с собой':'  → экипировка');
       el.setAttribute('data-risk-link-label',label);
       el.setAttribute('role','button');
       el.setAttribute('tabindex','0');
-      el.setAttribute('aria-label',target==='carry'?'Перейти в раздел «С собой»':'Перейти в экипировку и исправить риск');
-      el.title=target==='carry'?'Нажмите, чтобы перейти в «С собой»':'Нажмите, чтобы перейти к нужной экипировке';
+      el.setAttribute('aria-label',target==='rest'?'Перейти в раздел «Отдых»':(target==='carry'?'Перейти в раздел «С собой»':'Перейти в экипировку и исправить риск'));
+      el.title=target==='rest'?'Нажмите, чтобы перейти к отдыху':(target==='carry'?'Нажмите, чтобы перейти в «С собой»':'Нажмите, чтобы перейти к нужной экипировке');
     }else{
       el.removeAttribute('data-risk-link-label');
       el.removeAttribute('role');
@@ -1421,6 +1427,18 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
       el.removeAttribute('aria-label');
       el.removeAttribute('title');
     }
+  }
+  function openRestFromRisk(){
+    const btn=document.querySelector('#bottomNav button[data-target="restSection"]');
+    if(btn){ btn.click(); }
+    else{
+      const rest=document.getElementById('restSection');
+      if(rest){ rest.open=true; rest.style.display=''; }
+    }
+    setTimeout(function(){
+      const rest=document.getElementById('restSection');
+      if(rest){rest.open=true;rest.scrollIntoView({behavior:'smooth',block:'start'});}
+    },90);
   }
   function openCarryFromRisk(){
     const btn=document.querySelector('#bottomNav button[data-target="carrySection"]');
@@ -1452,7 +1470,8 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
   }
   function activate(el){
     if(!el)return;
-    if(el.dataset.riskTarget==='carry') openCarryFromRisk();
+    if(el.dataset.riskTarget==='rest') openRestFromRisk();
+    else if(el.dataset.riskTarget==='carry') openCarryFromRisk();
     else if(el.dataset.riskTarget==='gear') openGearFromRisk(el);
   }
   document.addEventListener('click',function(e){
