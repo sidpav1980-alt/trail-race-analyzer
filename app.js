@@ -1181,6 +1181,9 @@ function updateRestUi(){
      req.style.display='none';
    }
  }
+ // Keep the compact pre-start risk line synchronized with fatigue/rest state.
+ // This fixes stale "усталость 100%" after rest has already completed.
+ refreshRaceRisks();
 }
 setInterval(()=>{
  if($('restBtn')){

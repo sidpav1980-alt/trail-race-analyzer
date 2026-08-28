@@ -1300,5 +1300,26 @@ body.bottom-nav-collapsed{padding-bottom:calc(112px + env(safe-area-inset-bottom
 }
 </style>
 
+<style>
+/* v1.03: when bottom menu is collapsed, the single lower action is ALWAYS Start Race. */
+body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button:not(#bottomNavToggle):not([data-target="race"]){
+  display:none!important;
+}
+body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button[data-target="race"]{
+  display:flex!important;
+  grid-column:1/-1!important;
+  justify-content:center!important;
+  align-items:center!important;
+  gap:8px!important;
+  color:#38bdf8!important;
+  font-size:12px!important;
+}
+body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button[data-target="race"] span{
+  display:inline-block!important;
+  margin:0!important;
+  font-size:18px!important;
+}
+</style>
+
 </body>
 </html>
