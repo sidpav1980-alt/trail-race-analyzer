@@ -1124,5 +1124,54 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 })();
 </script>
 
+
+<style>
+/* v1.03 hotfix: keep the menu toggle inside the actually visible mobile viewport.
+   iOS Chrome/Safari can cover fixed elements near bottom:0 with browser controls. */
+#bottomNavToggle.bottom-nav-toggle{
+  max-width:calc(100vw - 28px)!important;
+  white-space:nowrap!important;
+}
+@media(max-width:760px){
+  body.bottom-nav-collapsed:not(.help-open) #bottomNavToggle.bottom-nav-toggle{
+    bottom:auto!important;
+    top:var(--menu-toggle-top,calc(100dvh - 150px))!important;
+  }
+  body:not(.bottom-nav-collapsed):not(.help-open) #bottomNavToggle.bottom-nav-toggle{
+    bottom:auto!important;
+    top:var(--menu-toggle-top,calc(100dvh - 275px))!important;
+  }
+}
+</style>
+<script>
+(function(){
+  const btn=document.getElementById('bottomNavToggle');
+  if(!btn)return;
+  function placeMenuToggle(){
+    if(window.innerWidth>760){
+      document.documentElement.style.removeProperty('--menu-toggle-top');
+      return;
+    }
+    const vv=window.visualViewport;
+    const top0=vv ? vv.offsetTop : 0;
+    const h=vv ? vv.height : window.innerHeight;
+    const collapsed=document.body.classList.contains('bottom-nav-collapsed');
+    const reserve=collapsed ? 132 : 255;
+    const y=Math.max(top0+76, top0+h-reserve);
+    document.documentElement.style.setProperty('--menu-toggle-top',y+'px');
+  }
+  const mo=new MutationObserver(placeMenuToggle);
+  mo.observe(document.body,{attributes:true,attributeFilter:['class']});
+  window.addEventListener('resize',placeMenuToggle,{passive:true});
+  window.addEventListener('orientationchange',placeMenuToggle,{passive:true});
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize',placeMenuToggle,{passive:true});
+    window.visualViewport.addEventListener('scroll',placeMenuToggle,{passive:true});
+  }
+  window.addEventListener('pageshow',placeMenuToggle);
+  setTimeout(placeMenuToggle,0);
+  setTimeout(placeMenuToggle,250);
+})();
+</script>
 </body>
 </html>
