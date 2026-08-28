@@ -3984,27 +3984,21 @@ function quickBuyGels(){
 
 function quickBuyLampPower(){
  if(purchasesLockedDuringRace()){ showGameError('Во время гонки покупки недоступны'); return; }
- const L=levelData();
- const lampHours=lampHoursNeeded(L);
- if(isRechargeableLamp()){
-   const requiredCharge=Math.min(100,Math.ceil(lampHours/8*100));
-   if(lampHours<=0 || game.lampCharge>=requiredCharge || Number(game.resources.powerbank||0)>0){
-     showGameError('Питания фонаря уже достаточно для этой гонки'); return;
-   }
-   const cost=RESOURCE_CATALOG.powerbank.price;
-   if(game.money<cost){ showGameError(`Не хватает рублей: нужно ${fmtMoney(cost)}`); return; }
-   game.money-=cost; game.resources.powerbank=Number(game.resources.powerbank||0)+1;
- }else{
-   const need=Math.ceil(lampHours/5);
-   const missing=Math.max(0,need-Number(game.resources.batteries||0));
-   if(missing<=0){ showGameError('Батареек уже достаточно для этой гонки'); return; }
-   const cost=missing*RESOURCE_CATALOG.batteries.price;
-   if(game.money<cost){ showGameError(`Не хватает рублей: нужно ${fmtMoney(cost)}`); return; }
-   game.money-=cost; game.resources.batteries=Number(game.resources.batteries||0)+missing;
- }
- saveGame(); render();
+ // Карточка питания фонаря теперь всегда ведёт в «Расходники», даже если
+ // текущего запаса уже достаточно. Там игрок сам видит батарейки/powerbank
+ // и при необходимости покупает нужное.
+ const navBtn=document.querySelector('#bottomNav button[data-target="resources"]');
+ if(navBtn) navBtn.click(); else if(typeof switchTab==='function') switchTab('resources');
+ setTimeout(()=>{
+   const resources=document.getElementById('resources');
+   if(resources){ resources.open=true; resources.style.display=''; }
+   const key=isRechargeableLamp()?'powerbank':'batteries';
+   const buy=document.querySelector(`[data-resource-buy="${key}"]`);
+   const card=buy && (buy.closest('.shop-item,.gear-item,.resource-item,.card') || buy);
+   if(card) card.scrollIntoView({behavior:'smooth',block:'center'});
+   else if(resources) resources.scrollIntoView({behavior:'smooth',block:'start'});
+ },140);
 }
-
 function quickBuyMedkit(){
  if(purchasesLockedDuringRace()){ showGameError('Во время гонки покупки недоступны'); return; }
  const keys=['bandage','gauze','peroxide','plaster','cream','sunCream','rescueBlanket'];
