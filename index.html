@@ -811,18 +811,18 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 <p><strong>1.</strong> Выбери гонку в «Кампании».</p>
 <p><strong>2.</strong> Проверь блок <strong>«С собой»</strong>: вода, гели «УГЛИ», аптечка.</p>
 <p><strong>3.</strong> Проверь экипировку, усталость и тренированность.</p>
-<p><strong>4.</strong> Если нужен слот — купи его.</p>
+<p><strong>4.</strong> Если нужен слот — купи его отдельной кнопкой <strong>«Купить»</strong> в блоке слота.</p>
 <p><strong>5.</strong> Нажми <strong>«Старт гонки»</strong>.</p>
 <p><strong>6.</strong> Во время гонки следи за темпом, местом, лидерами и событиями.</p>
 </div>
 
 <div class="help-section"><b>🏆 Что происходит во время гонки</b>
 <p>Игра сама двигает бегуна по трассе. Темп зависит от подготовки, экипировки, усталости и событий. На карте мелким шрифтом показывается <strong>ТОП-7 лидеров</strong> с текущим километражем. Отдельный ТОП-14 можно раскрыть или скрыть.</p>
-<p>Обычные всплывающие события не ставят гонку на паузу.</p>
+<p>ПП, если они есть на дистанции, отображаются прямо на карте ещё до старта. Обычные всплывающие события не ставят гонку на паузу.</p>
 </div>
 
 <div class="help-section"><b>🏁 Финиш и развитие</b>
-<p>После финиша ты получаешь рубли, XP, тренированность и игровой ITRA-рейтинг. Чем выше место и лучше результат, тем больше награда. За DNF денежной награды нет.</p>
+<p>После финиша ты получаешь рубли, XP, тренированность и игровой ITRA-рейтинг. Чем выше место и лучше результат, тем больше награда. На финишной плашке дополнительно показываются <strong>ТОП-3</strong> с именами и временем. За DNF денежной награды нет.</p>
 </div>
 
 
@@ -834,11 +834,11 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 
 <div class="help-section help-focus"><b>🎒 Что проверить перед стартом</b>
 <p><strong>Слот → усталость → тренированность → экипировка → вода → гели → аптечка → фонарь → погода.</strong></p>
-<p>Если чего-то не хватает, игра показывает предупреждение до старта.</p>
+<p>Если чего-то не хватает, игра показывает только актуальные риски. После покупки воды, гелей или аптечки выполненный пункт исчезает автоматически. Нажатие на риск ведёт в нужный раздел: <strong>«С собой»</strong>, <strong>«Экипировка»</strong> или <strong>«Отдых»</strong>.</p>
 </div>
 
 <div class="help-section"><b>🎟️ Слоты гонок</b>
-<p><strong>Уровни 1–3 бесплатны.</strong> Начиная с 4-го уровня нужен слот. С 9 уровня его стоимость увеличивается в 3 раза. При покупке платного слота иногда выпадает бесплатный предмет экипировки.</p>
+<p><strong>Уровни 1–3 бесплатны.</strong> Начиная с 4-го уровня нужен слот. С 9 уровня его стоимость увеличивается в 3 раза. Если слот не куплен, старт заблокирован и рядом показывается компактная кнопка <strong>«Купить · ₽…»</strong>. При покупке платного слота иногда выпадает бесплатный предмет экипировки.</p>
 </div>
 
 <div class="help-section"><b>💪 Тренированность</b>
@@ -903,7 +903,7 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 </div>
 
 <div class="help-section help-focus"><b>🏜️ Чара — 134 км</b>
-<p>13-й уровень кампании: 134 км и 4 ПП. На ПП3, 82 км, есть специальное событие <strong>«Река разлилась»</strong>: в 70% случаев продолжить гонку невозможно и происходит DNF; в 30% удаётся найти проход с потерей времени.</p>
+<p>13-й уровень кампании: 134 км и 4 ПП. Пункты питания отображаются на карте ещё до старта и остаются видны по ходу гонки. На ПП3, 82 км, есть специальное событие <strong>«Река разлилась»</strong>: в 70% случаев продолжить гонку невозможно и происходит DNF; в 30% удаётся найти проход с потерей времени.</p>
 </div>
 
 <div class="help-section"><b>📈 XP и ITRA</b>
@@ -1814,6 +1814,51 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
     padding:6px 8px!important;
     font-size:9.5px!important;
   }
+}
+</style>
+
+
+<script>
+(function(){
+  // v1.03: when opening Consumables, raise the section enough for the Guarana BUY button
+  // to stay fully visible above the expanded/collapsed bottom navigation on iPhone.
+  function fitGuaranaPurchase(){
+    const buy=document.querySelector('#resources [data-resource-buy="guarana"]');
+    const nav=document.getElementById('bottomNav');
+    if(!buy || !nav) return;
+    const br=buy.getBoundingClientRect();
+    const nr=nav.getBoundingClientRect();
+    const safeBottom=nr.top-14;
+    if(br.bottom>safeBottom){
+      window.scrollBy({top:Math.ceil(br.bottom-safeBottom)+10,behavior:'smooth'});
+    }
+  }
+  document.addEventListener('click',function(e){
+    const b=e.target.closest('#bottomNav button[data-target="resources"]');
+    if(!b)return;
+    setTimeout(fitGuaranaPurchase,120);
+    setTimeout(fitGuaranaPurchase,420);
+  });
+})();
+</script>
+
+
+<style>
+/* v1.03: compact lamp power section on mobile */
+#lampPowerSection>.drawer-body{padding:6px!important;}
+#lampPowerSection>.drawer-body>.card{padding:10px!important;margin:0!important;}
+#lampPowerSection>.drawer-body>.card>p.muted{font-size:11px!important;line-height:1.25!important;margin:0 0 7px!important;}
+#lampPowerSection #lampPowerPanel{gap:6px!important;}
+#lampPowerSection #lampPowerPanel .gear-item{padding:10px!important;}
+#lampPowerSection #lampPowerPanel .gear-item h3{font-size:16px!important;line-height:1.15!important;margin:0 0 5px!important;}
+#lampPowerSection #lampPowerPanel .gear-item .meta{font-size:11px!important;line-height:1.25!important;}
+#lampPowerSection #lampPowerPanel .durability{margin:7px 0!important;height:6px!important;}
+#lampPowerSection #lampPowerPanel button{margin-top:6px!important;padding:9px 8px!important;min-height:38px!important;font-size:11px!important;line-height:1.15!important;}
+@media(max-width:520px){
+  #lampPowerSection>summary{padding:12px 14px!important;font-size:15px!important;}
+  #lampPowerSection>.drawer-body>.card>p.muted{font-size:10.5px!important;}
+  #lampPowerSection #lampPowerPanel .gear-item h3{font-size:15px!important;}
+  #lampPowerSection #lampPowerPanel .gear-item .meta{font-size:10.5px!important;}
 }
 </style>
 
