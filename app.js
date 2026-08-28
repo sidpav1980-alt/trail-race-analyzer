@@ -2316,7 +2316,7 @@ function startRaceCore(){
    const important=warnings.map(x=>`⚠️ ${x}`);
    const el=$('startRequirementsError');
    if(el){
-     el.innerHTML=`<b>⚠️ Обратите внимание — есть риски/нехватка расходников. Гонка будет запущена:</b><ul>${important.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+     el.innerHTML=`<b>⚠️ Риски перед стартом — гонка будет запущена:</b><ul>${important.map(x=>`<li>${x}</li>`).join('')}</ul>`;
      el.style.display='block';
    }
  }

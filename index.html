@@ -1187,5 +1187,90 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
   setTimeout(placeMenuToggle,250);
 })();
 </script>
+
+<style>
+/* v1.03: menu toggle lives INSIDE the fixed bottom navigation so it never covers game content */
+#bottomNav.trail3d-bottom-nav{
+  padding-top:42px!important;
+}
+#bottomNav #bottomNavToggle.bottom-nav-toggle{
+  position:absolute!important;
+  left:50%!important;
+  top:6px!important;
+  bottom:auto!important;
+  transform:translateX(-50%)!important;
+  z-index:2!important;
+  margin:0!important;
+  padding:6px 13px!important;
+  min-height:28px!important;
+  line-height:1.1!important;
+  font-size:10px!important;
+  border-radius:4px!important;
+  white-space:nowrap!important;
+  display:block!important;
+}
+body.bottom-nav-collapsed #bottomNav.trail3d-bottom-nav{
+  height:96px!important;
+  min-height:96px!important;
+  grid-template-rows:50px!important;
+  padding-top:38px!important;
+  padding-bottom:6px!important;
+}
+body.bottom-nav-collapsed #bottomNav #bottomNavToggle.bottom-nav-toggle{
+  top:5px!important;
+}
+body.bottom-nav-collapsed{padding-bottom:calc(112px + env(safe-area-inset-bottom))!important;}
+
+/* compact pre-start warning */
+#startRequirementsError.start-requirements-error{
+  margin:8px 0 7px!important;
+  padding:9px 11px!important;
+  border-radius:10px!important;
+  font-size:12px!important;
+  line-height:1.2!important;
+  box-shadow:none!important;
+}
+#startRequirementsError.start-requirements-error b{
+  font-size:13px!important;
+  line-height:1.2!important;
+  margin-bottom:5px!important;
+}
+#startRequirementsError.start-requirements-error ul{
+  margin:4px 0 0 17px!important;
+  padding:0!important;
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  column-gap:14px!important;
+  row-gap:2px!important;
+}
+#startRequirementsError.start-requirements-error li{
+  margin:0!important;
+  line-height:1.2!important;
+  min-width:0!important;
+}
+@media(max-width:420px){
+  #startRequirementsError.start-requirements-error{font-size:11px!important;padding:8px 9px!important;}
+  #startRequirementsError.start-requirements-error b{font-size:12px!important;}
+  #startRequirementsError.start-requirements-error ul{column-gap:9px!important;margin-left:15px!important;}
+}
+</style>
+<script>
+(function(){
+  function dockMenuToggle(){
+    const nav=document.getElementById('bottomNav');
+    const btn=document.getElementById('bottomNavToggle');
+    if(!nav||!btn)return;
+    if(btn.parentElement!==nav) nav.insertBefore(btn,nav.firstChild);
+    document.documentElement.style.removeProperty('--menu-toggle-top');
+    btn.style.removeProperty('top');
+    btn.style.removeProperty('bottom');
+  }
+  document.addEventListener('DOMContentLoaded',dockMenuToggle);
+  window.addEventListener('pageshow',dockMenuToggle);
+  setTimeout(dockMenuToggle,0);
+  setTimeout(dockMenuToggle,200);
+})();
+</script>
+
 </body>
 </html>
