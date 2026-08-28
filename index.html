@@ -523,7 +523,7 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 <div class="app">
   <header class="topbar topbar-no-game-title">
     <div class="topbar-title-actions">
-      <div class="eyebrow">СИМУЛЯТОР ТРЕЙЛРАННЕРА</div>
+      <div class="eyebrow">СИМУЛЯТОР ТРЕЙЛРАННЕРА: АРМАГЕДДОН</div>
       <a class="header-donate-btn" href="https://www.tbank.ru/cf/49SEnJlLa0Y" target="_blank" rel="noopener noreferrer">❤️ ПОДДЕРЖАТЬ</a>
     </div>
     <div class="topbar-account"><button id="topHelpBtn" class="help-btn top-help-btn" type="button">❓ Помощь</button><div class="version" id="appVersion">v—</div>
@@ -618,6 +618,13 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
           <button id="startBtn" class="primary">▶ Старт</button>
         </div>
         <div id="startRequirementsError" class="start-requirements-error" style="display:none"></div>
+        <div id="raceSlotCard" class="card race-slot-card compact-slot-card" style="display:none">
+          <div class="row between">
+            <div id="raceSlotStatus"><b>⛔ 🎟️ Нужен слот на гонку</b><small>Без купленного слота старт недоступен.</small></div>
+            <button id="buyRaceSlotBtn" class="primary compact-btn" type="button">Купить</button>
+          </div>
+          <small id="raceSlotMerch" class="muted">Иногда вместе со слотом выпадает бесплатный мерч экипировки.</small>
+        </div>
         <div style="display:none" aria-hidden="true"><button id="pauseBtn"></button><span id="raceTitle"></span><span id="difficultyBadge"></span><span id="raceDistance"></span><span id="raceGain"></span><span id="raceTarget"></span><span id="raceReward"></span><span id="raceSlotCostCurrent"></span><span id="raceSlotCostCurrentStatus"></span><span id="raceWaterNeed"></span><span id="raceWaterCapacity"></span><span id="raceWaterLive"></span><span id="raceDesc"></span></div>
 
         <div class="sim-stats">
@@ -638,13 +645,6 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
         <h3>События этой гонки</h3>
         <div id="eventLog" class="event-log"><div class="muted">События появятся по ходу гонки.</div></div>
       </div></div></details>
-      <div id="raceSlotCard" class="card race-slot-card">
-        <div class="row between">
-          <div id="raceSlotStatus"><b>🎟️ Слот на гонку</b><small>Для старта нужен отдельный слот.</small></div>
-          <button id="buyRaceSlotBtn" class="primary compact-btn" type="button">Купить слот</button>
-        </div>
-        <small id="raceSlotMerch" class="muted">Иногда вместе со слотом выпадает бесплатный мерч экипировки.</small>
-      </div>
       <div id="coachRaceEffects" class="notice compact-race-note"><b>🏋️ Эффекты тренировки</b><small>Перед этой гонкой бонус тренера ещё не получен.</small></div>
 
 <details class="main-drawer" id="lampPowerSection"><summary>🔦 Питание фонаря</summary><div class="drawer-body"><div class="card"><p class="muted">Фонари 1–4 уровня работают на батарейках. Фонари 5–7 уровня — на аккумуляторе.</p><div id="lampPowerPanel" class="gear-grid"></div></div></div></details>
@@ -800,7 +800,7 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 
 <div id="helpModal" class="help-modal" aria-hidden="true">
 <div class="help-card">
-<div class="help-head"><div><div class="help-kicker">СИМУЛЯТОР ТРЕЙЛРАННЕРА · СПРАВОЧНИК</div></div><button id="helpClose" class="help-close" type="button" aria-label="Закрыть помощь">✕</button></div>
+<div class="help-head"><div><div class="help-kicker">СИМУЛЯТОР ТРЕЙЛРАННЕРА: АРМАГЕДДОН · СПРАВОЧНИК</div></div><button id="helpClose" class="help-close" type="button" aria-label="Закрыть помощь">✕</button></div>
 
 <div class="help-section help-focus"><b>🏁 Суть игры — самое простое</b>
 <p>Ты проходишь трейловые гонки одну за другой. Перед стартом подготовь бегуна: надень экипировку, возьми воду и гели, проверь усталость и тренированность. Нажми <strong>«Старт»</strong> — дальше гонка идёт автоматически.</p>
@@ -1714,5 +1714,23 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
 }
 </style>
 
+
+<style>
+/* v1.03: compact slot purchase block next to Start; completed carry risks disappear dynamically */
+#raceSlotCard.compact-slot-card{
+  margin:8px 0 7px!important;
+  padding:9px 10px!important;
+  border:1px solid #b76d28!important;
+  background:#4d2914!important;
+  border-radius:10px!important;
+  box-shadow:none!important;
+}
+#raceSlotCard.compact-slot-card .row{gap:10px!important;align-items:center!important;}
+#raceSlotCard.compact-slot-card #raceSlotStatus{min-width:0;flex:1;}
+#raceSlotCard.compact-slot-card #raceSlotStatus b{display:block;font-size:13px!important;color:#ffe0b6!important;line-height:1.15!important;}
+#raceSlotCard.compact-slot-card #raceSlotStatus small{display:block;font-size:10px!important;line-height:1.2!important;color:#f5c89c!important;margin-top:2px!important;}
+#raceSlotCard.compact-slot-card #buyRaceSlotBtn{flex:0 0 auto!important;padding:8px 10px!important;font-size:11px!important;min-height:34px!important;white-space:nowrap!important;}
+#raceSlotCard.compact-slot-card #raceSlotMerch{display:none!important;}
+</style>
 </body>
 </html>

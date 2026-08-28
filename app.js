@@ -390,11 +390,14 @@ function hasRaceSlot(i=game.current){ ensureResources(); return Number(i)<3 || !
 function renderRaceSlot(){
   const card=$('raceSlotCard'),status=$('raceSlotStatus'),btn=$('buyRaceSlotBtn'),merch=$('raceSlotMerch');
   if(!card||!status||!btn) return;
-  const cost=raceSlotCost(),owned=hasRaceSlot();
-  status.innerHTML=Number(game.current)<3?`<b>🎟️ Слот на гонку: бесплатно</b><small>На первых трёх уровнях слот предоставляется бесплатно.</small>`:owned?`<b>✅ Слот на гонку куплен</b><small>Старт разрешён для этой трассы.</small>`:`<b>🎟️ Слот на гонку: ${fmtMoney(cost)}</b><small>Даже разблокированная трасса требует отдельного слота.</small>`;
-  btn.style.display=owned?'none':'inline-flex'; btn.disabled=!owned && game.money<cost;
-  btn.textContent=game.money<cost?`Не хватает ${fmtMoney(cost-game.money)}`:`Купить слот · ${fmtMoney(cost)}`;
-  if(merch) merch.textContent=owned?'При покупке слота мог выпасть мерч экипировки.':'Иногда вместе со слотом выпадает бесплатный мерч экипировки.';
+  const cost=raceSlotCost(),owned=hasRaceSlot(),free=Number(game.current)<3;
+  // Показываем компактный блок только когда слот реально нужно купить.
+  card.style.display=(!free && !owned)?'block':'none';
+  status.innerHTML=`<b>⛔ 🎟️ Нужен слот на гонку</b><small>Без купленного слота старт недоступен.</small>`;
+  btn.style.display='inline-flex';
+  btn.disabled=game.money<cost;
+  btn.textContent=game.money<cost?`Не хватает ${fmtMoney(cost-game.money)}`:`Купить · ${fmtMoney(cost)}`;
+  if(merch) merch.textContent='Иногда вместе со слотом выпадает бесплатный мерч экипировки.';
 }
 function buyRaceSlot(){
   ensureResources(); if(hasRaceSlot()) return;
@@ -420,7 +423,7 @@ function refreshRaceRisks(){
  if(haveWater<needWater) warnings.push(`воды ${haveWater}/${needWater} × 0,5 л`);
  if(needWater>totalCap) warnings.push(`ёмкости воды недостаточно: гидратор + бутылки ${Number(totalCap*0.5).toFixed(1).replace('.0','')} л`);
  const needGels=gelsNeeded(L); if(Number(game.resources.gels||0)<needGels) warnings.push(`гелей ${game.resources.gels||0}/${needGels}`);
- Object.keys(GEAR).forEach(cat=>{ const prep=equipmentPreparedness(cat,L,w); if(prep.gap>0) warnings.push(`${CATEGORY_NAMES[cat]}: ур. ${prep.current}/7, желательно ${prep.required}/7`); });
+ Object.keys(GEAR).filter(cat=>!['medkit','hydration'].includes(cat)).forEach(cat=>{ const prep=equipmentPreparedness(cat,L,w); if(prep.gap>0) warnings.push(`${CATEGORY_NAMES[cat]}: ур. ${prep.current}/7, желательно ${prep.required}/7`); });
  if(medkitScore()<7 && Number(game.resources.medkits||0)<=0) warnings.push('аптечка неполная'); if(Number(game.fatigue||0)>=70) warnings.push(`усталость ${Math.round(game.fatigue)}%`);
  el.textContent=warnings.length?'⚠️ Риски перед стартом: '+[...new Set(warnings)].join(' · '):'✅ Экипировка, вода (гидратор + бутылки) и расходники готовы.';
 }
@@ -1188,7 +1191,7 @@ function updateRestUi(){
      delete startBtn.dataset.treatmentJump;
    }else if(!trainingActive()){
      delete startBtn.dataset.treatmentJump;
-     startBtn.disabled=false;
+     startBtn.disabled=!hasRaceSlot();
      startBtn.textContent='▶ Старт';
    }
  }
@@ -1286,7 +1289,7 @@ function updateRaceStartTrainingLock(){
      b.textContent=`😴 Отдых ${fmtRest(restRemainingMs())}`;
    }else{
      b.disabled=!hasRaceSlot();
-     b.textContent=!hasRaceSlot()?`🎟️ Купить слот ${fmtMoney(raceSlotCost())}`:'▶ Старт';
+     b.textContent='▶ Старт';
    }
    const el=$('startRequirementsError');
    if(el && /Идёт тренировка/.test(el.textContent||'')){
@@ -3331,10 +3334,10 @@ if(quickTreatBtn){
   syncQuickTreat();
 }
 $('startBtn').onclick=()=>{
-  // Если для выбранной гонки ещё нет слота, нажатие на основную кнопку
-  // сразу покупает его (если хватает рублей), вместо показа пассивного предупреждения.
+  // Без слота старт не запускаем: отдельная кнопка покупки находится рядом в блоке слота.
   if(!hasRaceSlot()){
-    buyRaceSlot();
+    renderRaceSlot();
+    showGameError('Сначала купите слот на эту гонку.');
     return;
   }
   if(isInHospital() || needsHospitalTreatment()){
