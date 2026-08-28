@@ -1966,27 +1966,6 @@ function competitorProgressAt(c,elapsed,L){
 
 
 
-function showDnfNotice(name, extra='', kmOverride=null){
-  try{
-    // После схода игрока новые плашки сходов соперников больше не показываем.
-    if(!run || !run.running || run.dnf) return;
-    const km=Number.isFinite(Number(kmOverride)) ? Number(kmOverride) : ((run?.p||0)*levelData()[1]);
-    const ov=$('eventOverlay');
-    if(ov){
-      queueRaceOverlay(`<div class="overlay-box"><div class="emoji">🚫</div><b>${name} сошёл</b><span>${km.toFixed(1)} км${extra?` · ${extra}`:' · гонка продолжается'}</span></div>`,2000);
-    }
-    const el=$('eventLog');
-    if(el){
-      el.insertAdjacentHTML(
-        'afterbegin',
-        `<div class="event-row dnf-event-row"><span>${km.toFixed(1)} км</span><b>🚫 ${name} сошёл</b><span class="neutral">${extra||''}</span></div>`
-      );
-    }
-    // Important: opponent DNF must never pause the race.
-    if(run) run.eventPause=false;
-  }catch(e){}
-}
-
 function showDnfBatch(batch, reason=''){
   try{
     if(!run || !run.running || run.dnf || !Array.isArray(batch) || !batch.length) return;
@@ -2010,6 +1989,25 @@ function showDnfBatch(batch, reason=''){
     }
     if(run) run.eventPause=false;
   }catch(e){}
+}
+
+// Обычные сходы копятся и показываются только группами по 5 человек.
+// Это не даёт после первой пятёрки снова сыпать одиночные плашки.
+function queueDnfGrouped(name, kmOverride=null, extra=''){
+  try{
+    if(!run || !run.running || run.dnf) return;
+    if(!Array.isArray(run.dnfDisplayPending)) run.dnfDisplayPending=[];
+    const km=Number.isFinite(Number(kmOverride)) ? Number(kmOverride) : ((run?.p||0)*Number(levelData()?.[1]||0));
+    run.dnfDisplayPending.push({name:String(name||'Участник'),km,extra:String(extra||'')});
+    while(run.dnfDisplayPending.length>=5){
+      const batch=run.dnfDisplayPending.splice(0,5);
+      showDnfBatch(batch);
+    }
+  }catch(e){}
+}
+
+function showDnfNotice(name, extra='', kmOverride=null){
+  queueDnfGrouped(name,kmOverride,extra);
 }
 
 function isItraDnfProtectedRunner(c){
@@ -2117,8 +2115,9 @@ function updateLiveDnfs(){
    }
 
    if(dnfBatch.length){
-     try{ showDnfBatch(dnfBatch); }
-     catch(e){ console.warn('DNF batch notice error',e); }
+     try{
+       for(const x of dnfBatch) queueDnfGrouped(x.name,x.km,'');
+     }catch(e){ console.warn('DNF batch queue error',e); }
    }
 
    // Count only DNF events that were really allowed and created.
@@ -2621,7 +2620,7 @@ function startRaceCore(){
    waterStart:waterUsed,waterRemaining:waterUsed,waterCapacity:waterCapacity,medkitsRemaining:medkitsForRace,waterNeed:needWater,waterSegmentStartKm:0,waterSegmentStartAmount:waterUsed,waterEmptyNotified:(waterAvailable<=0),aidStations:buildAidStations(Number(L[1]||0)),aidStationsPassed:new Set(),waterShortage,gelShortage,lightShortageHours,gelsStart:gelsAvailable,gelsRemaining:gelsAvailable,gelsPlannedUsed:0,
    fractureRisk:Math.min(.42, Math.max(0,((game.fatigue-55)/140) * (1-coachRaceBonuses().injury)) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08*(1-coachRaceBonuses().injury) : 0)),
    guaranaTaken:false,guaranaAvailable:Number(game.resources.guarana||0)>0,guaranaTriggered:false,guaranaUses:0,guaranaMaxUses:(Number(L[1]||0)>=500?4:(Number(L[1]||0)>100?2:1)),guaranaBoostUntil:0,guaranaTriggerKm:0,guaranaCrash:false,guaranaCrashChecked:false,guaranaCrashEndKm:0,charaFloodResolved:false,
-   dnf:false,finishWinnerHold:false,finishHold:false,lastPositionBeforeFinish:null
+   dnf:false,finishWinnerHold:false,finishHold:false,lastPositionBeforeFinish:null,dnfDisplayPending:[]
  };
  run.virtualField=createVirtualField(L,run.fieldSize,Math.max(60,run.base+run.penalty));
  // Чара 138 км: реальный ориентир результатов — даже самый быстрый соперник
