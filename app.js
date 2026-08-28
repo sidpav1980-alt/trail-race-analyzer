@@ -2310,16 +2310,12 @@ function startRaceCore(){
  }
 
  $('raceResourceWarning').textContent=warnings.length
-   ? '⚠️ Риски перед стартом: '+warnings.join(' · ')
-   : '✅ Запас расходников и состояние нормальные.';
- if(warnings.length){
-   const important=warnings.map(x=>`⚠️ ${x}`);
-   const el=$('startRequirementsError');
-   if(el){
-     el.innerHTML=`<b>⚠️ Риски перед стартом — гонка будет запущена:</b><ul>${important.map(x=>`<li>${x}</li>`).join('')}</ul>`;
-     el.style.display='block';
-   }
- }
+   ? '🎒 Не хватает / риск: '+warnings.join(' · ')
+   : '✅ С собой всё готово.';
+ // Не занимаем место большим блоком под кнопкой «Старт».
+ // При фактическом старте эти риски показываются 3 секунды справа прямо на трассе.
+ const startWarnEl=$('startRequirementsError');
+ if(startWarnEl) startWarnEl.style.display='none';
 
 
  // Water is transferred into the current race and consumed gradually.
@@ -2476,6 +2472,20 @@ function startRaceCore(){
  if(trainedCoachIdx>0){ const tc=COACHES[trainedCoachIdx]||COACHES[0],tb=coachRaceBonusesForIndex(trainedCoachIdx); $('eventLog').insertAdjacentHTML('afterbegin',`<div class="event-row"><span>СТАРТ</span><b>🏋️ ${tc.name}: темп −${Math.round(tb.pace*100)}%, усталость −${Math.round(tb.fatigue*100)}%, подъёмы −${Math.round(tb.climb*100)}%</b><span class="good">бонус тренировки</span></div>`); }
  
  $('startBtn').disabled=true;$('pauseBtn').disabled=false;
+
+ // Первые 3 секунды гонки показываем стартовые риски компактно справа на трассе.
+ // Симуляцию эта плашка не ставит на паузу.
+ if(warnings.length){
+   const riskOv=$('raceStartRiskOverlay');
+   if(riskOv){
+     riskOv.innerHTML=`<b>⚠️ Риски на старте</b><ul>${warnings.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+     riskOv.classList.add('show');
+     setTimeout(()=>riskOv.classList.remove('show'),3000);
+   }
+ }else{
+   const riskOv=$('raceStartRiskOverlay');
+   if(riskOv){ riskOv.innerHTML=''; riskOv.classList.remove('show'); }
+ }
 
  // Только уровень «Чара»: сразу после старта на 3 секунды показываем
  // специальную плашку с медведем и топором. На остальных гонках её нет.

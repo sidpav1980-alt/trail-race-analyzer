@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07111f">
 <title>Trail Runner: Armageddon</title>
-<link rel="stylesheet" href="styles.css?v=103-blue-20260826">
+<link rel="stylesheet" href="styles.css?v=103-blue-20260828c">
 </div>
 
 
@@ -553,9 +553,11 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
           </select>
         </div>
         <div class="race-consumable-live guarana-top-visible"><button id="raceGuaranaBtn" class="secondary compact-btn" type="button" disabled>🫘 Гуарана · доступна в гонке</button><span id="raceGelStatus" class="badge" style="display:none">🍯 Гели в гонке: 0 / 0</span></div>
+        <div id="raceResourceWarning" class="notice warning-note compact-race-note race-top-shortage"></div>
 
         <div class="track-visual">
           <canvas id="trackCanvas" width="900" height="440"></canvas>
+          <div id="raceStartRiskOverlay" class="race-start-risk-overlay" aria-live="polite"></div>
           <div id="eventOverlay" class="event-overlay"></div>
           <div id="finishOverlay" class="finish-overlay"></div>
         </div>
@@ -585,7 +587,6 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
         <details class="race-leaders-card" open><summary class="race-leaders-head"><b>🏆 ТОП-14 гонки</b><span id="racePlayerName">Вы: <strong>Трейлраннер</strong></span><span id="leadersRaceName">—</span></summary><div id="raceLeaders" class="race-leaders-list"></div><div id="liveDnfStatus" class="notice" style="margin-top:10px">🚫 Сошли: 0</div></details>
 
         <div id="preRaceNote" style="display:none"></div>
-        <div id="raceResourceWarning" class="notice warning-note compact-race-note"></div>
       </div>
 
       <details id="raceEventsSection" class="main-drawer"><summary>📜 События этой гонки</summary><div class="drawer-body">
@@ -925,8 +926,8 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 })();
 </script>
 
-<button id="bottomNavToggle" class="bottom-nav-toggle" type="button" aria-expanded="true" aria-controls="bottomNav">⌄ Свернуть меню</button>
 <nav id="bottomNav" class="trail3d-bottom-nav" aria-label="Основная навигация">
+  <button id="bottomNavToggle" class="bottom-nav-toggle" type="button" aria-expanded="true" aria-controls="bottomNav">⌄ Свернуть меню</button>
   <button type="button" data-target="race" class="active"><span>▶️</span>Старт гонки</button>
   <button type="button" data-target="carrySection"><span>🎒</span>С собой</button>
   <button type="button" data-target="levels"><span>🏁</span>Кампания</button>
@@ -1148,31 +1149,11 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
   const btn=document.getElementById('bottomNavToggle');
   if(!btn)return;
   function placeMenuToggle(){
-    if(window.innerWidth>760){
-      document.documentElement.style.removeProperty('--menu-toggle-top');
-      return;
-    }
-    const vv=window.visualViewport;
-    const top0=vv ? vv.offsetTop : 0;
-    const h=vv ? vv.height : window.innerHeight;
-    const collapsed=document.body.classList.contains('bottom-nav-collapsed');
-    const nav=document.getElementById('bottomNav');
-    const btnRect=btn.getBoundingClientRect();
-    const navRect=nav ? nav.getBoundingClientRect() : null;
-
-    // На iPhone при первом открытии стартовый экран находится прямо под кнопкой меню.
-    // Ставим переключатель непосредственно НАД нижней навигацией, а не поверх кнопки «СТАРТ».
-    let y;
-    if(collapsed && navRect && navRect.top>0){
-      y=navRect.top-Math.max(40,btnRect.height)-10;
-    }else{
-      const reserve=collapsed ? 92 : 255;
-      y=top0+h-reserve;
-    }
-    const minY=top0+76;
-    const maxY=top0+h-Math.max(44,btnRect.height)-8;
-    y=Math.max(minY,Math.min(maxY,y));
-    document.documentElement.style.setProperty('--menu-toggle-top',Math.round(y)+'px');
+    // Chrome on iPhone can briefly paint fixed elements before JS moves them.
+    // The toggle now lives inside the bottom nav in the HTML itself, so no floating placement is needed.
+    document.documentElement.style.removeProperty('--menu-toggle-top');
+    btn.style.removeProperty('top');
+    btn.style.removeProperty('bottom');
   }
   const mo=new MutationObserver(placeMenuToggle);
   mo.observe(document.body,{attributes:true,attributeFilter:['class']});
@@ -1191,8 +1172,13 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 <style>
 /* v1.03: menu toggle lives INSIDE the fixed bottom navigation so it never covers game content */
 #bottomNav.trail3d-bottom-nav{
+  position:fixed!important;
+  left:0!important;
+  right:0!important;
+  bottom:0!important;
   padding-top:42px!important;
 }
+#bottomNavToggle.bottom-nav-toggle,
 #bottomNav #bottomNavToggle.bottom-nav-toggle{
   position:absolute!important;
   left:50%!important;
@@ -1260,7 +1246,7 @@ body.bottom-nav-collapsed{padding-bottom:calc(112px + env(safe-area-inset-bottom
     const nav=document.getElementById('bottomNav');
     const btn=document.getElementById('bottomNavToggle');
     if(!nav||!btn)return;
-    if(btn.parentElement!==nav) nav.insertBefore(btn,nav.firstChild);
+    /* toggle is already inside bottom nav in the HTML to avoid first-paint overlap in Chrome */
     document.documentElement.style.removeProperty('--menu-toggle-top');
     btn.style.removeProperty('top');
     btn.style.removeProperty('bottom');
@@ -1273,53 +1259,46 @@ body.bottom-nav-collapsed{padding-bottom:calc(112px + env(safe-area-inset-bottom
 </script>
 
 <style>
-/* v1.03 iOS Chrome: lift the fixed bottom menu above Chrome's bottom browser controls.
-   Safari is left unchanged. */
-html.ios-chrome #bottomNav.trail3d-bottom-nav{
-  bottom:var(--chrome-visible-bottom,0px)!important;
+/* v1.03: shortages stay compact above the course; race-start risks appear for 3 s at right */
+#raceResourceWarning.race-top-shortage{
+  margin:6px 0 8px!important;
+  padding:7px 10px!important;
+  min-height:0!important;
+  border-radius:6px!important;
+  font-size:11px!important;
+  line-height:1.18!important;
+  white-space:normal!important;
 }
-html.ios-chrome body.bottom-nav-collapsed #bottomNav.trail3d-bottom-nav{
-  height:88px!important;
-  min-height:88px!important;
-  padding-top:34px!important;
+#raceResourceWarning.race-top-shortage:not(:empty){display:block!important;}
+.race-start-risk-overlay{
+  position:absolute;
+  top:10px;
+  right:10px;
+  z-index:12;
+  display:none;
+  width:min(43%,250px);
+  max-height:58%;
+  overflow:hidden;
+  padding:8px 10px;
+  border:1px solid #b76d28;
+  border-radius:8px;
+  background:rgba(58,29,12,.91);
+  color:#ffe7c2;
+  box-shadow:0 5px 18px rgba(0,0,0,.28);
+  backdrop-filter:blur(3px);
+  text-align:left;
+  pointer-events:none;
 }
-html.ios-chrome body.bottom-nav-collapsed{
-  padding-bottom:calc(104px + var(--chrome-visible-bottom,0px) + env(safe-area-inset-bottom))!important;
-}
-html.ios-chrome body.bottom-nav-collapsed #bottomNav #bottomNavToggle.bottom-nav-toggle{
-  top:4px!important;
+.race-start-risk-overlay.show{display:block;}
+.race-start-risk-overlay b{display:block;font-size:12px;line-height:1.15;margin:0 0 4px;}
+.race-start-risk-overlay ul{margin:0;padding-left:16px;font-size:10.5px;line-height:1.2;}
+.race-start-risk-overlay li{margin:2px 0;}
+@media(max-width:430px){
+  .race-start-risk-overlay{top:7px;right:7px;width:min(46%,205px);padding:7px 8px;}
+  .race-start-risk-overlay b{font-size:11px;}
+  .race-start-risk-overlay ul{font-size:9.5px;padding-left:14px;}
 }
 </style>
-<script>
-(function(){
-  const ua=navigator.userAgent||'';
-  const isIOSChrome=/CriOS\//.test(ua);
-  if(!isIOSChrome)return;
-  document.documentElement.classList.add('ios-chrome');
-  function syncChromeBottom(){
-    const vv=window.visualViewport;
-    if(!vv){
-      document.documentElement.style.setProperty('--chrome-visible-bottom','0px');
-      return;
-    }
-    // Distance between the layout viewport bottom and the currently visible viewport bottom.
-    // On iOS Chrome this is the browser toolbar/controls area that can cover fixed UI.
-    const gap=Math.max(0,Math.round(window.innerHeight-(vv.offsetTop+vv.height)));
-    document.documentElement.style.setProperty('--chrome-visible-bottom',gap+'px');
-  }
-  window.addEventListener('resize',syncChromeBottom,{passive:true});
-  window.addEventListener('orientationchange',syncChromeBottom,{passive:true});
-  window.addEventListener('pageshow',syncChromeBottom);
-  if(window.visualViewport){
-    window.visualViewport.addEventListener('resize',syncChromeBottom,{passive:true});
-    window.visualViewport.addEventListener('scroll',syncChromeBottom,{passive:true});
-  }
-  document.addEventListener('DOMContentLoaded',syncChromeBottom);
-  setTimeout(syncChromeBottom,0);
-  setTimeout(syncChromeBottom,250);
-  setTimeout(syncChromeBottom,900);
-})();
-</script>
 
 </body>
 </html>
