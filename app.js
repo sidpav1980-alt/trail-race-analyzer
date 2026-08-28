@@ -1996,6 +1996,7 @@ function showDnfBatch(batch, reason=''){
 function queueDnfGrouped(name, kmOverride=null, extra=''){
   try{
     if(!run || !run.running || run.dnf) return;
+    if(run.riverMassOverlayActive) return;
     if(!Array.isArray(run.dnfDisplayPending)) run.dnfDisplayPending=[];
     const km=Number.isFinite(Number(kmOverride)) ? Number(kmOverride) : ((run?.p||0)*Number(levelData()?.[1]||0));
     run.dnfDisplayPending.push({name:String(name||'Участник'),km,extra:String(extra||'')});
@@ -2824,9 +2825,10 @@ function triggerCharaFloodEvent(ppKm, dist){
   if(Math.abs(Number(dist||0)-138)>=0.01) return;
   if(Math.abs(Number(ppKm||0)-82)>0.2) return;
   run.charaFloodResolved=true;
+  run.riverMassOverlayActive=true;
 
-  // На 82 км «Река разлилась» имеет собственную массовую плашку.
-  // Не даём накопленным обычным сходам показать пятёрку поверх неё.
+  // Убираем любые накопленные обычные DNF, чтобы они не могли
+  // показаться пятёркой поверх массового события реки.
   if(Array.isArray(run.dnfDisplayPending)) run.dnfDisplayPending.length=0;
   clearRaceOverlayQueue();
 
@@ -2840,42 +2842,63 @@ function triggerCharaFloodEvent(ppKm, dist){
   const target=Math.max(0,Math.min(active.length,Math.round(active.length*0.70)));
   const floodDnfs=[];
   const shuffled=[...active].sort(()=>Math.random()-0.5);
+
   for(let i=0;i<target;i++){
     const c=shuffled[i];
     if(!c || c.dnf) continue;
     c.dnf=true;
-    c.dnfKm=Number(ppKm||82);
+    c.dnfKm=82;
     c.dnfReason='река разлилась';
     const n=String(c.name||c.runnerName||c.fullName||'Участник').trim();
     if(n) run.dnfNames.add(n.toLowerCase());
-    floodDnfs.push({name:n,km:Number(ppKm||82)});
+    floodDnfs.push({name:n,km:82});
   }
+
   const affected=floodDnfs.length;
   run.liveDnfCount=Math.max(0,Number(run.liveDnfCount||0)+affected);
 
-  // ВСЕ участники, которых накрыл разлив, показываются ОДНОВРЕМЕННО
-  // в одной прокручиваемой плашке. Никакого разбиения по 5 для реки.
-  if(affected){
-    const rows=floodDnfs.map((x,i)=>`${i+1}. ${String(x.name||'Участник')} — ${Number(x.km||82).toFixed(1)} км`);
-    queueRaceOverlay(
-      `<div class="overlay-box river-dnf-all-card"><div class="emoji">🌊</div><b>Река разлилась · сошло ${affected}</b><span class="river-dnf-scroll">${rows.join('<br>')}</span><span class="river-player-safe">Игрок нашёл обход · +20:00</span></div>`,
-      5000
-    );
+  // ЖЁСТКО отдельная плашка реки: все имена сразу, без showDnfBatch
+  // и без очереди обычных DNF. Держится 5 реальных секунд.
+  const ov=$('eventOverlay');
+  if(ov && affected){
+    const rows=floodDnfs
+      .map((x,i)=>`${i+1}. ${String(x.name||'Участник')} — 82.0 км`)
+      .join('<br>');
+
+    ov.innerHTML=
+      `<div class="overlay-box river-dnf-all-card">
+        <div class="emoji">🌊</div>
+        <b>РЕКА РАЗЛИЛАСЬ · СОШЛО ${affected}</b>
+        <span class="river-dnf-scroll">${rows}</span>
+        <span class="river-player-safe">Игрок нашёл обход · +20:00</span>
+      </div>`;
+    ov.classList.add('show');
+
+    const riverEpoch=(run.riverOverlayEpoch=Number(run.riverOverlayEpoch||0)+1);
+    setTimeout(()=>{
+      if(!run || Number(run.riverOverlayEpoch||0)!==riverEpoch) return;
+      ov.classList.remove('show');
+      ov.innerHTML='';
+      run.riverMassOverlayActive=false;
+    },5000);
+  }else{
+    run.riverMassOverlayActive=false;
   }
 
+  // В журнале одна строка массового схода, а не 5-ки.
   try{
     $('eventLog').insertAdjacentHTML(
       'afterbegin',
-      `<div class="event-row dnf-event-row"><span>${Number(ppKm||82).toFixed(1)} км</span><b>🌊 Река разлилась · сошло ${affected}</b><span class="neutral">${floodDnfs.map(x=>String(x.name||'Участник')).join(' · ')}</span></div>`
+      `<div class="event-row dnf-event-row"><span>82.0 км</span><b>🌊 Река разлилась · сошло ${affected}</b><span class="neutral">все участники массового схода перечислены в плашке</span></div>`
     );
   }catch(e){}
 
-  // 70% действует только на соперников. Игрок всегда находит обход.
+  // Игрок под правило 70% не попадает.
   run.penalty=(Number(run.penalty)||0)+1200;
   try{
     $('eventLog').insertAdjacentHTML(
       'afterbegin',
-      `<div class="event-row"><span>${Number(ppKm||82).toFixed(1)} км</span><b>🌊 Найден обход</b><span class="bad">+20:00</span></div>`
+      `<div class="event-row"><span>82.0 км</span><b>🌊 Найден обход</b><span class="bad">+20:00</span></div>`
     );
   }catch(e){}
 }
