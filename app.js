@@ -2178,6 +2178,15 @@ function startRaceCore(){
 
  if(run && run.running)return;
  ensureResources();
+
+ // Normalize mutable branches before the race consumes water/gels/medkits,
+ // changes lamp charge, durability and slot state.
+ game.resources={...(game.resources||{})};
+ game.gear={...(game.gear||{})};
+ game.durability={...(game.durability||{})};
+ game.raceSlotsPurchased={...(game.raceSlotsPurchased||{})};
+ game.best={...(game.best||{})};
+
  const L=levelData();
 
  if(!hasRaceSlot()){
@@ -3153,12 +3162,15 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
 function startRace(){
   const gameSnapshot=JSON.parse(JSON.stringify(game));
   try{
+    // Safari/Chrome on iOS can occasionally leave a persisted/nested state
+    // object with non-writable descriptors after repeated UI updates.
+    // Start every race from a plain JSON clone so all game fields are writable.
+    game=JSON.parse(JSON.stringify(game));
+    ensureResources();
     return startRaceCore();
   }catch(e){
-    // Старт — транзакция: при любой JS-ошибке возвращаем всё состояние до нажатия.
-    // Не мутируем объект по ключам: на iOS/WebKit это могло приводить к
-    // "Attempted to assign to readonly property". Просто подменяем снимком.
-    game=gameSnapshot;
+    // Старт — транзакция: при любой JS-ошибке возвращаем состояние до нажатия.
+    game=JSON.parse(JSON.stringify(gameSnapshot));
     run=null;
     try{ saveGame(); render(); updateRestUi(); renderTraining(); }catch(_restoreError){}
     showGameError(`Ошибка старта: ${String(e?.message||e)}`);
