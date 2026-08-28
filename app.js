@@ -418,14 +418,46 @@ function buyRaceSlot(){
 function refreshRaceRisks(){
  const el=$('raceResourceWarning'); if(!el || (run&&run.running)) return;
  ensureResources(); const L=levelData(),w=weatherForLevel(),warnings=[];
- const needWater=waterBottlesNeeded(L,w),haveWater=Math.max(0,Number(game.resources.waterBottles||0));
+
+ // Показываем точный дефицит сразу после выбора уровня, ещё ДО нажатия «Старт».
+ const needWater=waterBottlesNeeded(L,w);
+ const haveWater=Math.max(0,Number(game.resources.waterBottles||0));
+ const missWater=Math.max(0,needWater-haveWater);
  const totalCap=totalWaterCarryCapacityBottles(haveWater);
- if(haveWater<needWater) warnings.push(`воды ${haveWater}/${needWater} × 0,5 л`);
- if(needWater>totalCap) warnings.push(`ёмкости воды недостаточно: гидратор + бутылки ${Number(totalCap*0.5).toFixed(1).replace('.0','')} л`);
- const needGels=gelsNeeded(L); if(Number(game.resources.gels||0)<needGels) warnings.push(`гелей ${game.resources.gels||0}/${needGels}`);
+ if(missWater>0) warnings.push(`воды не хватает ${missWater} бут. · есть ${haveWater}/${needWater} × 0,5 л`);
+ if(needWater>totalCap) warnings.push(`ёмкости воды недостаточно: можно нести ${Number(totalCap*0.5).toFixed(1).replace('.0','')} л, нужно ${Number(needWater*0.5).toFixed(1).replace('.0','')} л`);
+
+ const needGels=gelsNeeded(L);
+ const haveGels=Math.max(0,Number(game.resources.gels||0));
+ const missGels=Math.max(0,needGels-haveGels);
+ if(missGels>0) warnings.push(`гелей не хватает ${missGels} шт. · есть ${haveGels}/${needGels}`);
+
+ const medKeys=['bandage','gauze','peroxide','plaster','cream','sunCream','rescueBlanket'];
+ const medMissing=medKeys.filter(k=>Number(game.resources[k]||0)<=0);
+ const readyMedkits=Math.max(0,Number(game.resources.medkits||0));
+ if(readyMedkits<=0 && medMissing.length){
+   const medNames={bandage:'бинт',gauze:'марля',peroxide:'перекись',plaster:'пластырь',cream:'крем от натирания',sunCream:'крем от солнца',rescueBlanket:'спас-одеяло'};
+   warnings.push(`аптечка: не хватает ${medMissing.length} поз. (${medMissing.map(k=>medNames[k]).join(', ')})`);
+ }
+
+ const lampHours=lampHoursNeeded(L);
+ if(lampHours>0){
+   if(isRechargeableLamp()){
+     const requiredCharge=Math.min(100,Math.ceil(lampHours*12));
+     if(Number(game.lampCharge||0)<requiredCharge && Number(game.resources.powerbank||0)<=0){
+       warnings.push(`фонарь: заряд ${Math.round(Number(game.lampCharge||0))}%, нужно ≈ ${requiredCharge}% или powerbank`);
+     }
+   }else{
+     const needBat=Math.ceil(lampHours/5);
+     const haveBat=Math.max(0,Number(game.resources.batteries||0));
+     const missBat=Math.max(0,needBat-haveBat);
+     if(missBat>0) warnings.push(`батареек не хватает ${missBat} компл. · есть ${haveBat}/${needBat}`);
+   }
+ }
+
  Object.keys(GEAR).filter(cat=>!['medkit','hydration'].includes(cat)).forEach(cat=>{ const prep=equipmentPreparedness(cat,L,w); if(prep.gap>0) warnings.push(`${CATEGORY_NAMES[cat]}: ур. ${prep.current}/7, желательно ${prep.required}/7`); });
- if(medkitScore()<7 && Number(game.resources.medkits||0)<=0) warnings.push('аптечка неполная'); if(Number(game.fatigue||0)>=70) warnings.push(`усталость ${Math.round(game.fatigue)}%`);
- el.textContent=warnings.length?'⚠️ Риски перед стартом: '+[...new Set(warnings)].join(' · '):'✅ Экипировка, вода (гидратор + бутылки) и расходники готовы.';
+ if(Number(game.fatigue||0)>=70) warnings.push(`усталость ${Math.round(game.fatigue)}%`);
+ el.textContent=warnings.length?'🎒 Не хватает / риск: '+[...new Set(warnings)].join(' · '):'✅ С собой всё готово.';
 }
 const TOP_ITRA_LEADERS=[
  'Jim Walmsley','Kilian Jornet','Tom Evans','Mathieu Blanchard',
@@ -969,6 +1001,10 @@ function renderLevels(){
     const y=Math.max(0,sim.getBoundingClientRect().top+window.scrollY-topOffset);
     window.scrollTo({top:y,behavior:'smooth'});
   };
+  // После смены уровня сразу пересчитать воду, гели, аптечку и питание фонаря,
+  // чтобы игрок видел дефицит до старта гонки.
+  setTimeout(refreshRaceRisks,20);
+  setTimeout(refreshRaceRisks,180);
   setTimeout(scrollSimulationTop,80);
   setTimeout(scrollSimulationTop,360);
  });
