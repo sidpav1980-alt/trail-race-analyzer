@@ -596,7 +596,10 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
             <option value="600">600×</option>
           </select>
         </div>
-        <button id="jumpToLastUnplayedBtn" class="secondary compact-btn jump-last-unplayed-btn" type="button" style="display:none">⏭ К последнему уровню</button>
+        <div id="replayLevelNav" class="replay-level-nav" style="display:none">
+          <button id="openCampaignFromRaceBtn" class="secondary compact-btn replay-campaign-btn" type="button">🏁 Кампания</button>
+          <button id="jumpToLastUnplayedBtn" class="secondary compact-btn jump-last-unplayed-btn" type="button" style="display:none">⏭ К последнему уровню</button>
+        </div>
         <div class="race-consumable-live guarana-top-visible"><button id="raceGuaranaBtn" class="secondary compact-btn" type="button" disabled>🫘 Гуарана · доступна в гонке</button><span id="raceGelStatus" class="badge" style="display:none">🍯 Гели в гонке: 0 / 0</span></div>
         <div id="raceResourceWarning" class="notice warning-note compact-race-note race-top-shortage"></div>
 
@@ -1611,6 +1614,7 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
   // These are consumables / carried supplies, not equipment-shop items.
   const carryRiskRx=[/\bвод[аы]/i,/гел(ь|и|ей)/i,/аптеч/i,/гидратор/i,/бутыл/i,/фляг/i,/расходник/i];
   const restRiskRx=[/усталост/i,/отдых/i];
+  const batteryRiskRx=[/батаре/i,/компл\.\s*·?\s*есть/i];
 
   function gearCatFromRiskText(s){
     s=String(s||'');
@@ -1625,26 +1629,31 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
     s=String(s||'');
     return restRiskRx.some(rx=>rx.test(s));
   }
+  function hasBatteryRisk(s){
+    s=String(s||'');
+    return batteryRiskRx.some(rx=>rx.test(s));
+  }
   function syncRiskAction(){
     const el=document.getElementById('raceResourceWarning');
     if(!el)return;
     const txt=el.textContent||'';
     const carry=hasCarryRisk(txt);
     const rest=hasRestRisk(txt);
+    const battery=hasBatteryRisk(txt);
     const cat=gearCatFromRiskText(txt);
-    // Fatigue opens Rest; consumables open Carry; equipment opens Shop.
-    const target=rest?'rest':(carry?'carry':(cat?'gear':''));
+    // Battery shortage goes directly to its purchase card; then fatigue/carry/equipment.
+    const target=battery?'battery':(rest?'rest':(carry?'carry':(cat?'gear':'')));
     el.dataset.riskTarget=target;
     el.dataset.gearCat=cat;
     el.classList.toggle('risk-action-link',!!target);
     el.classList.remove('risk-gear-link');
     if(target){
-      const label=target==='rest'?'  → отдых':(target==='carry'?'  → с собой':'  → экипировка');
+      const label=target==='battery'?'  → купить батарейки':(target==='rest'?'  → отдых':(target==='carry'?'  → с собой':'  → экипировка'));
       el.setAttribute('data-risk-link-label',label);
       el.setAttribute('role','button');
       el.setAttribute('tabindex','0');
-      el.setAttribute('aria-label',target==='rest'?'Перейти в раздел «Отдых»':(target==='carry'?'Перейти в раздел «С собой»':'Перейти в экипировку и исправить риск'));
-      el.title=target==='rest'?'Нажмите, чтобы перейти к отдыху':(target==='carry'?'Нажмите, чтобы перейти в «С собой»':'Нажмите, чтобы перейти к нужной экипировке');
+      el.setAttribute('aria-label',target==='battery'?'Перейти к покупке батареек':(target==='rest'?'Перейти в раздел «Отдых»':(target==='carry'?'Перейти в раздел «С собой»':'Перейти в экипировку и исправить риск')));
+      el.title=target==='battery'?'Нажмите, чтобы перейти к покупке батареек':(target==='rest'?'Нажмите, чтобы перейти к отдыху':(target==='carry'?'Нажмите, чтобы перейти в «С собой»':'Нажмите, чтобы перейти к нужной экипировке'));
     }else{
       el.removeAttribute('data-risk-link-label');
       el.removeAttribute('role');
@@ -1693,9 +1702,23 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
       if(shop){shop.open=true;shop.scrollIntoView({behavior:'smooth',block:'start'});}
     },90);
   }
+  function openBatteryFromRisk(){
+    const btn=document.querySelector('#bottomNav button[data-target="resources"]');
+    if(btn){ btn.click(); }
+    else if(typeof switchTab==='function'){ switchTab('resources'); }
+    setTimeout(function(){
+      const resources=document.getElementById('resources');
+      if(resources){ resources.open=true; resources.style.display=''; }
+      const buy=document.querySelector('[data-resource-buy="batteries"]');
+      const card=buy && (buy.closest('.shop-item,.gear-item,.resource-item,.card') || buy);
+      if(card) card.scrollIntoView({behavior:'smooth',block:'center'});
+      else if(resources) resources.scrollIntoView({behavior:'smooth',block:'start'});
+    },140);
+  }
   function activate(el){
     if(!el)return;
-    if(el.dataset.riskTarget==='rest') openRestFromRisk();
+    if(el.dataset.riskTarget==='battery') openBatteryFromRisk();
+    else if(el.dataset.riskTarget==='rest') openRestFromRisk();
     else if(el.dataset.riskTarget==='carry') openCarryFromRisk();
     else if(el.dataset.riskTarget==='gear') openGearFromRisk(el);
   }
@@ -2094,12 +2117,31 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
   font-size:10px!important;
   display:block;
 }
+#race .replay-level-nav{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:7px;
+  margin:7px 0 8px auto;
+  flex-wrap:wrap;
+}
+#race .replay-level-nav .jump-last-unplayed-btn,
+#race .replay-level-nav .replay-campaign-btn{
+  width:auto!important;
+  margin:0!important;
+  min-height:32px!important;
+  padding:6px 10px!important;
+  font-size:10px!important;
+  white-space:nowrap!important;
+}
 @media(max-width:560px){
   #race .sim-race-head{gap:7px!important;align-items:center!important;}
   #race .sim-race-head h2{font-size:18px!important;line-height:1!important;}
   #race .simulation-race-title{font-size:10px!important;line-height:1.18!important;max-width:41%!important;}
   #race #speed{font-size:14px!important;min-width:74px!important;padding:7px 8px!important;}
-  #race .jump-last-unplayed-btn{font-size:9px!important;min-height:29px!important;padding:5px 8px!important;margin-top:5px!important;}
+  #race .replay-level-nav{gap:5px!important;margin-top:5px!important;}
+  #race .replay-level-nav .jump-last-unplayed-btn,
+  #race .replay-level-nav .replay-campaign-btn{font-size:9px!important;min-height:29px!important;padding:5px 8px!important;}
 }
 </style>
 </body>

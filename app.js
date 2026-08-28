@@ -838,15 +838,27 @@ function render(){
 
  const L=levelData();
  const jumpLastBtn=$('jumpToLastUnplayedBtn');
- if(jumpLastBtn){
+ const replayNav=$('replayLevelNav');
+ const campaignReplayBtn=$('openCampaignFromRaceBtn');
+ {
    const target=Math.max(0,Math.min(LEVELS.length-1,Number(game.completed||0)));
    const hasUnplayed=Number(game.completed||0)<LEVELS.length;
    const outsideRace=!(run&&run.running);
-   const shouldShow=outsideRace && hasUnplayed && Number(game.current||0)!==target;
-   jumpLastBtn.style.display=shouldShow?'block':'none';
-   jumpLastBtn.disabled=!shouldShow;
-   jumpLastBtn.textContent=shouldShow?`⏭ К последнему уровню · ${target+1}`:'⏭ К последнему уровню';
-   jumpLastBtn.title=shouldShow?`Перейти к первому ещё не пройденному уровню №${target+1}`:'';
+   const replayingPassed=outsideRace && Number(game.current||0)<Number(game.completed||0);
+   const shouldShowJump=outsideRace && hasUnplayed && Number(game.current||0)!==target;
+   const showNav=replayingPassed || shouldShowJump;
+   if(replayNav) replayNav.style.display=showNav?'flex':'none';
+   if(campaignReplayBtn){
+     campaignReplayBtn.style.display=replayingPassed?'inline-flex':'none';
+     campaignReplayBtn.disabled=!replayingPassed;
+     campaignReplayBtn.title=replayingPassed?'Выбрать любой доступный уровень в Кампании':'';
+   }
+   if(jumpLastBtn){
+     jumpLastBtn.style.display=shouldShowJump?'inline-flex':'none';
+     jumpLastBtn.disabled=!shouldShowJump;
+     jumpLastBtn.textContent=shouldShowJump?`⏭ К последнему уровню · ${target+1}`:'⏭ К последнему уровню';
+     jumpLastBtn.title=shouldShowJump?`Перейти к первому ещё не пройденному уровню №${target+1}`:'';
+   }
  }
  $('runnerLevel').textContent=game.level;
  $('xpText').textContent=game.level>=100?'MAX':`${game.xp} / ${xpNeeded(game.level)} XP до следующего уровня`;
@@ -3931,6 +3943,19 @@ function bindQuickBuyCard(id,fn){
  el.addEventListener('click',fn);
  el.addEventListener('keydown',e=>{
    if(e.key==='Enter'||e.key===' '){ e.preventDefault(); fn(); }
+ });
+}
+const openCampaignFromRaceBtn=$('openCampaignFromRaceBtn');
+if(openCampaignFromRaceBtn && openCampaignFromRaceBtn.dataset.bound!=='1'){
+ openCampaignFromRaceBtn.dataset.bound='1';
+ openCampaignFromRaceBtn.addEventListener('click',()=>{
+   if(run&&run.running){ showGameError('Сначала завершите текущую гонку'); return; }
+   const navBtn=document.querySelector('#bottomNav button[data-target="levels"]');
+   if(navBtn) navBtn.click(); else switchTab('levels');
+   setTimeout(()=>{
+     const levels=document.getElementById('levels');
+     if(levels){ levels.open=true; levels.scrollIntoView({behavior:'smooth',block:'start'}); }
+   },100);
  });
 }
 const jumpLastUnplayedBtn=$('jumpToLastUnplayedBtn');
