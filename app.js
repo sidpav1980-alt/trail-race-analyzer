@@ -880,7 +880,7 @@ function render(){
  $('runnerLevel').textContent=game.level;
  $('xpText').textContent=game.level>=100?'MAX':`${game.xp} / ${xpNeeded(game.level)} XP до следующего уровня`;
  $('money').textContent=fmtMoney(game.money);
- $('completed').textContent=`${game.completed} / 20`;
+ $('completed').textContent=`${game.completed} / ${LEVELS.length}`;
  $('rep').textContent=game.rep;
  $('wins').textContent=game.wins||0;
  if($('racePlayerName')) $('racePlayerName').innerHTML='Вы: <strong style="color:#eef5ff">'+safePlayerName().replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))+'</strong>';
@@ -3674,12 +3674,12 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
  game.lastFinishAt=Date.now();
 
  const firstClear=game.current===game.completed;
- if(firstClear)game.completed=Math.min(20,game.completed+1);
- if(game.current<19 && firstClear)game.current++;
+ if(firstClear)game.completed=Math.min(LEVELS.length,game.completed+1);
+ if(game.current<LEVELS.length-1 && firstClear)game.current++;
  saveGame();
 
  const newRareAchievement=tryAwardLevelAchievement(game.current-(firstClear?1:0));
- const champ=game.completed>=20;
+ const champ=game.completed>=LEVELS.length;
  const ov=$('finishOverlay');
 
  let coachAdvice='';
