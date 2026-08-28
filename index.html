@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07111f">
 <title>Trail Runner: Armageddon</title>
-<link rel="stylesheet" href="styles.css?v=103-blue-20260828c">
+<link rel="stylesheet" href="styles.css?v=103-blue-20260828d">
 </div>
 
 
@@ -1320,6 +1320,133 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
   font-size:18px!important;
 }
 </style>
+
+
+<style>
+/* v1.03: equipment status badge must never overlap neighboring cards on narrow phones */
+#shop .equipment-card-title{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  align-items:start!important;
+  justify-items:start!important;
+  gap:6px!important;
+  min-width:0!important;
+}
+#shop .equipment-card-title > b{
+  min-width:0!important;
+  max-width:100%!important;
+  overflow-wrap:anywhere!important;
+  word-break:normal!important;
+}
+#shop .equipment-card-title .equipped-badge,
+#shop .equipped-line .equipped-badge{
+  position:static!important;
+  float:none!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  max-width:100%!important;
+  width:auto!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  line-height:1.1!important;
+  font-size:10px!important;
+  padding:4px 7px!important;
+  margin:0!important;
+}
+#shop .shop-item,
+#shop .equipment-card,
+#shop .shop-item-detail-body{min-width:0!important;overflow:hidden!important;}
+
+/* Equipment-related pre-start risks are actionable. */
+#raceResourceWarning.risk-gear-link{
+  cursor:pointer!important;
+  border-color:#38bdf8!important;
+  box-shadow:inset 3px 0 0 #38bdf8!important;
+  touch-action:manipulation;
+}
+#raceResourceWarning.risk-gear-link::after{
+  content:'  → экипировка';
+  color:#7dd3fc;
+  font-weight:800;
+  white-space:nowrap;
+}
+</style>
+<script>
+(function(){
+  const aliases={
+    jacket:[/мембран/i],
+    shoes:[/кроссов/i],
+    lamp:[/фонар/i],
+    pack:[/рюкзак/i,/жилет/i],
+    poles:[/палк/i],
+    watch:[/час(ы|ов)?/i],
+    medkit:[/аптеч/i],
+    hydration:[/гидратор/i,/ёмкост.*вод/i,/емкост.*вод/i],
+    hrm:[/пульсометр/i]
+  };
+  function gearCatFromRiskText(s){
+    s=String(s||'');
+    for(const [cat,rxs] of Object.entries(aliases)) if(rxs.some(rx=>rx.test(s))) return cat;
+    return '';
+  }
+  function syncRiskGearLink(){
+    const el=document.getElementById('raceResourceWarning');
+    if(!el)return;
+    const cat=gearCatFromRiskText(el.textContent);
+    el.dataset.gearCat=cat;
+    el.classList.toggle('risk-gear-link',!!cat);
+    if(cat){
+      el.setAttribute('role','button');
+      el.setAttribute('tabindex','0');
+      el.setAttribute('aria-label','Перейти в экипировку и исправить риск');
+      el.title='Нажмите, чтобы перейти к нужной экипировке';
+    }else{
+      el.removeAttribute('role');
+      el.removeAttribute('tabindex');
+      el.removeAttribute('aria-label');
+      el.removeAttribute('title');
+    }
+  }
+  function openGearFromRisk(el){
+    const cat=el && el.dataset ? el.dataset.gearCat : '';
+    if(!cat)return;
+    try{
+      activeShopCategory=cat;
+      if(typeof renderShop==='function') renderShop();
+    }catch(e){}
+    const shopNav=document.querySelector('#bottomNav button[data-target="shop"]');
+    if(shopNav){
+      shopNav.click();
+    }else if(typeof switchTab==='function'){
+      switchTab('shop');
+    }
+    setTimeout(function(){
+      try{
+        activeShopCategory=cat;
+        if(typeof renderShop==='function') renderShop();
+      }catch(e){}
+      const shop=document.getElementById('shop');
+      if(shop){shop.open=true;shop.scrollIntoView({behavior:'smooth',block:'start'});}
+    },90);
+  }
+  document.addEventListener('click',function(e){
+    const el=e.target.closest && e.target.closest('#raceResourceWarning.risk-gear-link');
+    if(el) openGearFromRisk(el);
+  });
+  document.addEventListener('keydown',function(e){
+    if((e.key==='Enter'||e.key===' ') && e.target && e.target.matches('#raceResourceWarning.risk-gear-link')){
+      e.preventDefault(); openGearFromRisk(e.target);
+    }
+  });
+  document.addEventListener('DOMContentLoaded',function(){
+    syncRiskGearLink();
+    const el=document.getElementById('raceResourceWarning');
+    if(el)new MutationObserver(syncRiskGearLink).observe(el,{childList:true,subtree:true,characterData:true});
+    setTimeout(syncRiskGearLink,100);
+  });
+  window.addEventListener('pageshow',syncRiskGearLink);
+})();
+</script>
 
 </body>
 </html>
