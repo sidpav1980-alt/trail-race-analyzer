@@ -720,7 +720,8 @@ body.bottom-nav-collapsed{padding-bottom:calc(82px + env(safe-area-inset-bottom)
     setTimeout(function(){
       const header=document.querySelector('.topbar');
       const offset=(header?header.getBoundingClientRect().height:0)+16;
-      const top=el.getBoundingClientRect().top+window.scrollY-offset;
+      const extraUp=(id==='race')?105:0;
+      const top=el.getBoundingClientRect().top+window.scrollY-offset+extraUp;
       window.scrollTo({top:Math.max(0,top),behavior:instant?'auto':'smooth'});
     },instant?0:30);
   }
@@ -752,7 +753,10 @@ body.bottom-nav-collapsed{padding-bottom:calc(82px + env(safe-area-inset-bottom)
     const b=e.target.closest('.trail3d-bottom-nav button');
     if(!b)return;
     // На экране старта сворачиваем меню автоматически, чтобы кнопка Старт была видна.
-    if(b.dataset.target==='race') setTimeout(function(){apply(true);},80);
+    if(b.dataset.target==='race') setTimeout(function(){
+      apply(true);
+      setTimeout(function(){ window.scrollBy({top:70,behavior:'smooth'}); },40);
+    },80);
   });
   window.addEventListener('DOMContentLoaded',function(){
     // На стартовом экране сразу компактное меню. Пользователь может развернуть его одной кнопкой.

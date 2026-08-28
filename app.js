@@ -1150,10 +1150,16 @@ function updateRestUi(){
 
  const startBtn=$('startBtn');
  if(startBtn && !(run&&run.running)){
-   if(resting || isInHospital() || needsHospitalTreatment()){
+   if(isInHospital() || needsHospitalTreatment()){
+     startBtn.disabled=false;
+     startBtn.textContent=isInHospital()?`🏥 Лечение ${fmtRest(hospitalRemainingMs())}`:'🏥 Требуется лечение';
+     startBtn.dataset.treatmentJump='1';
+   }else if(resting){
      startBtn.disabled=true;
-     startBtn.textContent=isInHospital()?`🏥 Лечение ${fmtRest(hospitalRemainingMs())}`:needsHospitalTreatment()?'🏥 Требуется лечение':`😴 Отдых ${fmtRest(restMs)}`;
+     startBtn.textContent=`😴 Отдых ${fmtRest(restMs)}`;
+     delete startBtn.dataset.treatmentJump;
    }else if(!trainingActive()){
+     delete startBtn.dataset.treatmentJump;
      startBtn.disabled=false;
      startBtn.textContent='▶ Старт';
    }
@@ -1222,7 +1228,8 @@ function updateRaceStartTrainingLock(){
  // Лечение имеет абсолютный приоритет над остальными состояниями.
  // Это исключает мигание/краткое включение кнопки "Старт" между таймерами UI.
  if(isInHospital() || needsHospitalTreatment()){
-   b.disabled=true;
+   b.disabled=false;
+   b.dataset.treatmentJump='1';
    b.textContent=isInHospital()?`🏥 Лечение ${fmtRest(hospitalRemainingMs())}`:'🏥 Требуется лечение';
    const el=$('startRequirementsError');
    if(el){
@@ -1242,6 +1249,7 @@ function updateRaceStartTrainingLock(){
      el.style.display='block';
    }
  }else{
+   delete b.dataset.treatmentJump;
    b.disabled=isResting() || !hasRaceSlot();
    b.textContent=!hasRaceSlot()?`🎟️ Купить слот ${fmtMoney(raceSlotCost())}`:'▶ Старт';
    const el=$('startRequirementsError');
@@ -3187,6 +3195,15 @@ if(quickTreatBtn){
   syncQuickTreat();
 }
 $('startBtn').onclick=()=>{
+  if(isInHospital() || needsHospitalTreatment()){
+    const nav=document.querySelector('.trail3d-bottom-nav button[data-target="restSection"]');
+    if(nav) nav.click();
+    setTimeout(()=>{
+      const hospital=document.getElementById('hospitalCard') || document.getElementById('restSection');
+      if(hospital) hospital.scrollIntoView({behavior:'smooth',block:'start'});
+    },120);
+    return;
+  }
   try{
     startRace();
   }catch(e){
