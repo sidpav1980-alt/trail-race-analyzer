@@ -805,6 +805,17 @@ function render(){
  }
 
  const L=levelData();
+ const jumpLastBtn=$('jumpToLastUnplayedBtn');
+ if(jumpLastBtn){
+   const target=Math.max(0,Math.min(LEVELS.length-1,Number(game.completed||0)));
+   const hasUnplayed=Number(game.completed||0)<LEVELS.length;
+   const outsideRace=!(run&&run.running);
+   const shouldShow=outsideRace && hasUnplayed && Number(game.current||0)!==target;
+   jumpLastBtn.style.display=shouldShow?'block':'none';
+   jumpLastBtn.disabled=!shouldShow;
+   jumpLastBtn.textContent=shouldShow?`⏭ К последнему уровню · ${target+1}`:'⏭ К последнему уровню';
+   jumpLastBtn.title=shouldShow?`Перейти к первому ещё не пройденному уровню №${target+1}`:'';
+ }
  $('runnerLevel').textContent=game.level;
  $('xpText').textContent=game.level>=100?'MAX':`${game.xp} / ${xpNeeded(game.level)} XP до следующего уровня`;
  $('money').textContent=fmtMoney(game.money);
@@ -3869,6 +3880,20 @@ function bindQuickBuyCard(id,fn){
    if(e.key==='Enter'||e.key===' '){ e.preventDefault(); fn(); }
  });
 }
+const jumpLastUnplayedBtn=$('jumpToLastUnplayedBtn');
+if(jumpLastUnplayedBtn && jumpLastUnplayedBtn.dataset.bound!=='1'){
+ jumpLastUnplayedBtn.dataset.bound='1';
+ jumpLastUnplayedBtn.addEventListener('click',()=>{
+   if(run&&run.running){ showGameError('Сначала завершите текущую гонку'); return; }
+   const target=Math.max(0,Math.min(LEVELS.length-1,Number(game.completed||0)));
+   if(Number(game.completed||0)>=LEVELS.length){ showGameError('Все уровни уже пройдены'); return; }
+   game.current=target;
+   saveGame();
+   render();
+   switchTab('race');
+ });
+}
+
 bindQuickBuyCard('quickBuyWater',quickBuyWater);
 bindQuickBuyCard('quickBuyLampPower',quickBuyLampPower);
 bindQuickBuyCard('quickBuyGels',quickBuyGels);

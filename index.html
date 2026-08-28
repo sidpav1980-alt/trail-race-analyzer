@@ -587,7 +587,7 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
         </div>
       </div></details>
       <div class="card sim-card">
-        <div class="row between">
+        <div class="row between sim-race-head">
           <div id="simulationRaceTitle" class="simulation-race-title">Текущая гонка</div><h2>Симуляция гонки</h2>
           <select id="speed">
             <option value="240">240×</option>
@@ -596,6 +596,7 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
             <option value="600">600×</option>
           </select>
         </div>
+        <button id="jumpToLastUnplayedBtn" class="secondary compact-btn jump-last-unplayed-btn" type="button" style="display:none">⏭ К последнему уровню</button>
         <div class="race-consumable-live guarana-top-visible"><button id="raceGuaranaBtn" class="secondary compact-btn" type="button" disabled>🫘 Гуарана · доступна в гонке</button><span id="raceGelStatus" class="badge" style="display:none">🍯 Гели в гонке: 0 / 0</span></div>
         <div id="raceResourceWarning" class="notice warning-note compact-race-note race-top-shortage"></div>
 
@@ -2007,5 +2008,30 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
   });
 })();
 </script>
+
+<style>
+/* v1.03: compact race heading + quick return to the first uncompleted level */
+#race .sim-race-head h2{
+  font-size:22px!important;
+  line-height:1.02!important;
+  margin:0!important;
+  letter-spacing:-.02em!important;
+}
+#race .jump-last-unplayed-btn{
+  width:auto!important;
+  min-height:32px!important;
+  margin:7px 0 8px auto!important;
+  padding:6px 10px!important;
+  font-size:10px!important;
+  display:block;
+}
+@media(max-width:560px){
+  #race .sim-race-head{gap:7px!important;align-items:center!important;}
+  #race .sim-race-head h2{font-size:18px!important;line-height:1!important;}
+  #race .simulation-race-title{font-size:10px!important;line-height:1.18!important;max-width:41%!important;}
+  #race #speed{font-size:14px!important;min-width:74px!important;padding:7px 8px!important;}
+  #race .jump-last-unplayed-btn{font-size:9px!important;min-height:29px!important;padding:5px 8px!important;margin-top:5px!important;}
+}
+</style>
 </body>
 </html>
