@@ -471,6 +471,7 @@ const RUSSIAN_ITRA_RIVALS=[
  {name:'Артем Чернов',itra:920},
  {name:'Алексей Береснев',itra:905},
  {name:'Антонина Юшина',itra:890},
+ {name:'Анастасия Кабенина',itra:880},
  {name:'Алексей Толстенко',itra:865},
  {name:'Константин Иванов',itra:850},
  {name:'Елена Носкова',itra:840},
@@ -2085,22 +2086,6 @@ function enforceMinRussianTop7(L){
 
   const raceLevel=Number((levelData()?.[0])||0);
   if(raceLevel < 8) return;
-
-  // Анастасия Кабенина должна присутствовать в живом ТОП-7.
-  try{
-    const rows0=dynamicLeaderRows(L);
-    const kab=rows0.find(r=>String(r?.c?.name||r?.c?.fullName||'').trim().toLowerCase()==='анастасия кабенина');
-    if(kab && !rows0.slice(0,7).includes(kab)){
-      const seventh=rows0[6];
-      const threshold=Number(seventh?.liveKm ?? seventh?.km ?? 0);
-      kab.liveKm=Math.min(Number(L[1]||0),threshold+0.05);
-      if(kab.c){
-        if('liveKm' in kab.c) kab.c.liveKm=kab.liveKm;
-        if('km' in kab.c) kab.c.km=kab.liveKm;
-        if('speedFactor' in kab.c) kab.c.speedFactor=Math.max(Number(kab.c.speedFactor||1),1.16);
-      }
-    }
-  }catch(e){}
 
   const russianNames=new Set([
     'Алексей Береснев','Антонина Юшина','Анастасия Кабенина','Алексей Толстенко','Константин Иванов',
