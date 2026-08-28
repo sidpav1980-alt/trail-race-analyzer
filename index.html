@@ -745,8 +745,8 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
   <footer>Trail Runner: Armageddon <span id="footerVersion">v—</span> · игровая симуляция · 2026</footer>
   <div class="author-contact-footer" style="text-align:center;color:#fff;opacity:1;margin:8px 0 14px;font-size:18px;line-height:1.45;font-weight:600;">
     <div>Павел Сидоренко (с) 2006</div>
-    <div style="font-size:17px;margin-top:2px;">Обратная связь: <a href="mailto:sim_trail@mail.ru" style="color:#7dd3fc;font-size:17px;font-weight:700;">sim_trail@mail.ru</a></div>
-    <div style="font-size:17px;margin-top:2px;">Telegram: <a href="https://t.me/trail_armageddon" target="_blank" rel="noopener noreferrer" style="color:#7dd3fc;font-size:17px;font-weight:700;">@trail_armageddon</a></div>
+    <div style="font-size:17px;margin-top:2px;">Обратная связь: <a href="mailto:sim_trail@mail.ru" style="color:#ffffff;font-size:17px;font-weight:700;">sim_trail@mail.ru</a></div>
+    <div style="font-size:17px;margin-top:2px;">Telegram: <a href="https://t.me/trail_armageddon" target="_blank" rel="noopener noreferrer" style="color:#ffffff;font-size:17px;font-weight:700;">@trail_armageddon</a></div>
   </div>
 </section>
 </div>
@@ -885,8 +885,8 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 </div>
 
 <div class="help-section help-focus"><b>✉️ Связь с проектом</b>
-<p><strong>Почта:</strong> <a href="mailto:sim_trail@mail.ru">sim_trail@mail.ru</a></p>
-<p><strong>Telegram:</strong> <a href="https://t.me/trail_armageddon" target="_blank" rel="noopener noreferrer">@trail_armageddon</a></p>
+<p><strong>Почта:</strong> <a href="mailto:sim_trail@mail.ru" style="color:#ffffff!important;">sim_trail@mail.ru</a></p>
+<p><strong>Telegram:</strong> <a href="https://t.me/trail_armageddon" target="_blank" rel="noopener noreferrer" style="color:#ffffff!important;">@trail_armageddon</a></p>
 </div>
 
 <button id="helpOk" class="help-ok" type="button">Понятно</button>
@@ -1494,6 +1494,56 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
         window.scrollBy({top:Math.ceil(sr.bottom-safeBottom),behavior:'smooth'});
       }
     },360);
+  });
+})();
+</script>
+
+<style>
+/* v1.03: slightly smaller main START button on the race screen */
+#race .race-controls-under-progress #startBtn{
+  min-height:46px!important;
+  padding:10px 14px!important;
+  font-size:16px!important;
+}
+@media(max-width:560px){
+  #race .race-controls-under-progress #startBtn{
+    min-height:44px!important;
+    padding:9px 12px!important;
+    font-size:15px!important;
+  }
+}
+</style>
+<script>
+(function(){
+  // v1.03: every transition to "Старт гонки" positions the simulation as high as possible,
+  // then makes a second correction so the blue START button stays fully above the fixed nav.
+  function positionRaceForStart(){
+    const sim=document.querySelector('#race .sim-card');
+    const start=document.getElementById('startBtn');
+    const nav=document.getElementById('bottomNav');
+    const topbar=document.querySelector('.topbar');
+    if(!sim || !start) return;
+
+    const topOffset=(topbar ? topbar.getBoundingClientRect().height : 0)+6;
+    const targetTop=Math.max(0,sim.getBoundingClientRect().top+window.scrollY-topOffset);
+    window.scrollTo({top:targetTop,behavior:'smooth'});
+
+    setTimeout(function(){
+      if(!nav) return;
+      const sr=start.getBoundingClientRect();
+      const nr=nav.getBoundingClientRect();
+      const safeBottom=nr.top-18;
+      if(sr.bottom>safeBottom){
+        window.scrollBy({top:Math.ceil(sr.bottom-safeBottom)+8,behavior:'smooth'});
+      }
+    },320);
+  }
+
+  document.addEventListener('click',function(e){
+    const raceBtn=e.target.closest('#bottomNav button[data-target="race"]');
+    if(!raceBtn) return;
+    setTimeout(positionRaceForStart,90);
+    setTimeout(positionRaceForStart,430);
   });
 })();
 </script>

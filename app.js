@@ -154,6 +154,34 @@ function showGameError(message){
 let game=loadGame();
 let run=null,timer=null,lastTs=0;
 
+function setRaceSessionFlag(active){
+  try{ sessionStorage.setItem('trailArmageddonRaceActive', active ? '1' : '0'); }catch(e){}
+}
+function consumeReloadedRaceFlag(){
+  try{
+    const wasActive=sessionStorage.getItem('trailArmageddonRaceActive')==='1';
+    if(!wasActive) return false;
+    sessionStorage.setItem('trailArmageddonRaceActive','0');
+    return true;
+  }catch(e){ return false; }
+}
+function clearTransientRaceUi(){
+  try{ if(timer) cancelAnimationFrame(timer); }catch(e){}
+  timer=null;
+  lastTs=0;
+  run=null;
+  const ids=['raceStartRiskOverlay','eventOverlay','finishOverlay'];
+  ids.forEach(id=>{
+    const el=$(id);
+    if(el){ el.classList.remove('show'); el.innerHTML=''; }
+  });
+  const log=$('eventLog');
+  if(log) log.innerHTML='<div class="muted">События появятся по ходу гонки.</div>';
+  const pb=$('progressBar'); if(pb) pb.style.width='0%';
+  const km=$('progressKm'); if(km){ const L=levelData(); km.textContent=`0.0 / ${Number(L?.[1]||5).toFixed(1)} км`; }
+  const clock=$('clock'); if(clock) clock.textContent='0:00:00';
+}
+
 const COACHES=[
  {name:'Без тренера',price:0,mult:1.00,maxDifficulty:1,trainingGain:1.0,fitnessCap:30,
   desc:'Самостоятельная база. Тренированность можно поднять только до 30/100.',
@@ -2452,6 +2480,7 @@ function startRaceCore(){
  run.running=true;
 
  run.startedByUser=true;
+ setRaceSessionFlag(true);
  run.weatherDnfPlanned=run.weatherDnfRisk>0 && Math.random()<run.weatherDnfRisk;
  run.fatigueDnfPlanned=run.fatigueDnfRisk>0 && Math.random()<run.fatigueDnfRisk;
  run.otherDnfCount=Math.floor(simulateOtherDnfs(run.fieldSize,L,raceWeather)/2);
@@ -3027,6 +3056,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
 
  if(forceDnf || run.dnf){
    run.running=false; run.finishHold=false;
+   setRaceSessionFlag(false);
    // DNF never gives race money.
    game.fatigue=Math.min(100,game.fatigue+18+L[5]*3);
    game.lastFinishAt=Date.now();
@@ -3166,22 +3196,66 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
      run.finishWinnerHold=false;
      run.p=0;
    }
+   setRaceSessionFlag(false);
    render();
  }, 5000);
 }
 function startRace(){
   const gameSnapshot=JSON.parse(JSON.stringify(game));
-  try{
-    // Safari/Chrome on iOS can occasionally leave a persisted/nested state
-    // object with non-writable descriptors after repeated UI updates.
-    // Start every race from a plain JSON clone so all game fields are writable.
-    game=JSON.parse(JSON.stringify(game));
+
+  function makeFullyMutableState(src){
+    // После ручного обновления iOS-браузер иногда возвращает вложенные части
+    // сохранения как объекты с non-writable дескрипторами. Пересобираем ВСЕ
+    // изменяемые ветки и массивы в обычные JS-объекты перед новым стартом.
+    const g=JSON.parse(JSON.stringify(src||{}));
+    g.resources={...(g.resources||{})};
+    g.gear={...(g.gear||{})};
+    g.durability={...(g.durability||{})};
+    g.best={...(g.best||{})};
+    g.raceSlotsPurchased={...(g.raceSlotsPurchased||{})};
+    g.gearOwned={...(g.gearOwned||{})};
+    g.achievements={...(g.achievements||{})};
+    g.preStartLeadersByRace={...(g.preStartLeadersByRace||{})};
+    g.coachOwned=Array.isArray(g.coachOwned)?[...g.coachOwned]:[0];
+    return g;
+  }
+
+  function doStart(){
+    game=makeFullyMutableState(game);
+    clearTransientRaceUi(); // после reload старая незавершённая симуляция не продолжается
     ensureResources();
     return startRaceCore();
+  }
+
+  try{
+    return doStart();
   }catch(e){
+    const msg=String(e?.message||e||'');
+
+    // Специальный hotfix для сценария: гонка шла -> ручной reload -> новый Старт.
+    // Если браузер один раз дал "Attempted to assign to readonly property",
+    // откатываем все списания первой попытки и запускаем старт ещё раз из
+    // полностью нового mutable-состояния.
+    if(/readonly|read-only|non-writable/i.test(msg)){
+      try{
+        game=makeFullyMutableState(gameSnapshot);
+        run=null;
+        timer=null;
+        lastTs=0;
+        setRaceSessionFlag(false);
+        saveGame();
+        return doStart();
+      }catch(retryError){
+        e=retryError;
+      }
+    }
+
     // Старт — транзакция: при любой JS-ошибке возвращаем состояние до нажатия.
-    game=JSON.parse(JSON.stringify(gameSnapshot));
+    game=makeFullyMutableState(gameSnapshot);
     run=null;
+    timer=null;
+    lastTs=0;
+    setRaceSessionFlag(false);
     try{ saveGame(); render(); updateRestUi(); renderTraining(); }catch(_restoreError){}
     showGameError(`Ошибка старта: ${String(e?.message||e)}`);
     return false;
@@ -3725,6 +3799,18 @@ bindQuickBuyCard('quickBuyMedkit',quickBuyMedkit);
 
 render();
 
+(function recoverRaceAfterManualReload(){
+  try{
+    if(!consumeReloadedRaceFlag()) return;
+    clearTransientRaceUi();
+    saveGame();
+    render();
+    updateRestUi();
+    try{ renderTraining(); }catch(e){}
+    setTimeout(()=>showGameError('Страница была обновлена во время гонки. Симуляция сброшена — можно стартовать заново.'),120);
+  }catch(e){}
+})();
+
 (function(){
   function openHelp(){
     const m=document.getElementById('helpModal');
@@ -3768,6 +3854,10 @@ document.addEventListener('click', function(e){
     e.stopImmediatePropagation();
   }
 }, true);
+
+window.addEventListener('beforeunload',()=>{
+  try{ setRaceSessionFlag(!!(run&&run.running)); }catch(e){}
+});
 
 setInterval(()=>{updateRestUi();},1000);
 
