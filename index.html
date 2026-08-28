@@ -455,6 +455,25 @@ body.help-open #bottomNav{
 }
 </style>
 
+
+<style>
+/* v1.03: bottom menu/toggle must exist everywhere in the game */
+body:not(.help-open) #bottomNav,
+body:not(.help-open) #bottomNavToggle{
+  display:grid!important;
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+}
+body:not(.help-open) #bottomNavToggle{
+  display:block!important;
+  z-index:10050!important;
+}
+body.bottom-nav-collapsed:not(.help-open) #bottomNav{
+  display:grid!important;
+}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -1063,6 +1082,44 @@ body.help-open #bottomNav{
       const top=sim.getBoundingClientRect().top+window.scrollY-offset;
       window.scrollTo({top:Math.max(0,top),behavior:'smooth'});
     },260);
+  });
+})();
+</script>
+
+
+<script>
+(function(){
+  function syncHelpUi(){
+    const modal=document.getElementById('helpModal');
+    const isOpen=!!(modal && modal.classList.contains('open') && modal.getAttribute('aria-hidden')!=='true');
+    document.body.classList.toggle('help-open',isOpen);
+
+    const nav=document.getElementById('bottomNav');
+    const toggle=document.getElementById('bottomNavToggle');
+    if(!isOpen){
+      if(nav){
+        nav.style.removeProperty('display');
+        nav.style.removeProperty('visibility');
+        nav.style.removeProperty('opacity');
+      }
+      if(toggle){
+        toggle.style.removeProperty('display');
+        toggle.style.removeProperty('visibility');
+        toggle.style.removeProperty('opacity');
+      }
+    }
+  }
+
+  window.addEventListener('pageshow',syncHelpUi);
+  window.addEventListener('focus',syncHelpUi);
+  document.addEventListener('visibilitychange',function(){
+    if(!document.hidden)syncHelpUi();
+  });
+  window.addEventListener('DOMContentLoaded',function(){
+    syncHelpUi();
+    const modal=document.getElementById('helpModal');
+    if(modal)new MutationObserver(syncHelpUi).observe(modal,{attributes:true,attributeFilter:['class','aria-hidden']});
+    setTimeout(syncHelpUi,150);
   });
 })();
 </script>
