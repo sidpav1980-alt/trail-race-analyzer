@@ -1946,6 +1946,15 @@ function competitorProgressAt(c,elapsed,L){
   const wave=Math.sin((elapsed/180)+(c.id%7))*0.004;
   p=Math.max(0,Math.min(1,p+wave));
 
+  // Прокачанный игрок может иметь высокий шанс победы, но это не должно
+  // визуально фиксировать его на 1-м месте с самого старта. В победном/
+  // подиумном сценарии сильные соперники начинают чуть быстрее, а этот
+  // стартовый запас плавно исчезает к последней трети гонки.
+  if(Number(c.liveStartBoost||0)>0 && p<0.82){
+    const fade=Math.pow(Math.max(0,1-p/0.82),1.15);
+    p=Math.max(0,Math.min(1,p+Number(c.liveStartBoost||0)*fade));
+  }
+
   // В Армагеддоне Артём Чернов обычно держит лидерство почти до финиша.
   // В редких проигрышных попытках он проседает только на последних ~12%.
   if(c.armageddonStar && !c.armageddonWins && p>0.88){
@@ -2552,7 +2561,7 @@ function startRaceCore(){
    waterStart:waterUsed,waterRemaining:waterUsed,waterCapacity:waterCapacity,medkitsRemaining:medkitsForRace,waterNeed:needWater,waterSegmentStartKm:0,waterSegmentStartAmount:waterUsed,waterEmptyNotified:(waterAvailable<=0),aidStations:buildAidStations(Number(L[1]||0)),aidStationsPassed:new Set(),waterShortage,gelShortage,lightShortageHours,gelsStart:gelsAvailable,gelsRemaining:gelsAvailable,gelsPlannedUsed:0,
    fractureRisk:Math.min(.42, Math.max(0,((game.fatigue-55)/140) * (1-coachRaceBonuses().injury)) + (Date.now()-(game.lastFinishAt||0)<10*60*1000 ? .08*(1-coachRaceBonuses().injury) : 0)),
    guaranaTaken:false,guaranaAvailable:Number(game.resources.guarana||0)>0,guaranaTriggered:false,guaranaUses:0,guaranaMaxUses:(Number(L[1]||0)>=500?4:(Number(L[1]||0)>100?2:1)),guaranaBoostUntil:0,guaranaTriggerKm:0,guaranaCrash:false,guaranaCrashChecked:false,guaranaCrashEndKm:0,charaFloodResolved:false,
-   dnf:false
+   dnf:false,finishWinnerHold:false,finishHold:false,lastPositionBeforeFinish:null
  };
  run.virtualField=createVirtualField(L,run.fieldSize,Math.max(60,run.base+run.penalty));
  // Чара 138 км: реальный ориентир результатов — даже самый быстрый соперник
@@ -2639,6 +2648,10 @@ function startRaceCore(){
      sorted.forEach((c,i)=>{
        const gap=1.010+i*0.0025;
        c.finishSec=Math.max(minOpponentFinish,Number(c.finishSec||0),expectedPlayer*gap);
+       // 6–12 сильнейших могут идти впереди в первой/средней части гонки.
+       // К ~82% дистанции бонус полностью исчезает, поэтому итог решает
+       // реальное финишное время, а позиция игрока меняется по ходу гонки.
+       c.liveStartBoost=i<12 ? Math.max(0.010,0.065-i*0.0045) : 0;
      });
      run.playerWinBoostActive=true;
    }else if(roll<Math.min(0.95,winChance+0.18)){
@@ -2649,8 +2662,11 @@ function startRaceCore(){
        }else{
          c.finishSec=Math.max(minOpponentFinish,Number(c.finishSec||0),expectedPlayer*(1.006+(i-ahead)*0.002));
        }
+       c.liveStartBoost=i<10 ? Math.max(0.008,0.050-i*0.004) : 0;
      });
      run.playerPodiumBoostActive=true;
+   }else{
+     sorted.forEach(c=>{ if(c) c.liveStartBoost=0; });
    }
  }
  run.p=0;
