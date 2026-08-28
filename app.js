@@ -3429,6 +3429,49 @@ function drawTrack(p){
    });
  }
 
+
+ // Compact live TOP-7 leaderboard on the race image.
+ // Kept deliberately small so it does not hide the route/background.
+ if(run){
+   const liveRows=dynamicLeaderRows(L).slice(0,7);
+   if(liveRows.length){
+     const panelW=226;
+     const rowH=17;
+     const headH=23;
+     const panelH=headH+liveRows.length*rowH+7;
+     const px=W-panelW-10;
+     const py=10;
+
+     ctx.save();
+     ctx.fillStyle='rgba(4,13,25,.78)';
+     ctx.beginPath();ctx.roundRect(px,py,panelW,panelH,10);ctx.fill();
+     ctx.strokeStyle='rgba(125,211,252,.48)';
+     ctx.lineWidth=1.5;ctx.stroke();
+
+     ctx.textBaseline='middle';
+     ctx.textAlign='left';
+     ctx.fillStyle='#bae6fd';
+     ctx.font='bold 12px sans-serif';
+     ctx.fillText('🏆 ТОП-7',px+9,py+12);
+
+     liveRows.forEach((r,i)=>{
+       const y=py+headH+i*rowH+rowH/2;
+       const name=String(r?.c?.name||'Участник');
+       const shortName=name.length>20?name.slice(0,19)+'…':name;
+       ctx.fillStyle=i<3?'#fde68a':'#e2e8f0';
+       ctx.font=(i<3?'bold ':'')+'10.5px sans-serif';
+       ctx.fillText(`${i+1}. ${shortName}`,px+9,y);
+
+       ctx.textAlign='right';
+       ctx.fillStyle='#93c5fd';
+       ctx.font='10px sans-serif';
+       ctx.fillText(`${Number(r.liveKm||0).toFixed(1)} км`,px+panelW-8,y);
+       ctx.textAlign='left';
+     });
+     ctx.restore();
+   }
+ }
+
  // Main pack stays visible for the whole race. Previously it was tied to
  // pos>6, so it disappeared/reappeared whenever the player crossed 6th place.
  // Keep drawing it while a race state exists; its km is still recalculated live.
