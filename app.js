@@ -562,14 +562,17 @@ function createLeadersForAttempt(raceIndex=game.current){
  }
 
  // С 8 уровня до старта показываем ТОП-14: российские ITRA + международные лидеры.
- const ru=shuffledCopy(RUSSIAN_ITRA_RIVALS.map(r=>r.name));
+ // ТОП-14: гарантированно включаем Анастасию Кабенину. При ITRA 750 она
+ // занимает 14-ю строку стартового ТОП-14, а остальные 13 мест формируются из сильных соперников.
+ const kabenina='Анастасия Кабенина';
+ const ru=shuffledCopy(RUSSIAN_ITRA_RIVALS.map(r=>r.name).filter(n=>n!==kabenina));
  const intl=shuffledCopy(TOP_ITRA_LEADERS);
- const combined=[...ru,...intl];
- while(combined.length<14){
+ const combined=[...ru,...intl].filter((n,i,a)=>n!==kabenina && a.indexOf(n)===i);
+ while(combined.length<13){
    const x=randomFio(Math.floor(Math.random()*1000000));
-   if(!combined.includes(x)) combined.push(x);
+   if(x!==kabenina && !combined.includes(x)) combined.push(x);
  }
- return combined.slice(0,14);
+ return [...combined.slice(0,13),kabenina];
 }
 
 function leadersForRace(raceIndex=game.current){
@@ -581,11 +584,15 @@ function leadersForRace(raceIndex=game.current){
  // Состав стабилен до нажатия "Старт".
  if(!game.preStartLeadersByRace) game.preStartLeadersByRace={};
  const key=String(raceIndex);
- if(!Array.isArray(game.preStartLeadersByRace[key]) || game.preStartLeadersByRace[key].length<14){
+ const cached=game.preStartLeadersByRace[key];
+ const mustHaveKabenina=Number(raceIndex)>=7;
+ if(!Array.isArray(cached) || cached.length<14 || (mustHaveKabenina && !cached.includes('Анастасия Кабенина'))){
    game.preStartLeadersByRace[key]=createLeadersForAttempt(raceIndex);
+   try{ saveGame(); }catch(e){}
  }
  return game.preStartLeadersByRace[key];
 }
+
 function visibleLeaderName(name){
  return (run && run.running===true && run.startedByUser===true)
    ? name
