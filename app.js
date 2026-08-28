@@ -3597,9 +3597,17 @@ $('raceGuaranaBtn')?.addEventListener('click',()=>{
  const qty=Number(game.resources.guarana||0);
  const active=!!(run&&run.running);
  if(qty<=0&&!active){
-   const nav=document.querySelector('.trail3d-bottom-nav button[data-target="resources"]');
-   if(nav){nav.click();return;}
-   document.getElementById('resources')?.scrollIntoView({behavior:'smooth',block:'start'});
+   const nav=document.querySelector('#bottomNav button[data-target="resources"], .trail3d-bottom-nav button[data-target="resources"]');
+   if(nav) nav.click();
+   else if(typeof switchTab==='function') switchTab('resources');
+   setTimeout(()=>{
+     const resources=document.getElementById('resources');
+     if(resources){ resources.open=true; resources.style.display=''; }
+     const buy=document.querySelector('#resources [data-resource-buy="guarana"]');
+     const card=buy && (buy.closest('.shop-item,.gear-item,.resource-item,.card') || buy);
+     if(card) card.scrollIntoView({behavior:'smooth',block:'center'});
+     else if(resources) resources.scrollIntoView({behavior:'smooth',block:'start'});
+   },140);
    return;
  }
  if(!run||!run.running)return;
