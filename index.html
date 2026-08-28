@@ -1170,6 +1170,35 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 })();
 </script>
 
+
+<style id="coachShopCompactV103">
+/* v1.03: compact trainer shop on mobile */
+#training #coachShop>summary{
+  min-height:48px!important;padding:10px 14px!important;font-size:17px!important;line-height:1.1!important;
+}
+#training #coachShop .drawer-body{padding:6px 8px 8px!important;}
+#training #coachShop .drawer-body>.card{padding:10px!important;margin:0!important;}
+#training #coachShop .drawer-body>.card>p.muted{
+  margin:0 0 8px!important;font-size:12px!important;line-height:1.3!important;
+}
+#training #coachShop #coachGrid{gap:7px!important;}
+#training #coachShop .coach-item{
+  padding:9px 10px!important;border-radius:10px!important;min-height:0!important;
+}
+#training #coachShop .coach-item h3,#training #coachShop .coach-item h4{
+  margin:0 0 4px!important;font-size:16px!important;line-height:1.1!important;
+}
+#training #coachShop .coach-item p,#training #coachShop .coach-item .muted{
+  margin:2px 0!important;font-size:11px!important;line-height:1.25!important;
+}
+#training #coachShop .coach-item button{
+  min-height:34px!important;padding:6px 9px!important;font-size:11px!important;margin-top:6px!important;
+}
+@media(max-width:760px){
+  #training #coachShop>summary{font-size:16px!important;padding:9px 12px!important;}
+}
+</style>
+
 <nav id="bottomNav" class="trail3d-bottom-nav" aria-label="Основная навигация">
   <button id="bottomNavToggle" class="bottom-nav-toggle" type="button" aria-expanded="true" aria-controls="bottomNav">⌄ Свернуть меню</button>
   <button type="button" data-target="race" class="active"><span>▶️</span>Старт гонки</button>
@@ -1181,6 +1210,7 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
   <button type="button" data-target="lampPowerSection"><span>🔦</span>Фонарь</button>
   <button type="button" data-target="restSection"><span>😴</span>Отдых</button>
   <button type="button" data-target="itraSection"><span>📈</span>ITRA</button>
+  <button type="button" data-target="coachShop"><span>🏋️</span>Тренер</button>
   <button type="button" data-target="raceEventsSection" class="wide-label"><span>📜</span>События гонки</button>
   <button type="button" data-target="gear" class="wide-label"><span>🛠️</span>Ремонт экипа</button>
   <button type="button" data-target="currentEquipmentSection"><span>🎽</span>Текущее</button>
