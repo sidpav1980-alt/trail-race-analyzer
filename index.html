@@ -1649,5 +1649,26 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button
 }
 </style>
 
+<style>
+/* v1.03: attract attention to the only action in collapsed menu */
+@keyframes collapsedRacePulse{
+  0%,100%{opacity:1;filter:brightness(1);text-shadow:0 0 0 rgba(56,189,248,0)}
+  50%{opacity:.58;filter:brightness(1.35);text-shadow:0 0 12px rgba(56,189,248,.75)}
+}
+body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button[data-target="race"]{
+  animation:collapsedRacePulse 1.15s ease-in-out infinite!important;
+}
+body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button[data-target="race"] span{
+  animation:collapsedRacePulse 1.15s ease-in-out infinite!important;
+}
+@media (prefers-reduced-motion: reduce){
+  body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button[data-target="race"],
+  body.bottom-nav-collapsed:not(.help-open) #bottomNav.trail3d-bottom-nav > button[data-target="race"] span{
+    animation:none!important;
+    filter:brightness(1.25)!important;
+  }
+}
+</style>
+
 </body>
 </html>
