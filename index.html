@@ -542,6 +542,18 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
   font-size:10.5px!important;line-height:1.15!important;white-space:normal!important;
 }
 </style>
+
+<style>
+/* v1.03: visual focus when Guarana button opens Consumables outside a race */
+#resources .guarana-nav-focus{
+  outline:3px solid #f6b93b!important;
+  outline-offset:3px!important;
+  box-shadow:0 0 0 5px rgba(246,185,59,.18),0 0 24px rgba(246,185,59,.35)!important;
+  animation:guaranaNavPulse .7s ease-in-out 3!important;
+}
+@keyframes guaranaNavPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.015)}}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -825,7 +837,7 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
   </div>
 </section>
 </div>
-<script src="app.js?v=103-chara18h-20260828"></script>
+<script src="app.js?v=103-guarana-outside-focus-20260828"></script>
 
 <div id="gameErrorToast" class="game-error-toast" role="alert" aria-live="assertive"></div>
 
@@ -978,6 +990,7 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 
 <div class="help-section help-focus"><b>🏜️ Чара — 138 км</b>
 <p>13-й уровень кампании: 138 км и 4 ПП. Пункты питания отображаются на карте ещё до старта и остаются видны по ходу гонки. На ПП3, 82 км, есть специальное событие <strong>«Река разлилась»</strong>: около 70% оставшихся участников сходят. На игрока правило 70% не распространяется — игрок всегда находит обход и продолжает гонку со штрафом +20:00.</p>
+<p>На всех уровнях высокая тренированность, уровень игрока, сильный тренер и высокий ITRA заметно повышают шанс бороться за 1-е место, но не гарантируют победу: события, штрафы, усталость и DNF по ходу гонки сохраняются.</p>
 </div>
 
 <div class="help-section"><b>📈 XP и ITRA</b>

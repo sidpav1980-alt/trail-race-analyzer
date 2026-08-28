@@ -2567,6 +2567,7 @@ function startRaceCore(){
      run.virtualField.forEach(c=>{ if(c) c.finishSec=Math.max(minCharaNpcFinish,Number(c.finishSec||0)); });
    }
  }
+
  run.playerItraPlace=playerItraPlace();
  run.itraBoostTier=(run.playerItraPlace<=3?'TOP-3':
                     run.playerItraPlace<=5?'TOP-5':
@@ -2611,6 +2612,46 @@ function startRaceCore(){
    field.slice(1,7).forEach((c,i)=>{
      c.finishSec=Math.max(c.finishSec, artem.finishSec*(1.012+i*0.006));
    });
+ }
+
+
+ // Все уровни: прокачка игрока реально повышает шанс победы.
+ // Учитываются тренированность, уровень, ITRA и сила тренера.
+ // Чем сильнее игрок, тем чаще виртуальные соперники оказываются позади его ожидаемого времени.
+ // Это не гарантирует победу: штрафы, DNF, усталость и события гонки всё ещё влияют на итог.
+ if(Array.isArray(run.virtualField) && run.virtualField.length){
+   const fitness=Math.max(0,Math.min(100,Number(game.fitness||0)));
+   const level=Math.max(1,Math.min(100,Number(game.level||1)));
+   const itra=Math.max(200,Math.min(950,Number(game.itra||250)));
+   const coach=COACHES[game.coach]||COACHES[0];
+   const coachPower=Math.max(0,Math.min(1,(Number(coach.mult||1)-1)/0.8));
+   const power=(fitness/100)*0.38+(level/100)*0.17+((itra-200)/750)*0.35+coachPower*0.10;
+   const winChance=Math.max(0.05,Math.min(0.80,0.05+Math.max(0,power-0.42)*1.35));
+   run.playerWinChance=winChance;
+
+   const expectedPlayer=Math.max(60,Number(run.base||0)+Number(run.penalty||0));
+   const sorted=[...run.virtualField].sort((a,b)=>Number(a.finishSec||Infinity)-Number(b.finishSec||Infinity));
+   const roll=Math.random();
+   const isChara=Math.abs(Number(L[1]||0)-138)<0.01;
+   const minOpponentFinish=isChara ? 18*60*60 : 0;
+
+   if(roll<winChance){
+     sorted.forEach((c,i)=>{
+       const gap=1.010+i*0.0025;
+       c.finishSec=Math.max(minOpponentFinish,Number(c.finishSec||0),expectedPlayer*gap);
+     });
+     run.playerWinBoostActive=true;
+   }else if(roll<Math.min(0.95,winChance+0.18)){
+     const ahead=1+Math.floor(Math.random()*3);
+     sorted.forEach((c,i)=>{
+       if(i<ahead){
+         c.finishSec=Math.max(minOpponentFinish,Math.min(Number(c.finishSec||Infinity),expectedPlayer*(0.985-i*0.004)));
+       }else{
+         c.finishSec=Math.max(minOpponentFinish,Number(c.finishSec||0),expectedPlayer*(1.006+(i-ahead)*0.002));
+       }
+     });
+     run.playerPodiumBoostActive=true;
+   }
  }
  run.p=0;
  run.elapsed=0;
@@ -3647,18 +3688,27 @@ function updateRaceGuaranaButton(){
 $('raceGuaranaBtn')?.addEventListener('click',()=>{
  const qty=Number(game.resources.guarana||0);
  const active=!!(run&&run.running);
- if(qty<=0&&!active){
+ // Вне гонки клик по гуаране всегда открывает «Расходники» и акцентирует карточку гуараны,
+ // даже если гуарана уже есть в запасе.
+ if(!active){
    const nav=document.querySelector('#bottomNav button[data-target="resources"], .trail3d-bottom-nav button[data-target="resources"]');
    if(nav) nav.click();
    else if(typeof switchTab==='function') switchTab('resources');
-   setTimeout(()=>{
+   const focusGuarana=()=>{
      const resources=document.getElementById('resources');
      if(resources){ resources.open=true; resources.style.display=''; }
      const buy=document.querySelector('#resources [data-resource-buy="guarana"]');
      const card=buy && (buy.closest('.shop-item,.gear-item,.resource-item,.card') || buy);
-     if(card) card.scrollIntoView({behavior:'smooth',block:'center'});
-     else if(resources) resources.scrollIntoView({behavior:'smooth',block:'start'});
-   },140);
+     if(card){
+       card.scrollIntoView({behavior:'smooth',block:'center'});
+       card.classList.add('guarana-nav-focus');
+       setTimeout(()=>card.classList.remove('guarana-nav-focus'),2200);
+     }else if(resources){
+       resources.scrollIntoView({behavior:'smooth',block:'start'});
+     }
+   };
+   setTimeout(focusGuarana,120);
+   setTimeout(focusGuarana,420);
    return;
  }
  if(!run||!run.running)return;
