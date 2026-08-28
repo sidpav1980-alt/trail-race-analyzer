@@ -3327,7 +3327,7 @@ function finishRace(forceDnf=false,dnfReason='fracture'){
    }else if(dnfReason==='flood'){
      ov.innerHTML=`<div class="overlay-box"><div class="emoji">🌊</div><b>DNF · река разлилась</b><span>После ПП на 82 км переход оказался невозможен.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
    }else{
-     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🦴</div><b>DNF · перелом ноги</b><span>Слишком высокая нагрузка и мало отдыха. Отдохните 1 минуту перед новой попыткой.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
+     ov.innerHTML=`<div class="overlay-box"><div class="emoji">🦴</div><b>DNF · перелом ноги</b><span>Слишком высокая нагрузка и мало отдыха. Перелом ноги требует лечения в больнице 5 минут перед новой попыткой.<br><br>💰 За DNF награда: ₽ 0.${dnfStats}${dnfCoachAdvice}</span></div>`;
    }
    ov.classList.add('show');
    setTimeout(()=>{ov.classList.remove('show');render();switchTab('resources')},12000);
