@@ -1283,6 +1283,7 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
     if(training && training.contains(el)){
       setVisible(training,true);
       showOnlyDirect(training,el);
+      if(el.tagName==='DETAILS') el.open=true;
       return el;
     }
     if(id==='aboutGameSection'){
