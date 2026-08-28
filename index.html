@@ -117,7 +117,16 @@
 .author-contact-footer{color:#fff!important;opacity:1!important;}
 .author-contact-footer a{color:#fff!important;}
 </style>
-\n<style>\n/* v1.03: bottom navigation works like real tabs — only selected section is visible */\nbody.nav-section-focus .donate-section,\nbody.nav-section-focus .simulation-disclaimer,\nbody.nav-section-focus footer,\nbody.nav-section-focus .author-contact-footer{display:none!important;}\nbody.nav-section-focus main{min-height:calc(100vh - 250px);}\n</style>\n
+
+<style>
+/* v1.03: bottom navigation works like real tabs — only selected section is visible */
+body.nav-section-focus .donate-section,
+body.nav-section-focus .simulation-disclaimer,
+body.nav-section-focus footer,
+body.nav-section-focus .author-contact-footer{display:none!important;}
+body.nav-section-focus main{min-height:calc(100vh - 250px);}
+</style>
+
 <style>
 /* v1.03: dedicated About tab */
 .about-game-section{max-width:820px;margin:0 auto;padding:18px 20px 250px;}
@@ -518,6 +527,12 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
 }
 </style>
 
+<style>
+#quickBuyLampPower .carry-lamp-swap{
+  width:100%;margin:7px 0 3px!important;padding:8px 8px!important;min-height:34px!important;
+  font-size:10.5px!important;line-height:1.15!important;white-space:normal!important;
+}
+</style>
 </head>
 <body>
 <div class="app">
@@ -577,7 +592,9 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
               <span>💧 Вода</span><b id="waterCount">0</b><small id="waterNeedText">нужно по погоде и дистанции</small><small class="quick-buy-hint">Докупить до нормы</small>
             </div>
             <div id="quickBuyLampPower" class="carry-card quick-buy-card" role="button" tabindex="0" title="Нажмите, чтобы докупить питание фонаря до нормы этой гонки">
-              <span>🔦 Питание фонаря</span><b id="lampPowerText">—</b><small id="lampPowerSub">—</small><small class="quick-buy-hint">Докупить до нормы</small>
+              <span>🔦 Питание фонаря</span><b id="lampPowerText">—</b><small id="lampPowerSub">—</small>
+              <button id="carrySwapLampBatteryBtn" class="secondary compact-btn carry-lamp-swap" type="button" style="display:none">🔋 Поставить заряженный АКБ</button>
+              <small class="quick-buy-hint">Докупить до нормы</small>
             </div>
           </div>
           <div class="notice carry-buy-note">Нажми на карточку «УГЛИ», «Аптечка», «Вода» или «Питание фонаря» — игра рассчитает недостающее для выбранной гонки и купит его за рубли.</div>

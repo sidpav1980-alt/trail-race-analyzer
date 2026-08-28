@@ -846,12 +846,14 @@ function render(){
    const outsideRace=!(run&&run.running);
    const replayingPassed=outsideRace && Number(game.current||0)<Number(game.completed||0);
    const shouldShowJump=outsideRace && hasUnplayed && Number(game.current||0)!==target;
-   const showNav=replayingPassed || shouldShowJump;
+   // Кампания доступна на любом выбранном уровне, пока гонка не запущена.
+   // На пройденном уровне дополнительно показываем переход к последнему непройденному.
+   const showNav=outsideRace && (replayingPassed || shouldShowJump || true);
    if(replayNav) replayNav.style.display=showNav?'flex':'none';
    if(campaignReplayBtn){
-     campaignReplayBtn.style.display=replayingPassed?'inline-flex':'none';
-     campaignReplayBtn.disabled=!replayingPassed;
-     campaignReplayBtn.title=replayingPassed?'Выбрать любой доступный уровень в Кампании':'';
+     campaignReplayBtn.style.display=outsideRace?'inline-flex':'none';
+     campaignReplayBtn.disabled=!outsideRace;
+     campaignReplayBtn.title=outsideRace?'Выбрать любой доступный уровень в Кампании':'Кампания недоступна во время гонки';
    }
    if(jumpLastBtn){
      jumpLastBtn.style.display=shouldShowJump?'inline-flex':'none';
@@ -886,11 +888,19 @@ function render(){
    if(h) h.textContent=miss===0?'Запас на гонку готов':`Докупить ${miss} шт. · ${fmtMoney(miss*RESOURCE_CATALOG.gels.price)}`;
  }
  if(isRechargeableLamp()){
-   $('lampPowerText').textContent='🔋 '+Math.round(game.lampCharge)+'%';
-   $('lampPowerSub').textContent=`сменных АКБ: ${game.resources.accumulator||0} · ${game.resources.powerbank>0?'powerbank есть':'без powerbank'}`;
+   $('lampPowerText').textContent='🔋 АКБ '+Math.round(game.lampCharge)+'%';
+   $('lampPowerSub').textContent=`запасных АКБ: ${game.resources.accumulator||0} · ${game.resources.powerbank>0?'powerbank есть':'без powerbank'}`;
+   const carrySwap=$('carrySwapLampBatteryBtn');
+   if(carrySwap){
+     const canSwap=Number(game.resources.accumulator||0)>0 && Number(game.lampCharge||0)<100;
+     carrySwap.style.display=canSwap?'block':'none';
+     carrySwap.disabled=!canSwap;
+     carrySwap.textContent=`🔋 Поставить заряженный АКБ · запас ${game.resources.accumulator||0}`;
+   }
  }else{
    $('lampPowerText').textContent='🔦 '+game.resources.batteries+' компл.';
    $('lampPowerSub').textContent='фонарь на батарейках';
+   const carrySwap=$('carrySwapLampBatteryBtn'); if(carrySwap) carrySwap.style.display='none';
  }
  const lampQuick=$('quickBuyLampPower');
  if(lampQuick){
@@ -3981,6 +3991,18 @@ if(jumpLastUnplayedBtn && jumpLastUnplayedBtn.dataset.bound!=='1'){
    };
    setTimeout(scrollSimulationTop,80);
    setTimeout(scrollSimulationTop,360);
+ });
+}
+
+const carrySwapLampBatteryBtn=$('carrySwapLampBatteryBtn');
+if(carrySwapLampBatteryBtn){
+ carrySwapLampBatteryBtn.addEventListener('click',(e)=>{
+   e.preventDefault();e.stopPropagation();
+   if(!isRechargeableLamp() || Number(game.lampCharge||0)>=100)return;
+   if(Number(game.resources.accumulator||0)<=0){showGameError('Нет запасного аккумулятора');return;}
+   useResource('accumulator',1);
+   game.lampCharge=100;
+   saveGame();render();
  });
 }
 
