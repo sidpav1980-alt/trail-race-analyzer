@@ -436,6 +436,25 @@ body.bottom-nav-collapsed #bottomNavToggle.bottom-nav-toggle{
 }
 </style>
 
+
+<style>
+/* v1.03: menu controls belong only to the game, never to Help */
+#bottomNavToggle{
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+body.help-open #bottomNavToggle,
+body.help-open #bottomNav{
+  display:none!important;
+}
+/* keep the toggle reachable in the game */
+#bottomNavToggle.bottom-nav-toggle{
+  z-index:5000!important;
+  pointer-events:auto!important;
+}
+</style>
+
 </head>
 <body>
 <div class="app">

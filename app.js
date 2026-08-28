@@ -3715,10 +3715,12 @@ render();
 (function(){
   function openHelp(){
     const m=document.getElementById('helpModal');
+    document.body.classList.add('help-open');
     if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
   }
   function closeHelp(){
     const m=document.getElementById('helpModal');
+    document.body.classList.remove('help-open');
     if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
   }
   document.addEventListener('click',function(e){
