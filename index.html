@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07111f">
 <title>Симулятор трейлраннера: Армагеддон</title>
-<link rel="stylesheet" href="styles.css?v=103-kabenina850-river-title-visible-20260828">
+<link rel="stylesheet" href="styles.css?v=103-training-anim-20260830">
 </div>
 
 
@@ -804,6 +804,13 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
         </div>
         <p id="fitnessPanelText" class="muted"></p>
         <button id="startTrainingBtn" class="primary">▶ Начать тренировку на 1 минуту</button>
+        <div id="trainingAnimation" class="training-animation" aria-live="polite">
+          <div class="training-scene training-idle">
+            <div class="training-scene-title">🐌 Готов к тренировке</div>
+            <div class="training-track"><div class="training-snail">🐌</div></div>
+            <div class="training-scene-caption">Нажмите «Начать тренировку»</div>
+          </div>
+        </div>
         <div id="trainingStatus" class="notice">Одна тренировка длится 1 минуту реального времени и даёт +1 к тренированности, пока не достигнут предел тренера.</div>
       </div>
 
@@ -837,7 +844,7 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
   </div>
 </section>
 </div>
-<script src="app.js?v=103-completed-21-levels-fix-20260828"></script>
+<script src="app.js?v=103-training-anim-20260830"></script>
 
 <div id="gameErrorToast" class="game-error-toast" role="alert" aria-live="assertive"></div>
 

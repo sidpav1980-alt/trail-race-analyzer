@@ -1435,6 +1435,28 @@ function coachSupportsCurrentRace(){
  const diff=levelData()[5];
  return coach.maxDifficulty>=diff;
 }
+function trainingSceneMarkup(){
+ const ms=trainingRemainingMs();
+ if(ms<=0){
+   return `<div class="training-scene training-idle"><div class="training-scene-title">🐌 Готов к тренировке</div><div class="training-track"><div class="training-snail">🐌</div></div><div class="training-scene-caption">Спринт · интервалы · бег в горку · заминка</div></div>`;
+ }
+ const elapsed=Math.max(0,60000-ms);
+ if(elapsed<15000){
+   return `<div class="training-scene training-sprint"><div class="training-scene-title">⚡ Спринт на дорожке</div><div class="training-track"><div class="training-speed-lines"></div><div class="training-snail">🐌</div></div><div class="training-scene-caption">Улитка разгоняется всё быстрее</div></div>`;
+ }
+ if(elapsed<30000){
+   return `<div class="training-scene training-intervals"><div class="training-scene-title">🏟️ Интервалы на стадионе</div><div class="training-track"><div class="training-snail">🐌</div></div><div class="training-scene-caption">Быстрый отрезок → восстановление → снова ускорение</div></div>`;
+ }
+ if(elapsed<45000){
+   return `<div class="training-scene training-uphill"><div class="training-scene-title">⛰️ Бег в горку</div><div class="training-track"><div class="training-snail">🐌</div></div><div class="training-scene-caption">Тяжёлый подъём · мощная работа ног</div></div>`;
+ }
+ return `<div class="training-scene training-cooldown"><div class="training-scene-title">💦 Заминка</div><div class="training-track"><div class="training-snail">🐌</div><div class="snail-face">👅</div><div class="sweat-drop d1">💧</div><div class="sweat-drop d2">💦</div><div class="sweat-drop d3">💧</div></div><div class="training-scene-caption">Язык на плече, пот градом — тренировка почти закончена</div></div>`;
+}
+function renderTrainingAnimation(){
+ const el=$('trainingAnimation');
+ if(el) el.innerHTML=trainingSceneMarkup();
+}
+
 function renderTraining(){
 
  if(!$('coachGrid')) return;
@@ -1461,14 +1483,12 @@ function renderTraining(){
    const active=i===game.coach;
    const stars='★'.repeat(coach.maxDifficulty)+'☆'.repeat(5-coach.maxDifficulty);
    d.innerHTML=`<h3>${i===0?'🧍':'🏋️'} ${coach.name}</h3>
-     <div class="meta">
-       ${coach.desc}<br>
-       Уровень подготовки: <b>${stars}</b><br>
-       Прокачка за финиш: ×${coach.mult}<br>
-       Максимум тренированности: <b>${coach.fitnessCap}/100</b><br>1 завершённая тренировка: <b>+${coach.trainingGain}</b> к тренированности<br>
-       ${(()=>{const b=coachRaceBonuses();return `Бонусы перед гонкой: ${coach.bonuses}<br>Реально в механике: темп −${Math.round(b.pace*100)}% · усталость −${Math.round(b.fatigue*100)}% · подъёмы −${Math.round(b.climb*100)}% · травмы −${Math.round(b.injury*100)}%`;})()}<br>
-       ${i===0?'Бесплатно':`Цена: <span class="money">${fmtMoney(coach.price)}</span>`}
-     </div>
+     <div class="coach-compact-line">${stars} · потолок <b>${coach.fitnessCap}/100</b> · тренировка <b>+${coach.trainingGain}</b></div>
+     <div class="coach-compact-line">${i===0?'Бесплатно':`<span class="money">${fmtMoney(coach.price)}</span>`} · финиш ×${coach.mult}</div>
+     <details><summary>Подробнее ▾</summary><div class="coach-details">
+       ${coach.desc}<br>${coach.bonuses}<br>
+       ${(()=>{const b=coachRaceBonuses();return `Темп −${Math.round(b.pace*100)}% · усталость −${Math.round(b.fatigue*100)}% · подъёмы −${Math.round(b.climb*100)}% · травмы −${Math.round(b.injury*100)}%`;})()}
+     </div></details>
      <button class="${active?'secondary':'primary'}" ${active||(!owned&&game.money<coach.price)?'disabled':''} data-coach="${i}">
        ${active
          ? 'Активен'
@@ -1531,6 +1551,7 @@ function renderTraining(){
      }
    }
  }
+ renderTrainingAnimation();
 
  const playerName=safePlayerName();
  const rows=[...ELITE_RUNNERS,{name:playerName,itra:Math.round(game.itra),country:'🎮',player:true}]

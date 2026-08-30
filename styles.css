@@ -869,3 +869,52 @@ select{background:#0a1d33!important;color:#eef7ff!important;border-color:#315a80
 #eventOverlay.river-mass-show .river-dnf-subtitle{
   font-size:14px!important;
 }
+
+/* v1.03 — compact trainer shop + animated training scenes */
+#training #coachShop .drawer-body{padding:4px 6px 6px!important}
+#training #coachShop .drawer-body>.card{padding:7px!important}
+#training #coachShop .drawer-body>.card>p.muted{display:none!important}
+#training #coachShop #coachGrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px!important}
+#training #coachShop .coach-item{padding:7px 8px!important;border-radius:8px!important;min-height:0!important}
+#training #coachShop .coach-item h3{font-size:13px!important;margin:0 0 3px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#training #coachShop .coach-item .coach-compact-line{font-size:10px!important;line-height:1.2!important;color:var(--muted)!important;margin:1px 0!important}
+#training #coachShop .coach-item .coach-compact-line b{font-size:10px!important}
+#training #coachShop .coach-item details{margin-top:4px!important}
+#training #coachShop .coach-item details>summary{font-size:10px!important;color:#9fb6ce!important;cursor:pointer;list-style:none}
+#training #coachShop .coach-item details>summary::-webkit-details-marker{display:none}
+#training #coachShop .coach-item .coach-details{font-size:9px!important;line-height:1.25!important;color:var(--muted)!important;margin-top:4px!important}
+#training #coachShop .coach-item button{min-height:30px!important;padding:4px 6px!important;font-size:10px!important;margin-top:5px!important;width:100%!important}
+
+.training-animation{margin:10px 0 8px;border:1px solid rgba(93,153,205,.35);border-radius:12px;overflow:hidden;background:linear-gradient(180deg,#0b2031,#071522);min-height:145px}
+.training-scene{position:relative;min-height:145px;padding:9px 10px 11px;overflow:hidden}
+.training-scene-title{font-weight:900;font-size:14px;color:#d8efff;text-align:center;position:relative;z-index:4}
+.training-scene-caption{text-align:center;font-size:11px;color:#a8bdcb;margin-top:6px;position:relative;z-index:5}
+.training-track{position:relative;height:68px;margin:8px 2px 0;border-radius:34px;background:repeating-linear-gradient(90deg,#7a3f2c 0 26px,#89503a 26px 52px);border:2px solid rgba(255,255,255,.22);overflow:hidden}
+.training-track:after{content:"";position:absolute;left:0;right:0;top:50%;height:2px;background:rgba(255,255,255,.72);box-shadow:0 -18px 0 rgba(255,255,255,.28),0 18px 0 rgba(255,255,255,.28)}
+.training-snail{position:absolute;left:7%;bottom:11px;font-size:35px;line-height:1;z-index:3;filter:drop-shadow(0 2px 2px rgba(0,0,0,.55));transform-origin:center bottom}
+.training-speed-lines{position:absolute;inset:20px 0 0;pointer-events:none;background:repeating-linear-gradient(90deg,transparent 0 28px,rgba(255,255,255,.18) 29px 31px,transparent 32px 58px);opacity:.4}
+.training-sprint .training-snail{animation:snailSprint .72s cubic-bezier(.2,.8,.25,1) infinite alternate}
+.training-sprint .training-track{animation:trackRush .55s linear infinite}
+.training-sprint .training-snail:after{content:"💨";font-size:20px;position:absolute;left:-24px;top:4px;animation:puff .7s ease-out infinite}
+.training-intervals .training-track{border-radius:50%/42%;height:74px;background:radial-gradient(ellipse at center,#166534 0 32%,#a34f38 33% 52%,#7e3f30 53% 62%,#193d27 63%)}
+.training-intervals .training-track:after{height:1px;top:50%;box-shadow:0 -16px 0 rgba(255,255,255,.3),0 16px 0 rgba(255,255,255,.3)}
+.training-intervals .training-snail{animation:stadiumIntervals 1.15s ease-in-out infinite}
+.training-uphill .training-track{height:78px;background:linear-gradient(155deg,#123224 0 40%,#2c5739 40% 53%,#855c3f 54% 58%,#503b2a 59% 100%);clip-path:polygon(0 95%,0 68%,100% 8%,100% 100%)}
+.training-uphill .training-track:after{display:none}
+.training-uphill .training-snail{bottom:22px;animation:snailClimb 1.05s ease-in-out infinite}
+.training-uphill .training-snail:after{content:"💦";font-size:16px;position:absolute;left:-14px;top:-8px;animation:sweat 1s ease-out infinite}
+.training-cooldown .training-track{background:linear-gradient(#38596c,#233e4d)}
+.training-cooldown .training-snail{animation:snailCooldown 1.4s ease-in-out infinite}
+.training-cooldown .snail-face{position:absolute;left:calc(7% + 38px);bottom:24px;font-size:22px;z-index:4;animation:tongueBob 1s ease-in-out infinite}
+.training-cooldown .sweat-drop{position:absolute;font-size:15px;z-index:4;animation:sweatFall 1.05s linear infinite}
+.training-cooldown .d1{left:33%;top:48px}.training-cooldown .d2{left:42%;top:38px;animation-delay:.35s}.training-cooldown .d3{left:52%;top:50px;animation-delay:.7s}
+@keyframes snailSprint{0%{left:5%;transform:scaleX(1) rotate(-2deg)}100%{left:76%;transform:scaleX(1.05) rotate(2deg)}}
+@keyframes trackRush{to{background-position:-52px 0}}
+@keyframes puff{0%{opacity:0;transform:translateX(8px) scale(.6)}45%{opacity:1}100%{opacity:0;transform:translateX(-20px) scale(1.2)}}
+@keyframes stadiumIntervals{0%,100%{left:8%;transform:scale(.95)}45%{left:74%;transform:scale(1.08)}60%{left:68%;transform:scale(.94)}}
+@keyframes snailClimb{0%{left:8%;bottom:11px;transform:rotate(-12deg)}100%{left:72%;bottom:50px;transform:rotate(-12deg) scale(1.03)}}
+@keyframes sweat{0%{opacity:0;transform:translate(0,0)}45%{opacity:1}100%{opacity:0;transform:translate(-12px,17px)}}
+@keyframes snailCooldown{0%,100%{left:24%;transform:translateY(1px) rotate(0)}50%{left:28%;transform:translateY(-1px) rotate(-2deg)}}
+@keyframes tongueBob{0%,100%{transform:rotate(8deg) translateY(0)}50%{transform:rotate(16deg) translateY(3px)}}
+@keyframes sweatFall{0%{opacity:0;transform:translateY(-8px) scale(.7)}30%{opacity:1}100%{opacity:0;transform:translateY(27px) scale(1.05)}}
+@media(max-width:520px){#training #coachShop #coachGrid{grid-template-columns:1fr!important}.training-animation,.training-scene{min-height:137px}.training-track{height:64px}.training-snail{font-size:32px}}
