@@ -1321,7 +1321,10 @@ body.bottom-nav-collapsed:not(.help-open) #bottomNav{
     setTimeout(function(){
       const header=document.querySelector('.topbar');
       const offset=(header?header.getBoundingClientRect().height:0)+16;
-      const top=el.getBoundingClientRect().top+window.scrollY-offset;
+      // Экран тренировки поднимаем чуть выше: на мобильном сразу видны
+      // заголовок, анимация и кнопка запуска, а не большой верхний отступ.
+      const trainingLift=(id==='training')?105:0;
+      const top=el.getBoundingClientRect().top+window.scrollY-offset+trainingLift;
       window.scrollTo({top:Math.max(0,top),behavior:instant?'auto':'smooth'});
     },instant?0:30);
   }

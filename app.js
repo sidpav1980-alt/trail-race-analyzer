@@ -1475,10 +1475,18 @@ function renderTraining(){
  }
 
 
+ // Сохраняем раскрытые карточки тренеров. renderTraining() вызывается по таймеру,
+ // поэтому без этого <details> закрывался почти сразу после нажатия «Подробнее».
+ const openCoachDetails=new Set(
+   Array.from($('coachGrid').querySelectorAll('.coach-item details[open]'))
+     .map(d=>Number(d.closest('.coach-item')?.dataset?.coachIndex))
+     .filter(Number.isFinite)
+ );
  $('coachGrid').innerHTML='';
  COACHES.forEach((coach,i)=>{
    const d=document.createElement('div');
    d.className='shop-item coach-item';
+   d.dataset.coachIndex=String(i);
    const owned=game.coachOwned.includes(i);
    const active=i===game.coach;
    const stars='★'.repeat(coach.maxDifficulty)+'☆'.repeat(5-coach.maxDifficulty);
@@ -1499,6 +1507,10 @@ function renderTraining(){
              : 'Купить тренера'}
      </button>`;
    $('coachGrid').appendChild(d);
+   if(openCoachDetails.has(i)){
+     const details=d.querySelector('details');
+     if(details) details.open=true;
+   }
  });
 
  $('coachGrid').querySelectorAll('[data-coach]').forEach(b=>b.onclick=()=>{
