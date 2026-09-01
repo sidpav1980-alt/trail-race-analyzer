@@ -154,9 +154,14 @@ function translateText(input){
 function storeNode(n){ if(!originals.has(n)) originals.set(n,n.nodeValue); }
 function applyTextNode(n){
  if(!n || n.nodeType!==3 || !n.parentElement || /^(SCRIPT|STYLE|NOSCRIPT)$/.test(n.parentElement.tagName)) return;
- if(lang!=='ru'){
-   if(/[А-Яа-яЁё]/.test(n.nodeValue)){ originals.set(n,n.nodeValue); n.nodeValue=translateText(n.nodeValue); }
- } else if(originals.has(n)){ n.nodeValue=originals.get(n); }
+ const cur=n.nodeValue||'';
+ // If game logic writes fresh Russian text while a translated locale is active,
+ // treat that fresh Cyrillic value as the new source string.
+ if(lang!=='ru' && /[А-Яа-яЁё]/.test(cur)) originals.set(n,cur);
+ else if(!originals.has(n)) originals.set(n,cur);
+ const base=originals.get(n);
+ const next=lang==='ru'?base:translateText(base);
+ if(cur!==next) n.nodeValue=next;
 }
 const attrs=['title','placeholder','aria-label','alt'];
 function applyAttrs(el){
@@ -165,10 +170,21 @@ function applyAttrs(el){
  attrs.forEach(a=>{
    if(!el.hasAttribute(a))return;
    const cur=el.getAttribute(a)||'';
-   if(lang!=='ru'){
-     if(/[А-Яа-яЁё]/.test(cur)){m[a]=cur;el.setAttribute(a,translateText(cur));}
-   } else if(Object.prototype.hasOwnProperty.call(m,a)){el.setAttribute(a,m[a]);}
+   if(lang!=='ru' && /[А-Яа-яЁё]/.test(cur)) m[a]=cur;
+   else if(!Object.prototype.hasOwnProperty.call(m,a)) m[a]=cur;
+   const base=m[a]||'';
+   const next=lang==='ru'?base:translateText(base);
+   if(cur!==next) el.setAttribute(a,next);
  });
+}
+function restoreSources(root){
+ if(!root)return;
+ const restoreNode=n=>{if(n && n.nodeType===3 && originals.has(n)) n.nodeValue=originals.get(n);};
+ if(root.nodeType===3) restoreNode(root);
+ const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode())) restoreNode(n);
+ const restoreAttrs=el=>{const m=attrOriginals.get(el);if(!m)return;attrs.forEach(a=>{if(Object.prototype.hasOwnProperty.call(m,a)&&el.hasAttribute(a))el.setAttribute(a,m[a]);});};
+ if(root.nodeType===1) restoreAttrs(root);
+ if(root.querySelectorAll) root.querySelectorAll('*').forEach(restoreAttrs);
 }
 function walk(root){
  if(!root)return;
@@ -185,7 +201,12 @@ function updateToggle(){
  document.documentElement.lang=lang;
 }
 function setLang(v){
- lang=['ru','en','pl'].includes(v)?v:'ru';localStorage.setItem(KEY,lang);walk(document.body);updateToggle();
+ const nextLang=['ru','en','pl'].includes(v)?v:'ru';
+ // Always return the DOM to the Russian source strings first. This makes
+ // PL → RU, EN → RU and PL ↔ EN deterministic instead of translating an
+ // already translated DOM.
+ restoreSources(document.body);
+ lang=nextLang;localStorage.setItem(KEY,lang);walk(document.body);updateToggle();
  // Force render functions to refresh dynamic labels if exposed by the game.
  ['render','renderAll','updateUI','renderRace','renderCampaign'].forEach(k=>{try{if(typeof window[k]==='function')window[k]();}catch(e){}});
  setTimeout(()=>walk(document.body),0);setTimeout(()=>walk(document.body),120);
