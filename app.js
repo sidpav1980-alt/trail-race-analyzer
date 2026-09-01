@@ -415,6 +415,7 @@ function buyRaceSlot(){
     const cur=Math.max(0,Number(game.gear?.[cat]||0));
     const found=Math.min(6,cur+1);
     if(!game.gearOwned[cat].includes(found)) game.gearOwned[cat].push(found);
+    if(game.durability[cat+'_'+found]==null) game.durability[cat+'_'+found]=GEAR[cat][found][3];
     merchMsg=` 🎁 Мерч: ${CATEGORY_NAMES[cat]} ур. ${found+1}/7 добавлены в инвентарь.`;
   }
   saveGame(); showGameError('Слот куплен.'+merchMsg); render();
@@ -1624,17 +1625,35 @@ $('scrollShopBtn')?.addEventListener('click',()=>{
 });
 
 function keepEquippedGear(){
-  // Сломанная вещь остаётся выбранной/надетой, пока игрок сам не наденет другую.
+  // Доступен только конкретно купленный/полученный уровень предмета.
+  // Покупка уровня N больше НЕ открывает автоматически уровни 1..N-1.
   if(!game.gear) game.gear={...START_GEAR};
   if(!game.gearOwned) game.gearOwned={};
+  let migrated=false;
   Object.keys(START_GEAR).forEach(cat=>{
     if(game.gear[cat]==null) game.gear[cat]=START_GEAR[cat];
     if(!Array.isArray(game.gearOwned[cat])) game.gearOwned[cat]=[];
-    // Миграция старых сохранений: раз надет ур. N, уровни 1..N уже были куплены.
-    for(let i=0;i<=Number(game.gear[cat]||0);i++){
-      if(!game.gearOwned[cat].includes(i)) game.gearOwned[cat].push(i);
+    const equipped=Math.max(0,Math.min(6,Number(game.gear[cat]||0)));
+
+    // Одноразово очищаем старые автодобавленные нижние уровни.
+    // Реально купленные уровни обычно имеют отдельную запись прочности — их сохраняем.
+    if(!game._exactGearOwnershipV1){
+      game.gearOwned[cat]=[...new Set(game.gearOwned[cat].map(Number))].filter(i=>{
+        if(!Number.isInteger(i) || i<0 || i>6) return false;
+        if(i===equipped) return true;
+        if(i>equipped) return true;
+        return game.durability && game.durability[cat+'_'+i]!=null;
+      });
+      migrated=true;
     }
+
+    // Надетый предмет должен оставаться в инвентаре, даже если он сломан.
+    if(!game.gearOwned[cat].includes(equipped)) game.gearOwned[cat].push(equipped);
   });
+  if(!game._exactGearOwnershipV1){
+    game._exactGearOwnershipV1=true;
+    if(migrated) saveGame();
+  }
 }
 function gearTimeFactor(){
  let f=1;
